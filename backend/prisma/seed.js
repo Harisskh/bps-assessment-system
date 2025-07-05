@@ -1,4 +1,4 @@
-// seed.js
+// seed.js - FIXED VERSION
 // Complete script untuk mengisi database BPS dengan data awal
 
 const { PrismaClient } = require('@prisma/client');
@@ -10,6 +10,49 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   try {
+    // =====================
+    // 🔧 FIX: DELETE IN CORRECT ORDER (Child tables first!)
+    // =====================
+    console.log('🧹 Cleaning existing data in correct order...');
+    
+    // Delete child tables first to avoid foreign key constraints
+    await prisma.evaluationScore.deleteMany({});
+    console.log('   ✅ Deleted evaluation_scores');
+    
+    await prisma.evaluation.deleteMany({});
+    console.log('   ✅ Deleted evaluations');
+    
+    await prisma.finalEvaluation.deleteMany({});
+    console.log('   ✅ Deleted final_evaluations');
+    
+    await prisma.attendance.deleteMany({});
+    console.log('   ✅ Deleted attendance');
+    
+    await prisma.ckpScore.deleteMany({});
+    console.log('   ✅ Deleted ckp_scores');
+    
+    // Now safe to delete master tables
+    await prisma.evaluationParameter.deleteMany({});
+    console.log('   ✅ Deleted evaluation_parameters');
+    
+    await prisma.rentangNilai.deleteMany({});
+    console.log('   ✅ Deleted rentang_nilai');
+    
+    await prisma.aspekPenilaian.deleteMany({});
+    console.log('   ✅ Deleted aspek_penilaian');
+    
+    await prisma.period.deleteMany({});
+    console.log('   ✅ Deleted periods');
+    
+    await prisma.systemSetting.deleteMany({});
+    console.log('   ✅ Deleted system_settings');
+    
+    // Users last (referenced by many tables)
+    await prisma.user.deleteMany({});
+    console.log('   ✅ Deleted users');
+
+    console.log('🧹 Database cleanup completed!\n');
+
     // =====================
     // 1. SEED EVALUATION PARAMETERS (8 Parameter BERAKHLAK)
     // =====================
@@ -66,9 +109,6 @@ async function main() {
       }
     ];
 
-    // Delete existing evaluation parameters first
-    await prisma.evaluationParameter.deleteMany({});
-    
     // Create new evaluation parameters
     await prisma.evaluationParameter.createMany({
       data: evaluationParameters,
@@ -159,7 +199,6 @@ async function main() {
     // =====================
     console.log('📅 Seeding Periods...');
     
-    const currentDate = new Date();
     const periods = [
       {
         tahun: 2025,
@@ -212,7 +251,7 @@ async function main() {
       {
         key: 'app_name',
         value: 'BPS Assessment System',
-        description: 'Nama aplikasi sistem penilaian'
+        description: 'SIPEKA Sistem Penilaian Kinerja Pegawai BPS'
       },
       {
         key: 'app_version',
@@ -236,7 +275,7 @@ async function main() {
       },
       {
         key: 'default_password',
-        value: 'bps2025',
+        value: 'bps1810',
         description: 'Password default untuk user baru'
       }
     ];
@@ -255,9 +294,9 @@ async function main() {
     console.log('👥 Seeding Users...');
     
     // Hash passwords
-    const defaultPassword = await bcrypt.hash('bps2025', 10);
-    const adminPassword = await bcrypt.hash('admin2025', 10);
-    const pimpinanPassword = await bcrypt.hash('pimpinan2025', 10);
+    const defaultPassword = await bcrypt.hash('bps1810', 10);
+    const adminPassword = await bcrypt.hash('admin1810', 10);
+    const pimpinanPassword = await bcrypt.hash('pimpinan1810', 10);
 
     // Admin User
     const adminUser = {
@@ -287,7 +326,7 @@ async function main() {
       {
         nip: '197309131994031004',
         nama: 'Eko Purnomo, SST., MM',
-        jabatan: 'Kepala BPS Kabupaten Pringsewu',
+        jabatan: 'Kepala BPS Kabupaten/Kota',
         golongan: 'IV/b',
         status: 'PNS',
         jenisKelamin: 'LK',
@@ -298,7 +337,7 @@ async function main() {
       {
         nip: '197205201994031004',
         nama: 'Erwansyah Yusup',
-        jabatan: 'Fungsional Umum BPS Kabupaten Pringsewu',
+        jabatan: 'Fungsional Umum BPS Kabupaten/Kota',
         golongan: 'III/b',
         status: 'PNS',
         jenisKelamin: 'LK',
@@ -309,7 +348,7 @@ async function main() {
       {
         nip: '197509032006041020',
         nama: 'Tri Budi Setiawan',
-        jabatan: 'Fungsional Umum BPS Kabupaten Pringsewu',
+        jabatan: 'Fungsional Umum BPS Kabupaten/Kota',
         golongan: 'III/a',
         status: 'PNS',
         jenisKelamin: 'LK',
@@ -320,7 +359,7 @@ async function main() {
       {
         nip: '198405212007011001',
         nama: 'Fazani',
-        jabatan: 'Fungsional Umum BPS Kabupaten Pringsewu',
+        jabatan: 'Fungsional Umum BPS Kabupaten/Kota',
         golongan: 'III/a',
         status: 'PNS',
         jenisKelamin: 'LK',
@@ -331,18 +370,18 @@ async function main() {
       {
         nip: '197008032007012004',
         nama: 'Agistin Nafta',
-        jabatan: 'Fungsional Umum BPS Kabupaten Pringsewu',
+        jabatan: 'Fungsional Umum BPS Kabupaten/Kota',
         golongan: 'III/a',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'agistin.nafta',
+        username: 'agustin.nafta',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198002022009011010',
         nama: 'Saifu Rohmatullah',
-        jabatan: 'Fungsional Umum BPS Kabupaten Pringsewu',
+        jabatan: 'Fungsional Umum BPS Kabupaten/Kota',
         golongan: 'III/a',
         status: 'PNS',
         jenisKelamin: 'LK',
@@ -353,29 +392,29 @@ async function main() {
       {
         nip: '198810132010122005',
         nama: 'Resty Sopiyono, SST, M.E.K.K.',
-        jabatan: 'Statistisi Ahli Madya BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Madya BPS Kabupaten/Kota',
         golongan: 'IV/a',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'resty.sopiyono',
+        username: 'sresty',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '197205231995121001',
         nama: 'Syamsul Bahri, S.Si',
-        jabatan: 'Pranata Komputer Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Pranata Komputer Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'LK',
-        username: 'syamsul.bahri',
+        username: 'bahri.syamsul',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '197007112003121003',
         nama: 'Andi Stiawan, SP',
-        jabatan: 'Statistisi Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'LK',
@@ -386,106 +425,106 @@ async function main() {
       {
         nip: '198207182005022001',
         nama: 'Dewi Yuliana S., S.T.',
-        jabatan: 'Statistisi Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'dewi.yuliana',
+        username: 'dewiyuliana',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198506202007012005',
         nama: 'Fithriyah, SST',
-        jabatan: 'Statistisi Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'fithriyah',
+        username: 'fitriyah',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198309022009022008',
         nama: 'Arum Pratiwi, SST',
-        jabatan: 'Statistisi Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'arum.pratiwi',
+        username: 'arump',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198702162009022009',
         nama: 'Nisalasi Ikhsan Nurfathillah, SST',
-        jabatan: 'Statistisi Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'nisalasi.ikhsan',
+        username: 'nisalasi',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198902082010121005',
         nama: 'Ahmad Rifki Febrianto, SST, M.EKK',
-        jabatan: 'Pranata Komputer Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Pranata Komputer Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'LK',
-        username: 'ahmad.rifki',
+        username: 'arifki',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198005262011011005',
         nama: 'Muhamad Zaenuri, S.P.',
-        jabatan: 'Statistisi Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/d',
         status: 'PNS',
         jenisKelamin: 'LK',
-        username: 'muhamad.zaenuri',
+        username: 'muh.zaenuri',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198908092013112001',
         nama: 'Dinny Pravitasari, SST, M.S.E.',
-        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten/Kota',
         golongan: 'III/c',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'dinny.pravitasari',
+        username: 'dinnypravita',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '198410012011011013',
         nama: 'Surachman Budiarto, S.Si',
-        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten/Kota',
         golongan: 'III/b',
         status: 'PNS',
         jenisKelamin: 'LK',
-        username: 'surachman.budiarto',
+        username: 'budi.surachman',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '199405092016022001',
         nama: 'Fanisa Dwita Hanggarani, SST',
-        jabatan: 'Statistisi Ahli Muda BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Muda BPS Kabupaten/Kota',
         golongan: 'III/b',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'fanisa.dwita',
+        username: 'fanisa',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '199404202017012001',
         nama: 'Annisa Fauziatul Mardiyah, SST',
-        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten/Kota',
         golongan: 'III/b',
         status: 'PNS',
         jenisKelamin: 'PR',
@@ -496,7 +535,7 @@ async function main() {
       {
         nip: '199707132019122001',
         nama: 'Sela Anisada, S.Tr.Stat.',
-        jabatan: 'Pranata Komputer Ahli Pertama BPS Kabupaten Pringsewu',
+        jabatan: 'Pranata Komputer Ahli Pertama BPS Kabupaten/Kota',
         golongan: 'III/b',
         status: 'PNS',
         jenisKelamin: 'PR',
@@ -507,7 +546,7 @@ async function main() {
       {
         nip: '199910302022012002',
         nama: 'Esa Anindika Sari, S.Tr.Stat.',
-        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten/Kota',
         golongan: 'III/a',
         status: 'PNS',
         jenisKelamin: 'PR',
@@ -518,7 +557,7 @@ async function main() {
       {
         nip: '199911292022012002',
         nama: 'Miftahul Husna, S.Tr.Stat.',
-        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten/Kota',
         golongan: 'III/a',
         status: 'PNS',
         jenisKelamin: 'PR',
@@ -529,33 +568,88 @@ async function main() {
       {
         nip: '200006222023021004',
         nama: 'Ahmad Rifjayansyah, S.Tr.Stat.',
-        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Ahli Pertama BPS Kabupaten/Kota',
         golongan: 'III/a',
         status: 'PNS',
         jenisKelamin: 'LK',
-        username: 'ahmad.rifjayansyah',
+        username: 'ahmadrifjayansyah',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '199304242024211005',
         nama: 'Riki Afrianto, A.Md.',
-        jabatan: 'Pranata Komputer Terampil BPS Kabupaten Pringsewu',
+        jabatan: 'Pranata Komputer Terampil BPS Kabupaten/Kota',
         golongan: 'VII',
         status: 'PPPK',
         jenisKelamin: 'LK',
-        username: 'riki.afrianto',
+        username: 'rikiafrianto-pppk',
         role: 'STAFF',
         password: defaultPassword
       },
       {
         nip: '200002092023022003',
         nama: 'Ayu Setianingsih, A.Md.Stat.',
-        jabatan: 'Statistisi Terampil BPS Kabupaten Pringsewu',
+        jabatan: 'Statistisi Terampil BPS Kabupaten/Kota',
         golongan: 'II/c',
         status: 'PNS',
         jenisKelamin: 'PR',
-        username: 'ayu.setianingsih',
+        username: 'ayusetianingsih',
+        role: 'STAFF',
+        password: defaultPassword
+      },
+      {
+        nip: '200001262023022001',
+        nama: 'Dini Alfitri Zahra, A.Md.Stat.',
+        jabatan: 'Statistisi Terampil BPS Kabupaten/Kota',
+        golongan: 'II/c',
+        status: 'PNS',
+        jenisKelamin: 'PR',
+        username: 'dinialfitrizahra',
+        role: 'STAFF',
+        password: defaultPassword
+      },
+      {
+        nip: '198605302009111001',
+        nama: 'Singgih Adiwijaya, S.E., M.M.',
+        jabatan: 'Analis Pengelolaan Keuangan APBN Ahli Muda Subbagian Umum',
+        golongan: 'III/c',
+        status: 'PNS',
+        jenisKelamin: 'LK',
+        username: 'singgih.adiwijaya',
+        role: 'STAFF',
+        password: defaultPassword
+      },
+      {
+        nip: '198512212012122002',
+        nama: 'Diah Hadianing Putri, S.Si',
+        jabatan: 'Statistisi Penyelia Subbagian Umum',
+        golongan: 'III/c',
+        status: 'PNS',
+        jenisKelamin: 'PR',
+        username: 'diah.hp',
+        role: 'STAFF',
+        password: defaultPassword
+      },
+      {
+        nip: '198905052011012013',
+        nama: 'Fitri Nurjanah, S.E., M.M.',
+        jabatan: 'Pranata Keuangan APBN Mahir Subbagian Umum',
+        golongan: 'III/b',
+        status: 'PNS',
+        jenisKelamin: 'PR',
+        username: 'fitri.nurjanah',
+        role: 'STAFF',
+        password: defaultPassword
+      },
+      {
+        nip: '199902142022012004',
+        nama: 'Eklesia Valentia, A.Md.Kb.N.',
+        jabatan: 'Pranata Keuangan APBN Terampil Subbagian Umum',
+        golongan: 'II/c',
+        status: 'PNS',
+        jenisKelamin: 'PR',
+        username: 'eklesia.valentia',
         role: 'STAFF',
         password: defaultPassword
       }
@@ -594,9 +688,9 @@ async function main() {
     console.log(`   • ${pegawaiBPS.length + 1} Users (including admin)`);
     console.log('');
     console.log('🔑 Default Login Credentials:');
-    console.log('   👑 Admin: username="admin", password="admin2025"');
-    console.log('   👨‍💼 Pimpinan: username="eko.purnomo", password="pimpinan2025"');
-    console.log('   👥 Staff: username="[username]", password="bps2025"');
+    console.log('   👑 Admin: username="admin", password="admin1810"');
+    console.log('   👨‍💼 Pimpinan: username="eko.purnomo", password="admin1810"');
+    console.log('   👥 Staff: username="[username]", password="bps1810"');
 
   } catch (error) {
     console.error('❌ Error seeding database:', error);

@@ -10,6 +10,7 @@ import EvaluationPage from './pages/EvaluationPage';
 import EvaluationManagementPage from './pages/EvaluationManagementPage'; // NEW
 import UsersPage from './pages/UsersPage';
 import AttendancePage from './pages/AttendancePage';
+import CkpPage from './pages/CkpPage';
 import MonitoringPage from './pages/MonitoringPage';
 
 // Components
@@ -103,6 +104,14 @@ function App() {
             <ProtectedRoute requiredRole={['ADMIN']}>
               <Layout>
                 <AttendancePage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/ckp" element={
+            <ProtectedRoute requiredRole={['ADMIN']}>
+              <Layout>
+                <CkpPage />
               </Layout>
             </ProtectedRoute>
           } />

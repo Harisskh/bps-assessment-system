@@ -47,10 +47,10 @@ const LoginPage = () => {
                 {/* Header */}
                 <div className="text-center mb-4">
                   <h1 className="h4 text-gray-900 mb-4">
-                    <strong>BPS Assessment System</strong>
+                    <strong>SIPEKA</strong>
                   </h1>
                   <p className="text-muted">
-                    Sistem Penilaian Pegawai<br />
+                    Sistem Penilaian Kinerja Pegawai<br />
                     BPS Kabupaten Pringsewu
                   </p>
                 </div>
@@ -124,21 +124,21 @@ const LoginPage = () => {
                       <small className="text-muted">
                         <strong>Admin:</strong><br />
                         admin<br />
-                        admin2025
+                        admin1810
                       </small>
                     </div>
                     <div className="col-4">
                       <small className="text-muted">
                         <strong>Pimpinan:</strong><br />
                         eko.purnomo<br />
-                        pimpinan2025
+                        pimpinan1810
                       </small>
                     </div>
                     <div className="col-4">
                       <small className="text-muted">
                         <strong>Staff:</strong><br />
-                        erwansyah<br />
-                        bps2025
+                        arifki<br />
+                        bps1810
                       </small>
                     </div>
                   </div>
@@ -149,7 +149,7 @@ const LoginPage = () => {
             {/* Footer */}
             <div className="text-center mt-4">
               <small className="text-muted">
-                © 2025 BPS Kabupaten Pringsewu. All rights reserved.
+                © 2025 BPS Kabupaten Pringsewu.<br />Build by Naufal Haris Nurkhoirulloh
               </small>
             </div>
           </div>

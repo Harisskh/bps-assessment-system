@@ -14,6 +14,7 @@ const Sidebar = () => {
     { path: '/users', icon: 'fas fa-users', label: 'Kelola User', roles: ['ADMIN'] },
     { path: '/users', icon: 'fas fa-users', label: 'Data Pegawai', roles: ['PIMPINAN'] },
     { path: '/attendance', icon: 'fas fa-calendar-check', label: 'Presensi', roles: ['ADMIN'] },
+    { path: '/ckp', icon: 'fas fa-star', label: 'Capaian Kinerja Pegawai', roles: ['ADMIN', 'PIMPINAN'] },
     { path: '/monitoring', icon: 'fas fa-chart-bar', label: 'Monitoring', roles: ['ADMIN', 'PIMPINAN'] },
   ];
 

@@ -145,11 +145,12 @@ const getUserById = async (req, res) => {
   }
 };
 
-// UPDATE USER
+// backend/controllers/userController.js - UPDATE USER FUNCTION FIXED
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      nip,
       nama,
       email,
       jenisKelamin,
@@ -160,13 +161,15 @@ const updateUser = async (req, res) => {
       jabatan,
       golongan,
       status,
+      username,
+      role,
       isActive
     } = req.body;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, role: true }
+      select: { id: true, role: true, nip: true, username: true }
     });
 
     if (!existingUser) {
@@ -187,27 +190,57 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Build update data
+    // Build update data based on permissions
     const updateData = {};
     
     if (isAdmin) {
       // Admin can update all fields
+      if (nip && nip !== existingUser.nip) {
+        // Check NIP uniqueness
+        const nipExists = await prisma.user.findFirst({
+          where: { nip, id: { not: id } }
+        });
+        if (nipExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'NIP sudah digunakan oleh user lain'
+          });
+        }
+        updateData.nip = nip;
+      }
+      
+      if (username && username !== existingUser.username) {
+        // Check username uniqueness
+        const usernameExists = await prisma.user.findFirst({
+          where: { username, id: { not: id } }
+        });
+        if (usernameExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Username sudah digunakan oleh user lain'
+          });
+        }
+        updateData.username = username;
+      }
+      
       if (nama) updateData.nama = nama;
       if (email) updateData.email = email;
       if (jenisKelamin) updateData.jenisKelamin = jenisKelamin;
       if (tanggalLahir) updateData.tanggalLahir = new Date(tanggalLahir);
-      if (alamat) updateData.alamat = alamat;
-      if (mobilePhone) updateData.mobilePhone = mobilePhone;
-      if (pendidikanTerakhir) updateData.pendidikanTerakhir = pendidikanTerakhir;
-      if (jabatan) updateData.jabatan = jabatan;
-      if (golongan) updateData.golongan = golongan;
+      if (alamat !== undefined) updateData.alamat = alamat;
+      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone;
+      if (pendidikanTerakhir !== undefined) updateData.pendidikanTerakhir = pendidikanTerakhir;
+      if (jabatan !== undefined) updateData.jabatan = jabatan;
+      if (golongan !== undefined) updateData.golongan = golongan;
       if (status) updateData.status = status;
+      if (role) updateData.role = role;
       if (isActive !== undefined) updateData.isActive = isActive;
     } else {
       // Users can only update limited fields
+      if (nama) updateData.nama = nama;
       if (email) updateData.email = email;
-      if (alamat) updateData.alamat = alamat;
-      if (mobilePhone) updateData.mobilePhone = mobilePhone;
+      if (alamat !== undefined) updateData.alamat = alamat;
+      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone;
     }
 
     // Check email uniqueness if email is being updated

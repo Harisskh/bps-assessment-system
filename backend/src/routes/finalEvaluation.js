@@ -1,7 +1,7 @@
+// routes/finalEvaluation.js - FIXED PERMISSIONS
 const express = require('express');
 const router = express.Router();
 
-// Import controllers
 const {
   calculateFinalEvaluations,
   getFinalEvaluations,
@@ -9,22 +9,22 @@ const {
   getLeaderboard
 } = require('../controllers/finalEvaluationController');
 
-// Import middleware
 const { 
   authenticateToken, 
   requireAdmin, 
-  requirePimpinan
+  requirePimpinan,
+  requireStaffOrAbove  // Add this for staff access
 } = require('../middleware/auth');
 
 // All routes require authentication
 router.use(authenticateToken);
 
 // POST routes - Admin only
-router.post('/calculate', requireAdmin, calculateFinalEvaluations);     // Calculate final scores and determine best employee
+router.post('/calculate', requireAdmin, calculateFinalEvaluations);
 
-// GET routes - Admin/Pimpinan
-router.get('/final-evaluations', requirePimpinan, getFinalEvaluations); // Get all final evaluations with ranking
-router.get('/best-employee/:periodId', requirePimpinan, getBestEmployee); // Get best employee for specific period
-router.get('/leaderboard', requirePimpinan, getLeaderboard);            // Get leaderboard (top performers)
+// GET routes - Admin/Pimpinan for most, Staff can see leaderboard
+router.get('/final-evaluations', requirePimpinan, getFinalEvaluations);
+router.get('/best-employee/:periodId', requirePimpinan, getBestEmployee);
+router.get('/leaderboard', requireStaffOrAbove, getLeaderboard); // ✅ Allow staff access
 
 module.exports = router;

@@ -172,11 +172,8 @@ const EnhancedFormStyles = () => (
         }
         
         .welcome-text {
-            background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.9) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            color: white !important;
         }
         
         .glassmorphism {
@@ -185,6 +182,22 @@ const EnhancedFormStyles = () => (
             border-radius: 24px;
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+        }
+        
+        .glassmorphism-logo {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .glassmorphism-logo:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
         }
         
         .sipeka-logo {
@@ -242,13 +255,32 @@ const EnhancedFormStyles = () => (
         }
         
         .form-section {
-            animation: slideUp 0.6s ease-out;
+            animation: slideUp 0.8s ease-out;
         }
+        
+        .form-floating {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .form-floating:nth-child(1) { animation-delay: 0.1s; opacity: 0; animation-fill-mode: forwards; }
+        .form-floating:nth-child(2) { animation-delay: 0.2s; opacity: 0; animation-fill-mode: forwards; }
+        .btn-login { animation: fadeInUp 0.6s ease-out 0.3s; opacity: 0; animation-fill-mode: forwards; }
         
         @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
             }
             to {
                 opacity: 1;
@@ -333,9 +365,9 @@ const EnhancedFormStyles = () => (
     `}</style>
 );
 
-// Komponen Logo BPS menggunakan gambar - dipindah ke kiri atas
+// Komponen Logo BPS menggunakan gambar - dipindah ke kiri atas dengan glassmorphism
 const BpsLogo = () => (
-    <div className="d-flex align-items-center">
+    <div className="d-flex align-items-center glassmorphism-logo">
         <img 
             src="/logobps.png" 
             alt="Logo BPS" 
@@ -347,10 +379,24 @@ const BpsLogo = () => (
             }}
         />
         <div>
-            <h6 className="mb-0 fw-bold text-white" style={{fontSize: '14px', lineHeight: '1.2'}}>
+            <h6 className="mb-0 fw-bold text-white" style={{
+                fontSize: '15px', 
+                lineHeight: '1.2',
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: '700',
+                letterSpacing: '-0.3px',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+            }}>
                 BPS KABUPATEN
             </h6>
-            <h6 className="mb-0 fw-bold text-white" style={{fontSize: '14px', lineHeight: '1.2'}}>
+            <h6 className="mb-0 fw-bold text-white" style={{
+                fontSize: '15px', 
+                lineHeight: '1.2',
+                fontFamily: "'Inter', sans-serif", 
+                fontWeight: '700',
+                letterSpacing: '-0.3px',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+            }}>
                 PRINGSEWU
             </h6>
         </div>
@@ -369,7 +415,7 @@ const SipekaLogo = () => (
         </div>
         <div className="text-start">
             <h4 className="mb-0 fw-bold text-white">SIPEKA</h4>
-            <small className="text-white opacity-100">Sistem Penilaian Kinerja Pegawai</small>
+            <small className="text-white opacity-75">Sistem Penilaian Kinerja Pegawai</small>
         </div>
     </div>
 );
@@ -401,6 +447,29 @@ const LoginIllustration = () => (
                 <svg width="50" height="50" viewBox="0 0 50 50" fill="white">
                     <polygon points="25,5 45,40 5,40"/>
                 </svg>
+            </div>
+        </div>
+        
+        {/* Konten utama - welcome text dengan tipografi yang lebih menonjol */}
+        <div className="position-relative z-3">
+            <div className="text-center text-white">
+                <h1 className="display-3 fw-bold mb-3 welcome-text" style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: '800',
+                    letterSpacing: '-1px',
+                    fontSize: 'clamp(2.5rem, 5vw, 4rem)'
+                }}>
+                    Selamat Datang
+                </h1>
+                <p className="lead mb-0 welcome-text" style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: '500',
+                    fontSize: '1.25rem',
+                    letterSpacing: '0.3px',
+                    opacity: '0.95'
+                }}>
+                    Sistem Penilaian Kinerja Pegawai
+                </p>
             </div>
         </div>
     </div>
@@ -445,7 +514,7 @@ const LoginPage = () => {
           setFailedAttempts(newFailedAttempts);
           
           if (newFailedAttempts >= 3) {
-            setError('Anda telah gagal login 3 kali. Silakan tanya admin untuk reset password atau username Anda.');
+            setError('Anda telah gagal login 3 kali. Silahkan tanya admin untuk reset password atau username Anda.');
           } else {
             setError(result.message || 'Terjadi kesalahan saat login.');
           }
@@ -456,7 +525,7 @@ const LoginPage = () => {
         setFailedAttempts(newFailedAttempts);
         
         if (newFailedAttempts >= 3) {
-          setError('Anda telah gagal login 3 kali. Silakan tanya admin untuk reset password atau username Anda.');
+          setError('Anda telah gagal login 3 kali. Silahkan tanya admin untuk reset password atau username Anda.');
         } else {
           setError('Tidak dapat terhubung ke server. Coba lagi nanti.');
         }
@@ -496,16 +565,15 @@ const LoginPage = () => {
               )}
 
               <form onSubmit={handleSubmit} className="glassmorphism p-4">
-                
                 <div className="mb-4">
                   <div className="text-center mb-4">
-                <h2 className="h3 fw-bold text-dark mb-3">
-                  Selamat Datang! 👋
-                </h2>
-                <p className="text-muted mb-0">
-                  Silahkan masuk untuk mengakses sistem penilaian kinerja pegawai BPS Kabupaten Pringsewu
-                </p>
-              </div>
+                    <h2 className="h3 fw-bold text-dark mb-2">
+                      Selamat Datang! 👋
+                    </h2>
+                    <p className="text-muted mb-0">
+                      Silahkan masuk untuk mengakses sistem penilaian kinerja pegawai BPS Kabupaten Pringsewu 
+                    </p>
+                </div>
                   <div className="form-floating position-relative">
                       <input
                         type="text"
@@ -589,18 +657,6 @@ const LoginPage = () => {
                     )}
                   </button>
                 </div>
-                
-                {/* Link Ubah Password */}
-                {/* <div className="text-center">
-                  <button 
-                    type="button" 
-                    className="btn btn-link text-decoration-none p-0 btn-forgot-password"
-                    onClick={() => alert('Fitur ubah password akan segera hadir!')}
-                    disabled={failedAttempts >= 3}
-                  >
-                    <small className="text-muted">Lupa password? Ubah password</small>
-                  </button>
-                </div> */}
               </form>
               
               <div className="text-center mt-3">

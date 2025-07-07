@@ -1,3 +1,4 @@
+// routes/users.js - FIXED DENGAN PERMANENT DELETE ROUTE
 const express = require('express');
 const router = express.Router();
 
@@ -7,6 +8,7 @@ const {
   getUserById,
   updateUser,
   deleteUser,
+  permanentDeleteUser, // FIXED: Import permanent delete
   activateUser,
   resetUserPassword,
   getUserStats
@@ -35,5 +37,6 @@ router.put('/:id/reset-password', requireAdmin, resetUserPassword); // Admin onl
 
 // DELETE routes
 router.delete('/:id', requireAdmin, deleteUser);        // Admin only (soft delete)
+router.delete('/:id/permanent', requireAdmin, permanentDeleteUser); // FIXED: Permanent delete route
 
 module.exports = router;

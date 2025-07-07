@@ -1,4 +1,4 @@
-// src/services/api.js - FIXED VERSION WITH REGISTER FUNCTION
+// src/services/api.js - FIXED VERSION WITH PERMANENT DELETE
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -92,13 +92,14 @@ export const authAPI = {
 };
 
 // =====================
-// USER API
+// USER API - FIXED: Added permanent delete
 // =====================
 export const userAPI = {
   getAll: (params) => api.get('/users', { params }),
   getById: (id) => api.get(`/users/${id}`),
   update: (id, data) => api.put(`/users/${id}`, data),
-  delete: (id) => api.delete(`/users/${id}`),
+  delete: (id) => api.delete(`/users/${id}`), // Soft delete (deactivate)
+  permanentDelete: (id) => api.delete(`/users/${id}/permanent`), // FIXED: Permanent delete
   activate: (id) => api.put(`/users/${id}/activate`),
   resetPassword: (id, data) => api.put(`/users/${id}/reset-password`, data),
   getStats: () => api.get('/users/stats'),
@@ -122,20 +123,21 @@ export const evaluationAPI = {
 // ATTENDANCE API
 // =====================
 export const attendanceAPI = {
-  getAll: (params) => api.get('/attendance', { params }),
-  getById: (id) => api.get(`/attendance/${id}`),
-  upsert: (data) => api.post('/attendance', data),
-  delete: (id) => api.delete(`/attendance/${id}`),
+  getAll: (params) => api.get('/attendance/attendance', { params }),
+  getById: (id) => api.get(`/attendance/attendance/${id}`),
+  upsert: (data) => api.post('/attendance/attendance', data),
+  delete: (id) => api.delete(`/attendance/attendance/${id}`),
+  getStats: (params) => api.get('/attendance/stats', { params }),
 };
 
 // =====================
 // CKP API
 // =====================
 export const ckpAPI = {
-  getAll: (params) => api.get('/ckp', { params }),
-  getById: (id) => api.get(`/ckp/${id}`),
-  upsert: (data) => api.post('/ckp', data),
-  delete: (id) => api.delete(`/ckp/${id}`),
+  getAll: (params) => api.get('/attendance/ckp', { params }),
+  getById: (id) => api.get(`/attendance/ckp/${id}`),
+  upsert: (data) => api.post('/attendance/ckp', data),
+  delete: (id) => api.delete(`/attendance/ckp/${id}`),
 };
 
 // =====================
@@ -174,10 +176,10 @@ export const monitoringAPI = {
 // FINAL EVALUATION API
 // =====================
 export const finalEvaluationAPI = {
-  calculate: (data) => api.post('/calculate', data),
-  getFinal: (params) => api.get('/final-evaluations', { params }),
-  getBestEmployee: (periodId) => api.get(`/best-employee/${periodId}`),
-  getLeaderboard: (params) => api.get('/leaderboard', { params }),
+  calculate: (data) => api.post('/final-evaluation/calculate', data),
+  getFinal: (params) => api.get('/final-evaluation/final-evaluations', { params }),
+  getBestEmployee: (periodId) => api.get(`/final-evaluation/best-employee/${periodId}`),
+  getLeaderboard: (params) => api.get('/final-evaluation/leaderboard', { params }),
 };
 
 export default api;

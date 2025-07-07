@@ -1,4 +1,4 @@
-// src/App.js - UPDATED WITH EVALUATION MANAGEMENT ROUTE
+// src/App.js - UPDATED WITH ALL NEW ROUTES
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -7,11 +7,15 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import EvaluationPage from './pages/EvaluationPage';
-import EvaluationManagementPage from './pages/EvaluationManagementPage'; // NEW
+import EvaluationManagementPage from './pages/EvaluationManagementPage';
 import UsersPage from './pages/UsersPage';
-import AttendancePage from './pages/AttendancePage';
-import CkpPage from './pages/CkpPage';
-import MonitoringPage from './pages/MonitoringPage';
+
+// NEW PAGES
+import PeriodManagementPage from './pages/PeriodManagementPage';
+import AttendanceInputPage from './pages/AttendanceInputPage';
+import CkpInputPage from './pages/CkpInputPage';
+import EnhancedMonitoringPage from './pages/EnhancedMonitoringPage';
+import FinalCalculationPage from './pages/FinalCalculationPage';
 
 // Components
 import Navbar from './components/Navbar';
@@ -83,7 +87,7 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* Admin only - Evaluation Management */}
+          {/* Admin only - Management Routes */}
           <Route path="/evaluation-management" element={
             <ProtectedRoute requiredRole={['ADMIN']}>
               <Layout>
@@ -92,6 +96,39 @@ function App() {
             </ProtectedRoute>
           } />
           
+          <Route path="/period-management" element={
+            <ProtectedRoute requiredRole={['ADMIN']}>
+              <Layout>
+                <PeriodManagementPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/attendance-input" element={
+            <ProtectedRoute requiredRole={['ADMIN']}>
+              <Layout>
+                <AttendanceInputPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/ckp-input" element={
+            <ProtectedRoute requiredRole={['ADMIN']}>
+              <Layout>
+                <CkpInputPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/final-calculation" element={
+            <ProtectedRoute requiredRole={['ADMIN']}>
+              <Layout>
+                <FinalCalculationPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          {/* Admin & Pimpinan Routes */}
           <Route path="/users" element={
             <ProtectedRoute requiredRole={['ADMIN', 'PIMPINAN']}>
               <Layout>
@@ -100,26 +137,27 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/attendance" element={
-            <ProtectedRoute requiredRole={['ADMIN']}>
+          <Route path="/monitoring" element={
+            <ProtectedRoute requiredRole={['ADMIN', 'PIMPINAN']}>
               <Layout>
-                <AttendancePage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-
-          <Route path="/ckp" element={
-            <ProtectedRoute requiredRole={['ADMIN']}>
-              <Layout>
-                <CkpPage />
+                <EnhancedMonitoringPage />
               </Layout>
             </ProtectedRoute>
           } />
           
-          <Route path="/monitoring" element={
-            <ProtectedRoute requiredRole={['ADMIN', 'PIMPINAN']}>
+          {/* Legacy routes - keep for backward compatibility */}
+          <Route path="/attendance" element={
+            <ProtectedRoute requiredRole={['ADMIN']}>
               <Layout>
-                <MonitoringPage />
+                <AttendanceInputPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/ckp" element={
+            <ProtectedRoute requiredRole={['ADMIN']}>
+              <Layout>
+                <CkpInputPage />
               </Layout>
             </ProtectedRoute>
           } />

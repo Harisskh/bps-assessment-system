@@ -1,3 +1,4 @@
+// controllers/userController.js - FIXED DENGAN PERMANENT DELETE
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
@@ -55,6 +56,8 @@ const getAllUsers = async (req, res) => {
           status: true,
           username: true,
           isActive: true,
+          mobilePhone: true, // FIXED: Include mobilePhone
+          alamat: true, // FIXED: Include alamat
           createdAt: true,
           updatedAt: true
         },
@@ -145,7 +148,7 @@ const getUserById = async (req, res) => {
   }
 };
 
-// backend/controllers/userController.js - UPDATE USER FUNCTION FIXED
+// FIXED: UPDATE USER - Include alamat & mobilePhone
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -155,8 +158,8 @@ const updateUser = async (req, res) => {
       email,
       jenisKelamin,
       tanggalLahir,
-      alamat,
-      mobilePhone,
+      alamat, // FIXED: Include alamat
+      mobilePhone, // FIXED: Include mobilePhone
       pendidikanTerakhir,
       jabatan,
       golongan,
@@ -227,8 +230,8 @@ const updateUser = async (req, res) => {
       if (email) updateData.email = email;
       if (jenisKelamin) updateData.jenisKelamin = jenisKelamin;
       if (tanggalLahir) updateData.tanggalLahir = new Date(tanggalLahir);
-      if (alamat !== undefined) updateData.alamat = alamat;
-      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone;
+      if (alamat !== undefined) updateData.alamat = alamat; // FIXED: Include alamat
+      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone; // FIXED: Include mobilePhone
       if (pendidikanTerakhir !== undefined) updateData.pendidikanTerakhir = pendidikanTerakhir;
       if (jabatan !== undefined) updateData.jabatan = jabatan;
       if (golongan !== undefined) updateData.golongan = golongan;
@@ -239,8 +242,8 @@ const updateUser = async (req, res) => {
       // Users can only update limited fields
       if (nama) updateData.nama = nama;
       if (email) updateData.email = email;
-      if (alamat !== undefined) updateData.alamat = alamat;
-      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone;
+      if (alamat !== undefined) updateData.alamat = alamat; // FIXED: Allow self-update alamat
+      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone; // FIXED: Allow self-update mobilePhone
     }
 
     // Check email uniqueness if email is being updated
@@ -272,8 +275,8 @@ const updateUser = async (req, res) => {
         role: true,
         jenisKelamin: true,
         tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
+        alamat: true, // FIXED: Return alamat
+        mobilePhone: true, // FIXED: Return mobilePhone
         pendidikanTerakhir: true,
         jabatan: true,
         golongan: true,
@@ -353,6 +356,89 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// FIXED: PERMANENT DELETE USER
+const permanentDeleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { id },
+      select: { 
+        id: true, 
+        role: true, 
+        nama: true,
+        evaluationsGiven: { take: 1 },
+        evaluationsReceived: { take: 1 }
+      }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User tidak ditemukan'
+      });
+    }
+
+    // Don't allow deleting admin users
+    if (existingUser.role === 'ADMIN') {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin user tidak dapat dihapus permanen'
+      });
+    }
+
+    // Don't allow users to delete themselves
+    if (req.user.id === id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Anda tidak dapat menghapus akun sendiri'
+      });
+    }
+
+    // Check if user has evaluation data
+    if (existingUser.evaluationsGiven.length > 0 || existingUser.evaluationsReceived.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User yang memiliki data evaluasi tidak dapat dihapus permanen. Gunakan nonaktifkan sebagai gantinya.'
+      });
+    }
+
+    // Permanent delete using transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete related records first
+      await tx.attendance.deleteMany({
+        where: { userId: id }
+      });
+      
+      await tx.ckpScore.deleteMany({
+        where: { userId: id }
+      });
+      
+      await tx.finalEvaluation.deleteMany({
+        where: { userId: id }
+      });
+      
+      // Finally delete the user
+      await tx.user.delete({
+        where: { id }
+      });
+    });
+
+    res.json({
+      success: true,
+      message: `User ${existingUser.nama} berhasil dihapus permanen`
+    });
+
+  } catch (error) {
+    console.error('Permanent delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
+
 // ACTIVATE USER
 const activateUser = async (req, res) => {
   try {
@@ -394,7 +480,7 @@ const activateUser = async (req, res) => {
 const resetUserPassword = async (req, res) => {
   try {
     const { id } = req.params;
-    const { newPassword = 'bps2025' } = req.body;
+    const { newPassword = 'bps1810' } = req.body;
 
     // Check if user exists
     const user = await prisma.user.findUnique({
@@ -498,6 +584,7 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
+  permanentDeleteUser, // FIXED: Export permanent delete function
   activateUser,
   resetUserPassword,
   getUserStats

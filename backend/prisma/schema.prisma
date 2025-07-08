@@ -158,12 +158,19 @@ model Attendance {
   // Persentase Total (default 100%)
   persentaseTotal Float @default(100.0)
   
-  // Input boolean untuk tracking pelanggaran
+  // Input boolean untuk tracking pelanggaran (compatibility)
   adaTidakKerja      Boolean @default(false)  // TK - apakah ada tidak kerja
   adaPulangAwal      Boolean @default(false)  // PSW - apakah ada pulang sebelum waktunya
   adaTelat           Boolean @default(false)  // TLT - apakah ada telat
   adaAbsenApel       Boolean @default(false)  // APEL - apakah ada absen apel
   adaCuti            Boolean @default(false)  // CT - apakah ada cuti
+  
+  // NEW: Input angka untuk jumlah pelanggaran
+  jumlahTidakKerja   Int @default(0)          // Berapa kali tidak kerja
+  jumlahPulangAwal   Int @default(0)          // Berapa kali pulang awal
+  jumlahTelat        Int @default(0)          // Berapa kali telat
+  jumlahAbsenApel    Int @default(0)          // Berapa kali absen apel
+  jumlahCuti         Int @default(0)          // Berapa kali cuti
   
   // Pengurangan otomatis berdasarkan boolean di atas
   penguranganTK      Float @default(0.0)    // -30% max

@@ -1,3 +1,6 @@
+// Fixed Routes - Remove duplicate paths yang menyebabkan error 404
+// File: routes/attendance.js - FIXED VERSION
+
 const express = require('express');
 const router = express.Router();
 
@@ -35,7 +38,7 @@ router.use(authenticateToken);
 router.get('/attendance', requirePimpinan, getAllAttendance);          // Get all attendance records
 router.get('/attendance/:id', requirePimpinan, getAttendanceById);     // Get attendance by ID
 
-// POST/PUT routes
+// POST/PUT routes  
 router.post('/attendance', requireAdmin, upsertAttendance);            // Create/update attendance (admin only)
 router.put('/attendance', requireAdmin, upsertAttendance);             // Create/update attendance (admin only)
 

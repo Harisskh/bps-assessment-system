@@ -1,7 +1,8 @@
-// src/pages/CkpInputPage.js - INPUT CKP (CAPAIAN KINERJA PEGAWAI)
+// src/pages/CkpInputPage.js - IMPROVED VERSION
 import React, { useState, useEffect } from 'react';
 import { ckpAPI, periodAPI, userAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import SearchableUserSelect from '../components/SearchableUserSelect';
 
 const CkpInputPage = () => {
   const { user } = useAuth();
@@ -17,13 +18,15 @@ const CkpInputPage = () => {
   
   // Filters
   const [selectedPeriod, setSelectedPeriod] = useState('');
-  const [selectedUser, setSelectedUser] = useState('');
   const [searchUser, setSearchUser] = useState('');
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('create'); // 'create', 'edit'
+  const [modalMode, setModalMode] = useState('create');
   const [selectedCkp, setSelectedCkp] = useState(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [ckpToDelete, setCkpToDelete] = useState(null);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -41,7 +44,7 @@ const CkpInputPage = () => {
     if (selectedPeriod) {
       loadCkpRecords();
     }
-  }, [selectedPeriod, selectedUser]);
+  }, [selectedPeriod, searchUser]);
 
   const loadInitialData = async () => {
     try {
@@ -76,12 +79,21 @@ const CkpInputPage = () => {
       
       const params = {
         periodId: selectedPeriod,
-        userId: selectedUser,
-        limit: 50
+        limit: 100
       };
 
       const response = await ckpAPI.getAll(params);
-      setCkpRecords(response.data.data.ckpScores);
+      let records = response.data.data.ckpScores;
+
+      // Apply search filter
+      if (searchUser) {
+        records = records.filter(record => 
+          record.user.nama.toLowerCase().includes(searchUser.toLowerCase()) ||
+          record.user.nip.includes(searchUser)
+        );
+      }
+
+      setCkpRecords(records);
       
     } catch (error) {
       console.error('Load CKP records error:', error);
@@ -128,7 +140,17 @@ const CkpInputPage = () => {
 
       await ckpAPI.upsert(submitData);
       setSuccess(modalMode === 'create' ? 'Data CKP berhasil ditambahkan' : 'Data CKP berhasil diperbarui');
+      
+      // Close modal and reset form
       setShowModal(false);
+      setFormData({
+        userId: '',
+        periodId: selectedPeriod,
+        score: '',
+        keterangan: ''
+      });
+      
+      // Reload data
       loadCkpRecords();
       
     } catch (error) {
@@ -139,40 +161,105 @@ const CkpInputPage = () => {
     }
   };
 
-  const handleBulkCreate = () => {
-    if (!selectedPeriod) {
-      setError('Pilih periode terlebih dahulu');
-      return;
-    }
+  // NEW: Handle create bulk data for all eligible users
+  const handleCreateBulkData = async () => {
+    if (!selectedPeriod || !users || users.length === 0) return;
     
-    // Create CKP records for all users with default score 85
-    const bulkCreate = async () => {
-      setSubmitting(true);
-      setError('');
-      
-      try {
-        const promises = users.map(user => 
-          ckpAPI.upsert({
-            userId: user.id,
-            periodId: selectedPeriod,
-            score: 85, // Default score
-            keterangan: 'Bulk input - default score 85'
-          })
-        );
-        
-        await Promise.all(promises);
-        setSuccess(`Berhasil membuat ${users.length} record CKP dengan nilai default 85`);
-        loadCkpRecords();
-        
-      } catch (error) {
-        console.error('Bulk create error:', error);
-        setError('Gagal membuat bulk CKP records');
-      } finally {
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      // Filter users: exclude ADMIN role and system accounts
+      const eligibleUsers = users.filter(user => 
+        user.role !== 'ADMIN' && 
+        user.nama !== 'Administrator System' &&
+        user.username !== 'admin' &&
+        user.isActive === true
+      );
+
+      if (eligibleUsers.length === 0) {
+        setError('Tidak ada pegawai yang memenuhi kriteria untuk dibuatkan data CKP');
         setSubmitting(false);
+        return;
       }
-    };
+
+      // Create CKP records for eligible users with default score 85
+      const bulkData = eligibleUsers.map(user => ({
+        userId: user.id,
+        periodId: selectedPeriod,
+        score: 85,
+        keterangan: 'Bulk input - default score 85'
+      }));
+
+      // Create all records in parallel
+      const createPromises = bulkData.map(data => ckpAPI.upsert(data));
+      await Promise.all(createPromises);
+      
+      setSuccess(`Berhasil membuat ${eligibleUsers.length} data Capaian Kinerja Pegawai (CKP) untuk periode ini`);
+      
+      // Reload data
+      loadCkpRecords();
+      
+    } catch (error) {
+      console.error('Create bulk data error:', error);
+      setError('Gagal membuat data CKP bulk');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // NEW: Handle delete all CKP for selected period
+  const handleDeleteAllCkp = async () => {
+    if (!selectedPeriod || !ckpRecords || ckpRecords.length === 0) return;
     
-    bulkCreate();
+    setSubmitting(true);
+    try {
+      // Delete all CKP records for the selected period
+      const deletePromises = ckpRecords.map(ckp => 
+        ckpAPI.delete(ckp.id)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      setSuccess(`Berhasil menghapus ${ckpRecords.length} data CKP untuk periode ini`);
+      
+      // Close modal and reset state
+      setShowDeleteAllModal(false);
+      
+      // Reload data
+      loadCkpRecords();
+      
+    } catch (error) {
+      console.error('Delete all CKP error:', error);
+      setError('Gagal menghapus semua data CKP');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // NEW: Handle delete single CKP
+  const handleDeleteCkp = async () => {
+    if (!ckpToDelete) return;
+    
+    setSubmitting(true);
+    try {
+      await ckpAPI.delete(ckpToDelete.id);
+      setSuccess(`Data CKP ${ckpToDelete.user.nama} berhasil dihapus`);
+      
+      // Close modal and reset state
+      setShowDeleteModal(false);
+      setCkpToDelete(null);
+      
+      // Reload data
+      loadCkpRecords();
+      
+    } catch (error) {
+      console.error('Delete CKP error:', error);
+      setError('Gagal menghapus data CKP');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getScoreLevel = (score) => {
@@ -182,11 +269,6 @@ const CkpInputPage = () => {
     if (score >= 60) return { label: 'Kurang', color: 'danger' };
     return { label: 'Sangat Kurang', color: 'dark' };
   };
-
-  const filteredUsers = users.filter(user =>
-    user.nama.toLowerCase().includes(searchUser.toLowerCase()) ||
-    user.nip.includes(searchUser)
-  );
 
   if (loading && ckpRecords.length === 0) {
     return (
@@ -213,14 +295,15 @@ const CkpInputPage = () => {
           <p className="text-muted">Kelola Capaian Kinerja Pegawai per periode (Bobot: 30%)</p>
         </div>
         <div className="d-flex gap-2">
-          <button 
-            className="btn btn-outline-primary"
-            onClick={handleBulkCreate}
-            disabled={!selectedPeriod || submitting}
-          >
-            <i className="fas fa-users me-2"></i>
-            Bulk Input (85)
-          </button>
+          {selectedPeriod && ckpRecords && ckpRecords.length > 0 && (
+            <button 
+              className="btn btn-outline-danger"
+              onClick={() => setShowDeleteAllModal(true)}
+              title="Hapus semua data CKP untuk periode ini"
+            >
+              <i className="fas fa-trash-alt me-2"></i>Hapus Semua
+            </button>
+          )}
           <button 
             className="btn btn-primary"
             onClick={handleCreateCkp}
@@ -301,35 +384,27 @@ const CkpInputPage = () => {
                 <option value="">-- Pilih Periode --</option>
                 {periods.map(period => (
                   <option key={period.id} value={period.id}>
-                    {period.namaPeriode} {period.isActive && '(Aktif)'}
+                    {period.namaPeriode} ({period.tahun}) {period.isActive && '(Aktif)'}
                   </option>
                 ))}
               </select>
             </div>
             <div className="col-md-4">
-              <label className="form-label">Filter Pegawai</label>
-              <select
-                className="form-select"
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-              >
-                <option value="">Semua Pegawai</option>
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.nama} - {user.jabatan}
-                  </option>
-                ))}
-              </select>
+              <label className="form-label">Cari Pegawai</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Nama atau NIP..."
+                value={searchUser}
+                onChange={(e) => setSearchUser(e.target.value)}
+              />
             </div>
             <div className="col-md-4">
               <label className="form-label">&nbsp;</label>
               <button 
                 type="button" 
                 className="btn btn-outline-secondary w-100"
-                onClick={() => {
-                  setSelectedUser('');
-                  setSearchUser('');
-                }}
+                onClick={() => setSearchUser('')}
               >
                 <i className="fas fa-refresh me-2"></i>
                 Reset Filter
@@ -355,6 +430,20 @@ const CkpInputPage = () => {
                   <span className="visually-hidden">Loading...</span>
                 </div>
               </div>
+            ) : ckpRecords && ckpRecords.length === 0 ? (
+              <div className="text-center py-5">
+                <i className="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                <h5 className="text-muted">Belum ada data CKP untuk periode ini</h5>
+                <p className="text-muted">Klik tombol di bawah untuk membuat data CKP untuk semua pegawai dengan nilai default nilai 85</p>
+                <p className="text-muted"><small><i className="fas fa-info-circle me-1"></i>Administrator dan akun sistem akan dikecualikan dari pembuatan bulk data</small></p>
+                <button 
+                  className="btn btn-primary mt-3"
+                  onClick={handleCreateBulkData}
+                  disabled={submitting}
+                >
+                  <i className="fas fa-magic me-2"></i>Buat Data Awal
+                </button>
+              </div>
             ) : (
               <>
                 <div className="table-responsive">
@@ -371,82 +460,74 @@ const CkpInputPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {ckpRecords.length === 0 ? (
-                        <tr>
-                          <td colSpan="7" className="text-center py-4 text-muted">
-                            <i className="fas fa-chart-line fa-2x mb-2"></i>
-                            <br />Belum ada data CKP untuk periode ini
-                            <br />
-                            <button 
-                              className="btn btn-primary btn-sm mt-2"
-                              onClick={handleBulkCreate}
-                              disabled={submitting}
-                            >
-                              <i className="fas fa-plus me-1"></i>
-                              Buat Data Awal
-                            </button>
-                          </td>
-                        </tr>
-                      ) : (
-                        ckpRecords.map((ckp) => {
-                          const scoreLevel = getScoreLevel(ckp.score);
-                          return (
-                            <tr key={ckp.id}>
-                              <td>
-                                <span className="fw-bold">{ckp.user.nip}</span>
-                              </td>
-                              <td>
-                                <strong>{ckp.user.nama}</strong>
-                              </td>
-                              <td>
-                                <small className="text-muted">{ckp.user.jabatan}</small>
-                              </td>
-                              <td>
-                                <div className="d-flex align-items-center">
-                                  <span className={`h6 mb-0 me-2 text-${scoreLevel.color}`}>
-                                    {ckp.score}
-                                  </span>
-                                  <div 
-                                    className="progress flex-grow-1" 
-                                    style={{ height: '8px', width: '80px' }}
-                                  >
-                                    <div 
-                                      className={`progress-bar bg-${scoreLevel.color}`}
-                                      style={{ width: `${ckp.score}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td>
-                                <span className={`badge bg-${scoreLevel.color}`}>
-                                  {scoreLevel.label}
+                      {ckpRecords && ckpRecords.map((ckp) => {
+                        const scoreLevel = getScoreLevel(ckp.score);
+                        return (
+                          <tr key={ckp.id}>
+                            <td>
+                              <span className="fw-bold">{ckp.user.nip}</span>
+                            </td>
+                            <td>
+                              <strong>{ckp.user.nama}</strong>
+                            </td>
+                            <td>
+                              <small className="text-muted">{ckp.user.jabatan}</small>
+                            </td>
+                            <td>
+                              <div className="d-flex align-items-center">
+                                <span className={`h6 mb-0 me-2 text-${scoreLevel.color}`}>
+                                  {ckp.score}
                                 </span>
-                              </td>
-                              <td>
-                                <small className="text-muted">
-                                  {ckp.keterangan ? 
-                                    (ckp.keterangan.length > 50 ? 
-                                      `${ckp.keterangan.substring(0, 50)}...` : 
-                                      ckp.keterangan
-                                    ) : '-'
-                                  }
-                                </small>
-                              </td>
-                              <td>
-                                <div className="btn-group btn-group-sm">
-                                  <button 
-                                    className="btn btn-outline-primary"
-                                    onClick={() => handleEditCkp(ckp)}
-                                    title="Edit CKP"
-                                  >
-                                    <i className="fas fa-edit"></i>
-                                  </button>
+                                <div 
+                                  className="progress flex-grow-1" 
+                                  style={{ height: '8px', width: '80px' }}
+                                >
+                                  <div 
+                                    className={`progress-bar bg-${scoreLevel.color}`}
+                                    style={{ width: `${ckp.score}%` }}
+                                  ></div>
                                 </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`badge bg-${scoreLevel.color}`}>
+                                {scoreLevel.label}
+                              </span>
+                            </td>
+                            <td>
+                              <small className="text-muted">
+                                {ckp.keterangan ? 
+                                  (ckp.keterangan.length > 50 ? 
+                                    `${ckp.keterangan.substring(0, 50)}...` : 
+                                    ckp.keterangan
+                                  ) : '-'
+                                }
+                              </small>
+                            </td>
+                            <td>
+                              <div className="d-flex gap-1">
+                                <button 
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={() => handleEditCkp(ckp)}
+                                  title="Edit CKP"
+                                >
+                                  <i className="fas fa-edit"></i>
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  onClick={() => {
+                                    setCkpToDelete(ckp);
+                                    setShowDeleteModal(true);
+                                  }}
+                                  title="Hapus"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -529,24 +610,19 @@ const CkpInputPage = () => {
                     <div className="col-12">
                       <label className="form-label">Pegawai *</label>
                       {modalMode === 'create' ? (
-                        <select
-                          className="form-select"
+                        <SearchableUserSelect
+                          users={users.filter(u => u.role !== 'ADMIN' && u.nama !== 'Administrator System' && u.username !== 'admin')}
                           value={formData.userId}
-                          onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                          required
-                        >
-                          <option value="">-- Pilih Pegawai --</option>
-                          {filteredUsers.map(user => (
-                            <option key={user.id} value={user.id}>
-                              {user.nama} - {user.jabatan} ({user.nip})
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(userId) => setFormData({ ...formData, userId })}
+                          placeholder="-- Pilih Pegawai --"
+                          required={true}
+                          className="mb-2"
+                        />
                       ) : (
                         <div className="form-control-plaintext bg-light p-2 rounded">
-                          <strong>{ckpRecords.find(c => c.userId === formData.userId)?.user?.nama}</strong>
+                          <strong>{selectedCkp?.user?.nama}</strong>
                           <small className="d-block text-muted">
-                            {ckpRecords.find(c => c.userId === formData.userId)?.user?.jabatan}
+                            {selectedCkp?.user?.jabatan} - {selectedCkp?.user?.nip}
                           </small>
                         </div>
                       )}
@@ -647,6 +723,148 @@ const CkpInputPage = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title">
+                  <i className="fas fa-exclamation-triangle me-2"></i>
+                  Konfirmasi Hapus Semua Data CKP
+                </h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => {
+                  setShowDeleteAllModal(false);
+                }}></button>
+              </div>
+              <div className="modal-body">
+                <div className="alert alert-warning">
+                  <i className="fas fa-exclamation-triangle me-2"></i>
+                  <strong>Peringatan!</strong> Tindakan ini akan menghapus SEMUA data CKP untuk periode ini dan tidak dapat dibatalkan.
+                </div>
+                
+                <p>Apakah Anda yakin ingin menghapus <strong>SEMUA DATA CKP</strong> untuk periode ini?</p>
+                
+                <div className="bg-light p-3 rounded">
+                  <strong>Periode:</strong> {periods.find(p => p.id === selectedPeriod)?.namaPeriode}<br/>
+                  <strong>Total Record:</strong> {ckpRecords ? ckpRecords.length : 0} data CKP<br/>
+                  <strong>Pegawai Terdampak:</strong> {ckpRecords ? ckpRecords.length : 0} pegawai
+                </div>
+                
+                <div className="mt-3">
+                  <h6 className="text-danger">Data yang akan dihapus:</h6>
+                  <div className="border rounded p-2" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                    {ckpRecords && ckpRecords.slice(0, 10).map((ckp, index) => (
+                      <div key={ckp.id} className="d-flex justify-content-between py-1">
+                        <small>{ckp.user.nama}</small>
+                        <small className="text-muted">Skor: {ckp.score}</small>
+                      </div>
+                    ))}
+                    {ckpRecords && ckpRecords.length > 10 && (
+                      <div className="text-center py-1">
+                        <small className="text-muted">... dan {ckpRecords.length - 10} pegawai lainnya</small>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <p className="text-danger mt-3 mb-0">
+                  <strong>Data yang dihapus tidak dapat dikembalikan. Pastikan Anda telah membuat backup jika diperlukan.</strong>
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowDeleteAllModal(false)}
+                  disabled={submitting}
+                >
+                  Batal
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-danger" 
+                  onClick={handleDeleteAllCkp}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Menghapus {ckpRecords ? ckpRecords.length : 0} Data...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-trash-alt me-2"></i>
+                      Ya, Hapus Semua {ckpRecords ? ckpRecords.length : 0} Data
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Single Confirmation Modal */}
+      {showDeleteModal && ckpToDelete && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title">Konfirmasi Hapus Data CKP</h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => {
+                  setShowDeleteModal(false);
+                  setCkpToDelete(null);
+                }}></button>
+              </div>
+              <div className="modal-body">
+                <div className="alert alert-warning">
+                  <i className="fas fa-exclamation-triangle me-2"></i>
+                  <strong>Peringatan!</strong> Tindakan ini akan menghapus data CKP pegawai dan tidak dapat dibatalkan.
+                </div>
+                
+                <p>Apakah Anda yakin ingin menghapus data CKP untuk:</p>
+                
+                <div className="bg-light p-3 rounded">
+                  <strong>Nama:</strong> {ckpToDelete.user.nama}<br/>
+                  <strong>NIP:</strong> {ckpToDelete.user.nip}<br/>
+                  <strong>Periode:</strong> {ckpToDelete.period?.namaPeriode || periods.find(p => p.id === selectedPeriod)?.namaPeriode}<br/>
+                  <strong>Skor CKP:</strong> {ckpToDelete.score}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setCkpToDelete(null);
+                  }}
+                  disabled={submitting}
+                >
+                  Batal
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-danger" 
+                  onClick={handleDeleteCkp}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Menghapus...
+                    </>
+                  ) : (
+                    'Ya, Hapus Data'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

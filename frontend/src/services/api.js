@@ -1,4 +1,4 @@
-// src/services/api.js - FIXED VERSION WITH PERMANENT DELETE
+// src/services/api.js - FIXED VERSION WITH REGISTER FUNCTION
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -123,10 +123,10 @@ export const evaluationAPI = {
 // ATTENDANCE API
 // =====================
 export const attendanceAPI = {
-  getAll: (params) => api.get('/attendance/attendance', { params }),
-  getById: (id) => api.get(`/attendance/attendance/${id}`),
-  upsert: (data) => api.post('/attendance/attendance', data),
-  delete: (id) => api.delete(`/attendance/attendance/${id}`),
+  getAll: (params) => api.get('/attendance', { params }),
+  getById: (id) => api.get(`/attendance/${id}`),
+  upsert: (data) => api.post('/attendance', data),
+  delete: (id) => api.delete(`/attendance/${id}`),
   getStats: (params) => api.get('/attendance/stats', { params }),
 };
 
@@ -134,10 +134,10 @@ export const attendanceAPI = {
 // CKP API
 // =====================
 export const ckpAPI = {
-  getAll: (params) => api.get('/attendance/ckp', { params }),
-  getById: (id) => api.get(`/attendance/ckp/${id}`),
-  upsert: (data) => api.post('/attendance/ckp', data),
-  delete: (id) => api.delete(`/attendance/ckp/${id}`),
+  getAll: (params) => api.get('/ckp', { params }),
+  getById: (id) => api.get(`/ckp/${id}`),
+  upsert: (data) => api.post('/ckp', data),
+  delete: (id) => api.delete(`/ckp/${id}`),
 };
 
 // =====================
@@ -180,6 +180,15 @@ export const finalEvaluationAPI = {
   getFinal: (params) => api.get('/final-evaluation/final-evaluations', { params }),
   getBestEmployee: (periodId) => api.get(`/final-evaluation/best-employee/${periodId}`),
   getLeaderboard: (params) => api.get('/final-evaluation/leaderboard', { params }),
+};
+
+// Alternative endpoints that might be needed
+export const finalEvaluationAPIAlternative = {
+  // If the backend uses different route patterns
+  calculate: (data) => api.post('/final-evaluations/calculate', data),
+  getFinal: (params) => api.get('/final-evaluations', { params }),
+  getBestEmployee: (periodId) => api.get(`/final-evaluations/best-employee/${periodId}`),
+  getLeaderboard: (params) => api.get('/final-evaluations/leaderboard', { params }),
 };
 
 export default api;

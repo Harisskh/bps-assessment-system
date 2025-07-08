@@ -1,4 +1,4 @@
-// src/pages/FinalCalculationPage.js - PERHITUNGAN FINAL & BEST EMPLOYEE
+// src/pages/FinalCalculationPage.js - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { finalEvaluationAPI, periodAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -30,7 +30,7 @@ const FinalCalculationPage = () => {
       loadFinalEvaluations();
       loadBestEmployee();
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod, showCandidatesOnly]);
 
   const loadInitialData = async () => {
     try {
@@ -57,19 +57,33 @@ const FinalCalculationPage = () => {
   const loadFinalEvaluations = async () => {
     try {
       setLoading(true);
+      setError('');
       
       const params = {
         periodId: selectedPeriod,
         onlyCandidates: showCandidatesOnly,
-        limit: 50
+        limit: 100
       };
 
+      console.log('Loading final evaluations with params:', params);
+      
       const response = await finalEvaluationAPI.getFinal(params);
-      setFinalEvaluations(response.data.data.finalEvaluations);
+      console.log('Final evaluations response:', response.data);
+      
+      setFinalEvaluations(response.data.data.finalEvaluations || []);
       
     } catch (error) {
       console.error('Load final evaluations error:', error);
-      setError('Gagal memuat data evaluasi final');
+      
+      // Better error handling
+      if (error.response?.status === 404) {
+        setError('Data evaluasi final belum tersedia. Silakan jalankan perhitungan terlebih dahulu.');
+        setFinalEvaluations([]);
+      } else if (error.response?.status === 401) {
+        setError('Anda tidak memiliki akses untuk melihat data ini.');
+      } else {
+        setError(error.response?.data?.message || 'Gagal memuat data evaluasi final');
+      }
     } finally {
       setLoading(false);
     }
@@ -96,18 +110,39 @@ const FinalCalculationPage = () => {
     setSuccess('');
 
     try {
-      const response = await finalEvaluationAPI.calculate({ periodId: selectedPeriod });
+      console.log('Starting calculation for period:', selectedPeriod);
+      
+      const response = await finalEvaluationAPI.calculate({ 
+        periodId: selectedPeriod 
+      });
+      
+      console.log('Calculation response:', response.data);
+      
       setCalculationResult(response.data.data);
       setSuccess('Perhitungan final berhasil diselesaikan');
       setShowCalculationModal(true);
       
       // Reload data
-      loadFinalEvaluations();
-      loadBestEmployee();
+      setTimeout(() => {
+        loadFinalEvaluations();
+        loadBestEmployee();
+      }, 1000);
       
     } catch (error) {
       console.error('Calculate final error:', error);
-      setError(error.response?.data?.message || 'Gagal melakukan perhitungan final');
+      
+      // Enhanced error handling
+      if (error.response?.status === 404) {
+        setError('API endpoint tidak ditemukan. Pastikan server berjalan dengan benar.');
+      } else if (error.response?.status === 400) {
+        setError(error.response.data.message || 'Data tidak valid untuk perhitungan');
+      } else if (error.response?.status === 401) {
+        setError('Anda tidak memiliki akses untuk melakukan perhitungan.');
+      } else if (error.code === 'ERR_NETWORK') {
+        setError('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
+      } else {
+        setError(error.response?.data?.message || 'Gagal melakukan perhitungan final');
+      }
     } finally {
       setCalculating(false);
     }
@@ -127,7 +162,7 @@ const FinalCalculationPage = () => {
     return 'bg-light text-dark';
   };
 
-  if (loading && finalEvaluations.length === 0) {
+  if (loading && finalEvaluations.length === 0 && !selectedPeriod) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
         <div className="text-center">
@@ -184,6 +219,17 @@ const FinalCalculationPage = () => {
           <i className="fas fa-check-circle me-2"></i>
           {success}
           <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
+        </div>
+      )}
+
+      {/* Debug Info - Show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="alert alert-info">
+          <h6>Debug Info:</h6>
+          <p><strong>Selected Period:</strong> {selectedPeriod || 'None'}</p>
+          <p><strong>Final Evaluations Count:</strong> {finalEvaluations.length}</p>
+          <p><strong>Best Employee:</strong> {bestEmployee ? bestEmployee.user.nama : 'None'}</p>
+          <p><strong>API Base URL:</strong> {process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}</p>
         </div>
       )}
 
@@ -249,7 +295,7 @@ const FinalCalculationPage = () => {
                 <option value="">-- Pilih Periode --</option>
                 {periods.map(period => (
                   <option key={period.id} value={period.id}>
-                    {period.namaPeriode} {period.isActive && '(Aktif)'}
+                    {period.namaPeriode} ({period.tahun}) {period.isActive && '(Aktif)'}
                   </option>
                 ))}
               </select>
@@ -358,6 +404,21 @@ const FinalCalculationPage = () => {
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </div>
+                  <p className="text-muted mt-2">Memuat data...</p>
+                </div>
+              ) : finalEvaluations.length === 0 ? (
+                <div className="text-center py-5">
+                  <i className="fas fa-calculator fa-3x text-muted mb-3"></i>
+                  <h5 className="text-muted">Belum ada hasil perhitungan untuk periode ini</h5>
+                  <p className="text-muted">Klik tombol "Jalankan Perhitungan" untuk memulai proses perhitungan final</p>
+                  <button 
+                    className="btn btn-primary mt-3"
+                    onClick={handleCalculateFinal}
+                    disabled={calculating}
+                  >
+                    <i className="fas fa-play me-2"></i>
+                    Jalankan Perhitungan
+                  </button>
                 </div>
               ) : (
                 <>
@@ -377,119 +438,101 @@ const FinalCalculationPage = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {finalEvaluations.length === 0 ? (
-                          <tr>
-                            <td colSpan="9" className="text-center py-4 text-muted">
-                              <i className="fas fa-calculator fa-2x mb-2"></i>
-                              <br />Belum ada hasil perhitungan untuk periode ini
-                              <br />
-                              <button 
-                                className="btn btn-primary btn-sm mt-2"
-                                onClick={handleCalculateFinal}
-                                disabled={calculating}
-                              >
-                                <i className="fas fa-play me-1"></i>
-                                Jalankan Perhitungan
-                              </button>
+                        {finalEvaluations.map((evaluation, index) => (
+                          <tr 
+                            key={evaluation.user.id} 
+                            className={evaluation.isBestEmployee ? 'table-warning' : evaluation.isCandidate ? 'table-light' : ''}
+                          >
+                            <td>
+                              {evaluation.ranking ? (
+                                <span className={`badge ${getRankingBadge(evaluation.ranking)} fs-6`}>
+                                  #{evaluation.ranking}
+                                </span>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                            <td>
+                              <div>
+                                <strong className="text-primary">{evaluation.user.nama}</strong>
+                                <small className="d-block text-muted">NIP: {evaluation.user.nip}</small>
+                              </div>
+                            </td>
+                            <td>
+                              <small className="text-muted">{evaluation.user.jabatan}</small>
+                            </td>
+                            <td>
+                              <div className="text-center">
+                                <span className="h6 mb-0">{evaluation.totalEvaluators}</span>
+                                <small className="d-block text-muted">
+                                  T1:{evaluation.tokoh1Count} T2:{evaluation.tokoh2Count} T3:{evaluation.tokoh3Count}
+                                </small>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="text-center">
+                                <span className={`fw-bold ${getScoreColor(evaluation.presensiScore)}`}>
+                                  {evaluation.presensiScore.toFixed(1)}
+                                </span>
+                                <small className="d-block text-muted">
+                                  ({evaluation.presensiWeighted.toFixed(1)})
+                                </small>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="text-center">
+                                <span className={`fw-bold ${getScoreColor(evaluation.berakhlakScore)}`}>
+                                  {evaluation.berakhlakScore.toFixed(1)}
+                                </span>
+                                <small className="d-block text-muted">
+                                  ({evaluation.berakhlakWeighted.toFixed(1)})
+                                </small>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="text-center">
+                                <span className={`fw-bold ${getScoreColor(evaluation.ckpScore)}`}>
+                                  {evaluation.ckpScore.toFixed(1)}
+                                </span>
+                                <small className="d-block text-muted">
+                                  ({evaluation.ckpWeighted.toFixed(1)})
+                                </small>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="text-center">
+                                <span className={`h6 mb-0 ${getScoreColor(evaluation.finalScore)}`}>
+                                  {evaluation.finalScore.toFixed(2)}
+                                </span>
+                                <div 
+                                  className="progress mt-1" 
+                                  style={{ height: '4px' }}
+                                >
+                                  <div 
+                                    className={`progress-bar ${evaluation.finalScore >= 90 ? 'bg-success' : evaluation.finalScore >= 80 ? 'bg-primary' : evaluation.finalScore >= 70 ? 'bg-warning' : 'bg-danger'}`}
+                                    style={{ width: `${evaluation.finalScore}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="d-flex flex-column gap-1">
+                                {evaluation.isBestEmployee && (
+                                  <span className="badge bg-warning text-dark">
+                                    <i className="fas fa-crown me-1"></i>
+                                    Best Employee
+                                  </span>
+                                )}
+                                {evaluation.isCandidate && (
+                                  <span className="badge bg-success">
+                                    <i className="fas fa-medal me-1"></i>
+                                    Kandidat
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
-                        ) : (
-                          finalEvaluations.map((evaluation, index) => (
-                            <tr 
-                              key={evaluation.user.id} 
-                              className={evaluation.isBestEmployee ? 'table-warning' : evaluation.isCandidate ? 'table-light' : ''}
-                            >
-                              <td>
-                                {evaluation.ranking ? (
-                                  <span className={`badge ${getRankingBadge(evaluation.ranking)} fs-6`}>
-                                    #{evaluation.ranking}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted">-</span>
-                                )}
-                              </td>
-                              <td>
-                                <div>
-                                  <strong className="text-primary">{evaluation.user.nama}</strong>
-                                  <small className="d-block text-muted">NIP: {evaluation.user.nip}</small>
-                                </div>
-                              </td>
-                              <td>
-                                <small className="text-muted">{evaluation.user.jabatan}</small>
-                              </td>
-                              <td>
-                                <div className="text-center">
-                                  <span className="h6 mb-0">{evaluation.totalEvaluators}</span>
-                                  <small className="d-block text-muted">
-                                    T1:{evaluation.tokoh1Count} T2:{evaluation.tokoh2Count} T3:{evaluation.tokoh3Count}
-                                  </small>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="text-center">
-                                  <span className={`fw-bold ${getScoreColor(evaluation.presensiScore)}`}>
-                                    {evaluation.presensiScore.toFixed(1)}
-                                  </span>
-                                  <small className="d-block text-muted">
-                                    ({evaluation.presensiWeighted.toFixed(1)})
-                                  </small>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="text-center">
-                                  <span className={`fw-bold ${getScoreColor(evaluation.berakhlakScore)}`}>
-                                    {evaluation.berakhlakScore.toFixed(1)}
-                                  </span>
-                                  <small className="d-block text-muted">
-                                    ({evaluation.berakhlakWeighted.toFixed(1)})
-                                  </small>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="text-center">
-                                  <span className={`fw-bold ${getScoreColor(evaluation.ckpScore)}`}>
-                                    {evaluation.ckpScore.toFixed(1)}
-                                  </span>
-                                  <small className="d-block text-muted">
-                                    ({evaluation.ckpWeighted.toFixed(1)})
-                                  </small>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="text-center">
-                                  <span className={`h6 mb-0 ${getScoreColor(evaluation.finalScore)}`}>
-                                    {evaluation.finalScore.toFixed(2)}
-                                  </span>
-                                  <div 
-                                    className="progress mt-1" 
-                                    style={{ height: '4px' }}
-                                  >
-                                    <div 
-                                      className={`progress-bar ${evaluation.finalScore >= 90 ? 'bg-success' : evaluation.finalScore >= 80 ? 'bg-primary' : evaluation.finalScore >= 70 ? 'bg-warning' : 'bg-danger'}`}
-                                      style={{ width: `${evaluation.finalScore}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="d-flex flex-column gap-1">
-                                  {evaluation.isBestEmployee && (
-                                    <span className="badge bg-warning text-dark">
-                                      <i className="fas fa-crown me-1"></i>
-                                      Best Employee
-                                    </span>
-                                  )}
-                                  {evaluation.isCandidate && (
-                                    <span className="badge bg-success">
-                                      <i className="fas fa-medal me-1"></i>
-                                      Kandidat
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
+                        ))}
                       </tbody>
                     </table>
                   </div>

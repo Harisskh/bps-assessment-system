@@ -161,7 +161,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api', attendanceRoutes);              // attendance & ckp
-app.use('/api', finalEvaluationRoutes);         // final evaluation
+app.use('/api/final-evaluation', finalEvaluationRoutes);
 app.use('/api/periods', periodRoutes);          // period management
 app.use('/api/dashboard', dashboardRoutes);     // dashboard statistics
 app.use('/api/monitoring', monitoringRoutes);   // evaluation monitoring

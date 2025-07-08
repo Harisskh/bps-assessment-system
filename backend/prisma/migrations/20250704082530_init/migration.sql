@@ -1,3 +1,5 @@
+-- File migration.sql
+
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('STAFF', 'ADMIN', 'PIMPINAN');
 

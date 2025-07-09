@@ -1,0 +1,24 @@
+// frontend/src/styles/index.scss
+
+// 1. Impor variabel kustom kita PERTAMA
+@import './variables';
+
+// 2. Impor file Sass utama Bootstrap SETELAHNYA
+// Ini akan membuat Bootstrap menggunakan variabel yang sudah kita definisikan di atas.
+@import "~bootstrap/scss/bootstrap";
+
+// 3. (Opsional) Tambahkan gaya kustom global di sini
+body {
+  background-color: $light; // Menggunakan warna latar belakang kustom kita
+  color: $dark;
+}
+
+// Contoh kelas kustom untuk kartu (card) agar lebih menonjol
+.card {
+  border: 1px solid #dee2e6;
+  transition: all 0.2s ease-in-out;
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.75rem 2rem rgba($dark, .1);
+}

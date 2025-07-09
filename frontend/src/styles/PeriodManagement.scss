@@ -1,0 +1,71 @@
+/* src/styles/PeriodManagement.scss */
+
+.period-management-page {
+  .header-container {
+    background: white;
+    padding: 1.5rem 2rem;
+    border-radius: 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e9ecef;
+  }
+
+  .filter-card {
+    position: relative; /* Kunci untuk z-index dropdown */
+    z-index: 10;
+  }
+
+  .period-table-card {
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  .period-table {
+    thead th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      border-bottom-width: 1px;
+      padding: 1rem 1.5rem;
+      color: #495057;
+      white-space: nowrap;
+    }
+    tbody tr {
+      transition: background-color 0.2s ease;
+      td {
+        padding: 1rem 1.5rem;
+        vertical-align: middle;
+      }
+      &:hover {
+        background-color: #f1f3f5;
+      }
+    }
+    .badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.4em 0.7em;
+    }
+    .action-buttons .btn {
+      margin-right: 0.5rem;
+    }
+  }
+}
+
+.period-modal {
+  .modal-header {
+    background-color: #0A4D68;
+    color: white;
+    .btn-close {
+      filter: invert(1) grayscale(100%) brightness(200%);
+    }
+  }
+  .form-label {
+    font-weight: 500;
+  }
+  .preview-card {
+    background-color: #f8f9fa;
+    border: 1px dashed #dee2e6;
+    margin-top: 1.5rem;
+    border-radius: 0.5rem;
+  }
+}

@@ -1,0 +1,38 @@
+// frontend/src/styles/_variables.scss
+
+// 1. Definisikan Palet Warna Formal & Modern
+// Menggunakan nuansa biru yang profesional dan abu-abu netral.
+$primary:       #0A4D68;  // Biru tua sebagai warna utama
+$secondary:     #6c757d;  // Abu-abu standar untuk elemen sekunder
+$success:       #198754;  // Hijau standar untuk notifikasi sukses
+$info:          #0dcaf0;  // Biru muda untuk informasi
+$warning:       #ffc107;  // Kuning standar untuk peringatan
+$danger:        #dc3545;  // Merah standar untuk error
+$light:         #f8f9fa;  // Latar belakang yang sedikit abu-abu
+$dark:          #343a40;  // Teks yang tidak terlalu hitam pekat
+
+// 2. Kustomisasi Tipografi
+// Font 'Inter' sudah Anda gunakan di halaman login, kita akan menjadikannya standar global.
+$font-family-sans-serif: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$headings-font-weight: 600; // Membuat judul sedikit lebih ramping dari default (700)
+$font-size-base: 0.95rem; // Sedikit memperkecil ukuran font dasar untuk tampilan yang lebih padat & profesional
+
+// 3. Kustomisasi Komponen Global
+// Membuat tampilan lebih modern dengan sudut yang lebih tumpul dan bayangan yang halus.
+$border-radius:       0.5rem; // Mengurangi radius sudut dari default Bootstrap
+$border-radius-lg:    0.75rem;
+$border-radius-sm:    0.4rem;
+$box-shadow:          0 0.5rem 1.5rem rgba($dark, 0.08);
+$box-shadow-sm:       0 0.125rem 0.25rem rgba($dark, 0.06);
+
+// Kustomisasi Tombol (Button)
+$btn-padding-y:       0.5rem;
+$btn-padding-x:       1.25rem;
+$btn-font-weight:     600;
+$btn-box-shadow:      inset 0 1px 0 rgba(#fff, .15), 0 1px 1px rgba($dark, .075);
+$btn-focus-box-shadow: 0 0 0 0.25rem rgba($primary, .20); // Bayangan fokus yang lebih soft
+
+// Kustomisasi Input Formulir
+$input-border-color: #dee2e6;
+$input-focus-border-color: lighten($primary, 25%);
+$input-focus-box-shadow: 0 0 0 0.25rem rgba($primary, .20);

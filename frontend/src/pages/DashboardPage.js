@@ -1,525 +1,279 @@
-// src/pages/DashboardPage.js - FIXED ADMIN DASHBOARD (No Evaluation Access)
+// src/pages/DashboardPage.js
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { dashboardAPI, finalEvaluationAPI, periodAPI, testConnection, evaluationAPI } from '../services/api';
+import { dashboardAPI, finalEvaluationAPI, periodAPI, evaluationAPI } from '../services/api';
+import { Link } from 'react-router-dom';
+import '../styles/Dashboard.scss';
 
-// Simple inline API Test component
-const ApiTest = () => {
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+// --- Komponen-komponen Dashboard ---
 
-  const runTests = async () => {
-    setLoading(true);
-    setResults([]);
-
-    const tests = [
-      {
-        name: 'Backend Connection',
-        test: async () => {
-          const result = await testConnection();
-          return result.success ? 'Connected' : 'Failed';
-        }
-      },
-      {
-        name: 'Get Parameters',
-        test: async () => {
-          const response = await evaluationAPI.getParameters();
-          return `${response.data.data.parameters.length} parameters`;
-        }
-      },
-      {
-        name: 'Get Period',
-        test: async () => {
-          const response = await evaluationAPI.getActivePeriod();
-          return response.data.data.period.namaPeriode;
-        }
-      }
-    ];
-
-    for (const testCase of tests) {
-      try {
-        const result = await testCase.test();
-        setResults(prev => [...prev, { name: testCase.name, success: true, result }]);
-      } catch (error) {
-        setResults(prev => [...prev, { name: testCase.name, success: false, result: error.message }]);
-      }
-    }
-
-    setLoading(false);
-  };
-
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h6 className="mb-0">API Test</h6>
-      </div>
-      <div className="card-body">
-        <button 
-          className="btn btn-primary btn-sm w-100 mb-2" 
-          onClick={runTests}
-          disabled={loading}
-        >
-          {loading ? 'Testing...' : 'Run Tests'}
-        </button>
-        
-        {results.map((result, index) => (
-          <div key={index} className={`small p-2 mb-1 rounded ${result.success ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10'}`}>
-            <strong>{result.name}:</strong> {result.result}
-          </div>
-        ))}
-      </div>
+const StatCardColorful = ({ title, value, icon, unit = '', colorClass = 'bg-primary' }) => (
+    <div className={`stat-card-colorful ${colorClass} h-100`}>
+        <h6 className="stat-label">{title}</h6>
+        <h2 className="stat-value">{value} <small className="fs-5 opacity-75">{unit}</small></h2>
+        <i className={`fas ${icon} stat-icon`}></i>
     </div>
-  );
+);
+
+const BestEmployeeCard = ({ employee }) => {
+    if (!employee) {
+        return (
+            <div className="card dashboard-card mb-4">
+                <div className="card-body text-center p-5">
+                    <i className="fas fa-award fa-3x text-muted mb-3"></i>
+                    <h6 className="text-muted">Best Employee belum ditentukan</h6>
+                    <p className="small text-muted">Silahkan melakukan penilaian dan jalankan perhitungan final untuk menentukan pegawai terbaik periode ini.</p>
+                </div>
+            </div>
+        );
+    }
+    const getInitials = (name = '') => name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    return (
+        <div className="best-employee-card card dashboard-card mb-4">
+            <div className="congrats-banner">
+                <i className="fas fa-star"></i> CONGRATULATIONS!
+            </div>
+            <div className="text-center pt-4">
+                <div className="mx-auto d-flex align-items-center justify-content-center" style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #fceabb, #f8b500)', color: '#fff', fontSize: '2rem', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+                    {getInitials(employee.user.nama)}
+                </div>
+                <h4 className="mt-3 mb-1 fw-bold">{employee.user.nama}</h4>
+                <p className="text-muted small mb-3">{employee.user.jabatan}</p>
+                <div className="mb-3">
+                    <span className="h1 fw-bolder text-success me-2">{employee.finalScore.toFixed(2)}</span>
+                    <br />
+                    <span className="text-muted">Nilai Akhir</span>
+                </div>
+                <div className="row gx-2">
+                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">BerAKHLAK</small><strong className="text-primary">{employee.berakhlakScore.toFixed(1)}</strong></div></div>
+                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">Presensi</small><strong className="text-primary">{employee.presensiScore.toFixed(1)}</strong></div></div>
+                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">CKP</small><strong className="text-primary">{employee.ckpScore.toFixed(1)}</strong></div></div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
-const DashboardPage = () => {
-  const { user, logout } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
-  // Dashboard data
-  const [stats, setStats] = useState(null);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [activePeriod, setActivePeriod] = useState(null);
-  const [evaluationProgress, setEvaluationProgress] = useState(null);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      // Load basic data for all users
-      try {
-        const periodResponse = await periodAPI.getActive();
-        setActivePeriod(periodResponse.data.data.period);
-      } catch (error) {
-        console.warn('Failed to load active period:', error);
-      }
-
-      try {
-        const leaderboardResponse = await finalEvaluationAPI.getLeaderboard({ limit: 5 });
-        setLeaderboard(leaderboardResponse.data.data.leaderboard);
-      } catch (error) {
-        console.warn('Failed to load leaderboard:', error);
-      }
-
-      // Load additional data for ADMIN/PIMPINAN only
-      if (user?.role === 'ADMIN' || user?.role === 'PIMPINAN') {
-        try {
-          const [statsResponse, progressResponse] = await Promise.all([
-            dashboardAPI.getStats(),
-            dashboardAPI.getEvaluationProgress()
-          ]);
-          
-          setStats(statsResponse.data.data);
-          setEvaluationProgress(progressResponse.data.data);
-        } catch (error) {
-          console.warn('Failed to load admin/pimpinan data:', error);
-        }
-      }
-
-    } catch (error) {
-      console.error('Load dashboard data error:', error);
-      if (user?.role === 'STAFF') {
-        console.log('Staff dashboard loaded with limited data');
-      } else {
-        setError('Gagal memuat sebagian data dashboard');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
-  };
-
-  const getProgressPercentage = (completed, total) => {
-    if (total === 0) return 0;
-    return Math.round((completed / total) * 100);
-  };
-
-  const getProgressColor = (percentage) => {
-    if (percentage >= 80) return 'bg-success';
-    if (percentage >= 60) return 'bg-warning';
-    return 'bg-danger';
-  };
-
-  if (loading) {
+const RadialProgress = ({ percentage, color = '#2c549c' }) => {
+    const radius = 60;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (percentage / 100) * circumference;
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
-        <div className="text-center">
-          <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="text-muted">Memuat dashboard...</p>
+        <div className="progress-radial">
+            <svg width="100%" height="100%" viewBox="0 0 150 150">
+                <circle cx="75" cy="75" r={radius} fill="none" stroke="#e9ecef" strokeWidth="15" />
+                <circle className="progress-circle" cx="75" cy="75" r={radius} fill="none" stroke={color} strokeWidth="15" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 75 75)" />
+                <text x="50%" y="50%" dy=".3em" textAnchor="middle" className="progress-text" fill={color}>{percentage}%</text>
+            </svg>
         </div>
-      </div>
     );
-  }
+};
 
-  return (
-    <div className="container-fluid">
-      {/* Header */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 className="h3 mb-1">Dashboard</h1>
-              <p className="text-muted">
-                Selamat datang, <strong>{user?.nama}</strong> | 
-                <span className={`badge ms-2 ${user?.role === 'ADMIN' ? 'bg-danger' : user?.role === 'PIMPINAN' ? 'bg-warning text-dark' : 'bg-primary'}`}>
-                  {user?.role}
-                </span>
-              </p>
-            </div>
-            <div className="d-flex align-items-center gap-3">
-              {activePeriod && (
-                <div className="text-end">
-                  <small className="text-muted">Periode Aktif</small>
-                  <h6 className="mb-0">{activePeriod.namaPeriode}</h6>
-                </div>
-              )}
-              <button 
-                className="btn btn-outline-danger btn-sm"
-                onClick={handleLogout}
-                title="Logout"
-              >
-                <i className="fas fa-sign-out-alt me-2"></i>
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+// --- Komponen Baru untuk Staff ---
 
-      {/* Error Alert */}
-      {error && (
-        <div className="alert alert-danger alert-dismissible fade show">
-          <i className="fas fa-exclamation-triangle me-2"></i>
-          {error}
-          <button type="button" className="btn-close" onClick={() => setError('')}></button>
-        </div>
-      )}
+const StaffActionCard = ({ periodName }) => (
+    <div className="staff-action-card mb-4">
+        <h4>Saatnya Memberi Penilaian!</h4>
+        <p>Periode <strong>{periodName || 'saat ini'}</strong> telah dibuka. Berikan penilaian Anda untuk menentukan pegawai teladan.</p>
+        <Link to="/evaluation" className="btn btn-warning btn-lg btn-action-start">
+            Mulai Menilai
+            <i className="fas fa-arrow-right ms-2"></i>
+        </Link>
+    </div>
+);
 
-      {/* Quick Actions for Staff */}
-      {user?.role === 'STAFF' && (
-        <div className="row mb-4">
-          <div className="col-12">
-            <div className="card border-primary">
-              <div className="card-body text-center py-4">
-                <h5 className="card-title text-primary">
-                  <i className="fas fa-star me-2"></i>
-                  Penilaian Tokoh BerAKHLAK
+const EvaluationHistoryCard = ({ evaluations = [] }) => {
+    const getRankingBadge = (ranking) => {
+        if (ranking === 1) return 'bg-success';
+        if (ranking === 2) return 'bg-primary';
+        return 'bg-info';
+    };
+
+    return (
+        <div className="dashboard-card">
+            <div className="card-body p-4">
+                <h5 className="card-title mb-2">
+                    <i className="fas fa-history me-2"></i>
+                    Riwayat Penilaian Terakhir
                 </h5>
-                <p className="card-text text-muted">
-                  Lakukan penilaian untuk periode <strong>{activePeriod?.namaPeriode}</strong>
-                </p>
-                <a href="/evaluation" className="btn btn-primary btn-lg">
-                  <i className="fas fa-pencil-alt me-2"></i>
-                  Mulai Penilaian
-                </a>
-              </div>
+                {evaluations.length > 0 ? (
+                    <div className="list-group list-group-flush">
+                        {evaluations.map(ev => (
+                            <div key={ev.id} className="list-group-item history-item px-0">
+                                <div className="d-flex align-items-center">
+                                    <span className={`badge ${getRankingBadge(ev.ranking)} me-3`}>Tokoh {ev.ranking}</span>
+                                    <div className="user-info">
+                                        <strong>{ev.target.nama}</strong>
+                                        <span className="jabatan">{ev.target.jabatan}</span>
+                                    </div>
+                                </div>
+                                <div className="text-end">
+                                    <span className="text-muted small">{ev.period.namaPeriode}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-muted mt-3">Anda belum pernah melakukan penilaian.</p>
+                )}
             </div>
-          </div>
         </div>
-      )}
+    );
+};
 
-      {/* Statistics Cards - Admin/Pimpinan Only */}
-      {(user?.role === 'ADMIN' || user?.role === 'PIMPINAN') && stats && (
-        <div className="row mb-4">
-          <div className="col-md-3">
-            <div className="card bg-primary text-white">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className="card-title mb-0">Total Pegawai</h6>
-                    <h3 className="mb-0">{stats.overview.totalUsers}</h3>
-                  </div>
-                  <i className="fas fa-users fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card bg-success text-white">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className="card-title mb-0">Sudah Menilai</h6>
-                    <h3 className="mb-0">{stats.overview.completedEvaluations}</h3>
-                    <small>{stats.overview.completionRate}%</small>
-                  </div>
-                  <i className="fas fa-check-circle fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card bg-warning text-dark">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className="card-title mb-0">Rata-rata Presensi</h6>
-                    <h3 className="mb-0">{stats.scores.attendance.average.toFixed(1)}</h3>
-                  </div>
-                  <i className="fas fa-calendar-check fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="card bg-info text-white">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className="card-title mb-0">Rata-rata CKP</h6>
-                    <h3 className="mb-0">{stats.scores.ckp.average.toFixed(1)}</h3>
-                  </div>
-                  <i className="fas fa-chart-line fa-2x opacity-75"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      <div className="row">
-        {/* Best Employee / Leaderboard */}
-        <div className="col-md-8">
-          <div className="card h-100">
-            <div className="card-header">
-              <h5 className="card-title mb-0">
-                <i className="fas fa-trophy text-warning me-2"></i>
-                {leaderboard.length > 0 && leaderboard[0]?.isBestEmployee 
-                  ? 'Best Employee of the Month' 
-                  : 'Top Performers'
+// --- Komponen Utama Dashboard ---
+const DashboardPage = () => {
+    // ... (Hooks useState dan useEffect tetap sama dari sebelumnya)
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    const [stats, setStats] = useState(null);
+    const [bestEmployee, setBestEmployee] = useState(null);
+    const [activePeriod, setActivePeriod] = useState(null);
+    const [evaluationProgress, setEvaluationProgress] = useState(null);
+    const [myEvaluations, setMyEvaluations] = useState([]);
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                setLoading(true);
+                const periodRes = await periodAPI.getActive();
+                const periodId = periodRes.data.data.period.id;
+                setActivePeriod(periodRes.data.data.period);
+
+                const commonPromises = [
+                    finalEvaluationAPI.getLeaderboard({ periodId, limit: 1 }).catch(e => e),
+                    evaluationAPI.getMyEvaluations({ periodId }).catch(e => e)
+                ];
+
+                if (user.role === 'ADMIN' || user.role === 'PIMPINAN') {
+                    commonPromises.push(dashboardAPI.getStats({ periodId }).catch(e => e));
+                    commonPromises.push(dashboardAPI.getEvaluationProgress({ periodId }).catch(e => e));
                 }
-              </h5>
+
+                const results = await Promise.all(commonPromises);
+                
+                const leaderboardRes = results[0];
+                const myEvaluationsRes = results[1];
+
+                if (!(leaderboardRes instanceof Error) && leaderboardRes.data.data.leaderboard.length > 0 && leaderboardRes.data.data.leaderboard[0].isBestEmployee) {
+                    setBestEmployee(leaderboardRes.data.data.leaderboard[0]);
+                }
+                if (!(myEvaluationsRes instanceof Error)) {
+                    setMyEvaluations(myEvaluationsRes.data.data.evaluations);
+                }
+
+                if (user.role === 'ADMIN' || user.role === 'PIMPINAN') {
+                    const statsRes = results[2];
+                    const progressRes = results[3];
+                    if (!(statsRes instanceof Error)) setStats(statsRes.data.data);
+                    if (!(progressRes instanceof Error)) setEvaluationProgress(progressRes.data.data);
+                }
+
+            } catch (err) {
+                setError('Gagal memuat data dashboard.');
+                console.error("Dashboard load error:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadData();
+    }, [user.role]);
+    
+    const renderAdminDashboard = () => (
+        <div className="row g-4">
+            <div className="col-lg-5 d-flex flex-column">
+                <BestEmployeeCard employee={bestEmployee} />
             </div>
-            <div className="card-body">
-              {leaderboard.length === 0 ? (
-                <div className="text-center py-4">
-                  <i className="fas fa-award fa-3x text-muted mb-3"></i>
-                  <p className="text-muted">Belum ada data evaluasi untuk periode ini</p>
+            <div className="col-lg-7 d-flex flex-column">
+                <div className="row g-4 flex-grow-1">
+                    <div className="col-md-5">
+                        <div className="dashboard-card progress-card">
+                            <div className="card-body d-flex flex-column align-items-center justify-content-center p-4">
+                                <h5 className="card-title mb-4">Progress Evaluasi</h5>
+                                <RadialProgress percentage={evaluationProgress ? Math.round((evaluationProgress.summary.completed / evaluationProgress.summary.total) * 100) : 0} />
+                                <div className="w-100 mt-4 text-center">
+                                    <div className="d-flex justify-content-around">
+                                        <div><p className="mb-0 h5 fw-bold text-success">{evaluationProgress?.summary?.completed || 0}</p><small className="text-muted">Sudah Menilai</small></div>
+                                        <div><p className="mb-0 h5 fw-bold text-danger">{(evaluationProgress?.summary?.total - evaluationProgress?.summary?.completed) || 0}</p><small className="text-muted">Belum Menilai</small></div>
+                                    </div>
+                                    <Link to="/monitoring" className="btn btn-outline-primary btn-sm mt-4 w-100">Lihat Detail</Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col-md-7">
+                        <div className="dashboard-card quick-actions-card">
+                            <div className="card-body p-4">
+                                <h5 className="card-title mb-4"><i className="fas fa-rocket me-2"></i>Aksi Cepat</h5>
+                                <div className="d-grid gap-3">
+                                    <Link to="/attendance-input" className="btn btn-light btn-action text-success border"><i className="fas fa-calendar-check"></i><span>Input Presensi</span></Link>
+                                    <Link to="/ckp-input" className="btn btn-light btn-action text-warning border"><i className="fas fa-chart-line"></i><span>Input CKP</span></Link>
+                                    <Link to="/period-management" className="btn btn-light btn-action text-danger border"><i className="fas fa-calendar-alt"></i><span>Kelola Periode</span></Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              ) : (
-                <div className="row">
-                  {leaderboard.map((employee, index) => (
-                    <div key={employee.user.id} className="col-12 mb-3">
-                      <div className={`card ${index === 0 && employee.isBestEmployee ? 'border-warning bg-light' : 'border-light'}`}>
-                        <div className="card-body py-3">
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div className="d-flex align-items-center">
-                              <div className={`badge ${index === 0 ? 'bg-warning text-dark' : index === 1 ? 'bg-secondary' : 'bg-light text-dark'} me-3 fs-6`}>
-                                #{index + 1}
-                              </div>
-                              <div>
-                                <h6 className="mb-0">{employee.user.nama}</h6>
-                                <small className="text-muted">{employee.user.jabatan}</small>
-                                {index === 0 && employee.isBestEmployee && (
-                                  <span className="badge bg-warning text-dark ms-2">
-                                    <i className="fas fa-crown me-1"></i>
-                                    Best Employee
-                                  </span>
-                                )}
-                              </div>
+            </div>
+        </div>
+    );
+    
+    const renderStaffDashboard = () => (
+         <div className="row g-4">
+            <div className="col-lg-7">
+                <StaffActionCard periodName={activePeriod?.namaPeriode} />
+                <div className="d-none d-lg-block mt-4">
+                  <EvaluationHistoryCard evaluations={myEvaluations} />
+                </div>
+            </div>
+            <div className="col-lg-5">
+                <BestEmployeeCard employee={bestEmployee} />
+            </div>
+        </div>
+    );
+    
+    return (
+        <div className="container-fluid">
+            {loading ? (
+                <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
+                    <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}></div>
+                </div>
+            ) : (
+                <>
+                    <div className="welcome-header">
+                        <div className="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h1 className="welcome-title">Dashboard</h1>
+                                <p className="welcome-subtitle mb-0">Selamat datang, <span className="welcome-user-badge">{user.nama}</span></p>
                             </div>
                             <div className="text-end">
-                              <strong className="text-primary">{employee.finalScore.toFixed(2)}</strong>
-                              <div className="small text-muted">
-                                B:{employee.berakhlakScore.toFixed(1)} | 
-                                P:{employee.presensiScore.toFixed(1)} | 
-                                C:{employee.ckpScore.toFixed(1)}
-                              </div>
+                                <h6 className="mb-1 opacity-75">Periode Aktif</h6>
+                                <span className="badge period-badge fs-6">{activePeriod?.namaPeriode || 'N/A'}</span>
                             </div>
-                          </div>
                         </div>
-                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Evaluation Progress - Admin/Pimpinan Only */}
-        <div className="col-md-4">
-          {(user?.role === 'ADMIN' || user?.role === 'PIMPINAN') && evaluationProgress ? (
-            <div className="card h-100">
-              <div className="card-header">
-                <h5 className="card-title mb-0">
-                  <i className="fas fa-chart-pie me-2"></i>
-                  Progress Evaluasi
-                </h5>
-              </div>
-              <div className="card-body">
-                <div className="text-center mb-4">
-                  <div className="position-relative d-inline-block">
-                    <div 
-                      className="progress mx-auto" 
-                      style={{ width: '120px', height: '120px', borderRadius: '50%' }}
-                    >
-                      <div 
-                        className={`progress-bar ${getProgressColor(getProgressPercentage(evaluationProgress.summary.completed, evaluationProgress.summary.total))}`}
-                        style={{ 
-                          width: `${getProgressPercentage(evaluationProgress.summary.completed, evaluationProgress.summary.total)}%`,
-                          borderRadius: '50%'
-                        }}
-                      ></div>
-                    </div>
-                    <div className="position-absolute top-50 start-50 translate-middle">
-                      <h4 className="mb-0">{getProgressPercentage(evaluationProgress.summary.completed, evaluationProgress.summary.total)}%</h4>
-                      <small className="text-muted">Selesai</small>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="row text-center">
-                  <div className="col-4">
-                    <div className="border-end">
-                      <h6 className="text-success mb-0">{evaluationProgress.summary.completed}</h6>
-                      <small className="text-muted">Selesai</small>
-                    </div>
-                  </div>
-                  <div className="col-4">
-                    <div className="border-end">
-                      <h6 className="text-warning mb-0">{evaluationProgress.summary.partial}</h6>
-                      <small className="text-muted">Sebagian</small>
-                    </div>
-                  </div>
-                  <div className="col-4">
-                    <h6 className="text-danger mb-0">{evaluationProgress.summary.notStarted}</h6>
-                    <small className="text-muted">Belum</small>
-                  </div>
-                </div>
+                    {error && <div className="alert alert-danger">{error}</div>}
 
-                <div className="mt-4">
-                  <a href="/monitoring" className="btn btn-outline-primary btn-sm w-100">
-                    <i className="fas fa-eye me-2"></i>
-                    Lihat Detail
-                  </a>
-                </div>
-              </div>
-            </div>
-          ) : (
-            // Quick Links for Staff
-            <div className="card h-100">
-              <div className="card-header">
-                <h5 className="card-title mb-0">
-                  <i className="fas fa-link me-2"></i>
-                  Menu Cepat
-                </h5>
-              </div>
-              <div className="card-body">
-                <div className="d-grid gap-2">
-                  <a href="/evaluation" className="btn btn-outline-primary">
-                    <i className="fas fa-star me-2"></i>
-                    Penilaian BerAKHLAK
-                  </a>
-                  <a href="/dashboard" className="btn btn-outline-secondary">
-                    <i className="fas fa-chart-bar me-2"></i>
-                    Lihat Ranking
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+                    {(user.role === 'ADMIN' || user.role === 'PIMPINAN') && (
+                        <div className="row g-4 mb-4">
+                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Total Pegawai" value={stats?.overview?.totalUsers || 0} icon="fa-users" colorClass="bg-primary" /></div>
+                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Sudah Menilai" value={evaluationProgress?.summary?.completed || 0} icon="fa-user-check" unit={`/ ${evaluationProgress?.summary?.total || 0}`} colorClass="bg-success" /></div>
+                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Rata-rata Presensi" value={stats?.scores?.attendance?.average.toFixed(1) || '0.0'} icon="fa-calendar-check" colorClass="bg-warning text-dark" /></div>
+                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Rata-rata CKP" value={stats?.scores?.ckp?.average.toFixed(1) || '0.0'} icon="fa-chart-line" colorClass="bg-info" /></div>
+                        </div>
+                    )}
 
-      {/* Quick Actions - FIXED: Admin can't do evaluation */}
-      {(user?.role === 'ADMIN' || user?.role === 'PIMPINAN') && (
-        <div className="row mt-4">
-          <div className="col-12">
-            <div className="card">
-              <div className="card-header">
-                <h5 className="card-title mb-0">
-                  <i className="fas fa-cogs me-2"></i>
-                  Aksi Cepat
-                </h5>
-              </div>
-              <div className="card-body">
-                <div className="row">
-                  {user?.role === 'ADMIN' && (
-                    <>
-                      <div className="col-md-3 mb-3">
-                        <a href="/users" className="btn btn-outline-primary w-100">
-                          <i className="fas fa-users me-2"></i>
-                          Kelola User
-                        </a>
-                      </div>
-                      <div className="col-md-3 mb-3">
-                        <a href="/attendance" className="btn btn-outline-success w-100">
-                          <i className="fas fa-calendar-check me-2"></i>
-                          Input Presensi
-                        </a>
-                      </div>
-                    </>
-                  )}
-                  <div className="col-md-3 mb-3">
-                    <a href="/monitoring" className="btn btn-outline-warning w-100">
-                      <i className="fas fa-chart-pie me-2"></i>
-                      Monitoring
-                    </a>
-                  </div>
-                  {/* REMOVED: Evaluation access for Admin */}
-                  {user?.role === 'PIMPINAN' && (
-                    <div className="col-md-3 mb-3">
-                      <a href="/evaluation" className="btn btn-outline-info w-100">
-                        <i className="fas fa-star me-2"></i>
-                        Ikut Menilai
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+                    {user.role === 'STAFF' || user.role === 'PIMPINAN' ? renderStaffDashboard() : renderAdminDashboard()}
+                </>
+            )}
         </div>
-      )}
-
-      {/* System Info */}
-      <div className="row mt-4">
-        <div className="col-md-8">
-          <div className="card bg-light">
-            <div className="card-body py-3">
-              <div className="row align-items-center">
-                <div className="col-md-8">
-                  <h6 className="mb-1">
-                    <i className="fas fa-info-circle me-2"></i>
-                    Sistem Penilaian Pegawai BPS Kabupaten Pringsewu
-                  </h6>
-                  <small className="text-muted">
-                    Sistem penilaian berbasis nilai BerAKHLAK, Presensi, dan CKP untuk menentukan Best Employee of the Month
-                  </small>
-                </div>
-                <div className="col-md-4 text-end">
-                  <small className="text-muted">
-                    Logged in as: <strong>{user?.nama}</strong><br/>
-                    Period: <strong>{activePeriod?.namaPeriode || 'Tidak ada periode aktif'}</strong>
-                  </small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* API Test - Admin Only */}
-        {user?.role === 'ADMIN' && (
-          <div className="col-md-4">
-            <ApiTest />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    );
 };
 
 export default DashboardPage;

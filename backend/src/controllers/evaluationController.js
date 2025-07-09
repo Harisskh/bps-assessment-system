@@ -137,8 +137,37 @@ const submitEvaluation = async (req, res) => {
     if (!period || !period.isActive) {
       return res.status(400).json({
         success: false,
-        message: 'Periode tidak aktif atau tidak valid'
+        message: 'Periode penilaian tidak aktif atau tidak valid.'
       });
+    }
+
+    // ==========================================================
+    // LOGIKA BARU: Validasi Tanggal Penilaian
+    // ==========================================================
+    const now = new Date();
+    // Set jam ke 00:00:00 untuk perbandingan tanggal yang akurat
+    now.setHours(0, 0, 0, 0);
+
+    if (period.startDate) {
+        const startDate = new Date(period.startDate);
+        startDate.setHours(0, 0, 0, 0);
+        if (now < startDate) {
+            return res.status(400).json({
+                success: false,
+                message: `Penilaian untuk periode ${period.namaPeriode} baru akan dibuka pada tanggal ${startDate.toLocaleDateString('id-ID')}.`
+            });
+        }
+    }
+
+    if (period.endDate) {
+        const endDate = new Date(period.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        if (now > endDate) {
+            return res.status(400).json({
+                success: false,
+                message: `Waktu penilaian untuk periode ${period.namaPeriode} telah berakhir pada tanggal ${endDate.toLocaleDateString('id-ID')}.`
+            });
+        }
     }
 
     // Check if evaluator has already submitted for this period

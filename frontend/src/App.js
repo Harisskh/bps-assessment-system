@@ -1,4 +1,4 @@
-// src/App.js - UPDATED WITH ALL NEW ROUTES
+// src/App.js - UPDATED WITH NEW SIDEBAR LAYOUT
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -18,8 +18,7 @@ import EnhancedMonitoringPage from './pages/EnhancedMonitoringPage';
 import FinalCalculationPage from './pages/FinalCalculationPage';
 
 // Components
-import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
+import Layout from './components/Layout';
 
 // Protected Route component
 const ProtectedRoute = ({ children, requiredRole = null }) => {
@@ -46,21 +45,6 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   return children;
 };
 
-// Layout component
-const Layout = ({ children }) => {
-  return (
-    <div className="d-flex">
-      <Sidebar />
-      <div className="flex-grow-1">
-        <Navbar />
-        <div className="container-fluid p-4">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 function App() {
   return (
     <AuthProvider>
@@ -69,7 +53,7 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           
-          {/* Protected routes */}
+          {/* Protected routes dengan Layout yang sudah include Sidebar */}
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Layout>
@@ -128,7 +112,7 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* Admin & Pimpinan Routes */}
+          {/* Admin & Pimpinan - Users/Data Pegawai */}
           <Route path="/users" element={
             <ProtectedRoute requiredRole={['ADMIN', 'PIMPINAN']}>
               <Layout>
@@ -137,6 +121,7 @@ function App() {
             </ProtectedRoute>
           } />
           
+          {/* Admin & Pimpinan - Monitoring */}
           <Route path="/monitoring" element={
             <ProtectedRoute requiredRole={['ADMIN', 'PIMPINAN']}>
               <Layout>
@@ -145,24 +130,7 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* Legacy routes - keep for backward compatibility */}
-          <Route path="/attendance" element={
-            <ProtectedRoute requiredRole={['ADMIN']}>
-              <Layout>
-                <AttendanceInputPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/ckp" element={
-            <ProtectedRoute requiredRole={['ADMIN']}>
-              <Layout>
-                <CkpInputPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          {/* Default redirect */}
+          {/* Redirect root to dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>

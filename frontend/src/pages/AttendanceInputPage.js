@@ -443,7 +443,7 @@ const AttendanceInputPage = () => {
                     <option value="">-- Pilih Periode --</option>
                     {periods.map(period => (
                       <option key={period.id} value={period.id}>
-                        {period.namaPeriode} ({period.tahun})
+                        {period.namaPeriode} {period.isActive && '(Aktif)'}
                       </option>
                     ))}
                   </select>
@@ -518,8 +518,8 @@ const AttendanceInputPage = () => {
                     <tbody>
                       {attendanceRecords && attendanceRecords.map((attendance) => (
                         <tr key={attendance.id}>
-                          <td><small>{attendance.user.nip}</small></td>
-                          <td>{attendance.user.nama}</td>
+                          <td className='text-dark'>{attendance.user.nip}</td>
+                          <td className="text-dark fw-semibold">{attendance.user.nama}</td>
                           <td><small>{attendance.user.jabatan}</small></td>
                           <td>
                             <small className="text-muted">

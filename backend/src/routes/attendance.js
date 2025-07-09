@@ -1,21 +1,25 @@
-// Fixed Routes - Remove duplicate paths yang menyebabkan error 404
-// File: routes/attendance.js - FIXED VERSION
+// =====================
+// ATTENDANCE ROUTES - FIXED VERSION
+// File: backend/routes/attendance.js
+// =====================
 
 const express = require('express');
 const router = express.Router();
 
-// Import controllers
+// Import controllers - FIXED with proper destructuring
 const {
-  // Attendance
-  getAllAttendance,
+  // Attendance functions
   upsertAttendance,
   getAttendanceById,
+  getAllAttendance,
   deleteAttendance,
-  // CKP
+  
+  // CKP functions
   getAllCkpScores,
   upsertCkpScore,
   getCkpScoreById,
   deleteCkpScore,
+  
   // Statistics
   getAttendanceCkpStats
 } = require('../controllers/attendanceController');

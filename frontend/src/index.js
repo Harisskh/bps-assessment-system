@@ -7,3 +7,11 @@ import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+
+// Disable Bootstrap dropdown
+document.addEventListener('DOMContentLoaded', function() {
+    // Remove any bootstrap dropdown data attributes
+    document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(el => {
+        el.removeAttribute('data-bs-toggle');
+    });
+});

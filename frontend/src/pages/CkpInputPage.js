@@ -266,7 +266,7 @@ const CkpInputPage = () => {
     if (score >= 90) return { label: 'Sangat Baik', color: 'success' };
     if (score >= 80) return { label: 'Baik', color: 'primary' };
     if (score >= 70) return { label: 'Cukup', color: 'warning' };
-    if (score >= 60) return { label: 'Kurang', color: 'danger' };
+    if (score >= 60) return
     return { label: 'Sangat Kurang', color: 'dark' };
   };
 
@@ -346,26 +346,6 @@ const CkpInputPage = () => {
                 dalam melaksanakan tugasnya sesuai dengan tanggung jawab yang diberikan kepadanya.
               </p>
             </div>
-            <div className="col-md-4">
-              <div className="d-flex justify-content-around">
-                <div className="text-center">
-                  <span className="badge bg-success fs-6">90-100</span>
-                  <small className="d-block text-muted">Sangat Baik</small>
-                </div>
-                <div className="text-center">
-                  <span className="badge bg-primary fs-6">80-89</span>
-                  <small className="d-block text-muted">Baik</small>
-                </div>
-                <div className="text-center">
-                  <span className="badge bg-warning fs-6">70-79</span>
-                  <small className="d-block text-muted">Cukup</small>
-                </div>
-                <div className="text-center">
-                  <span className="badge bg-danger fs-6">60-69</span>
-                  <small className="d-block text-muted">Kurang</small>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -384,7 +364,7 @@ const CkpInputPage = () => {
                 <option value="">-- Pilih Periode --</option>
                 {periods.map(period => (
                   <option key={period.id} value={period.id}>
-                    {period.namaPeriode} ({period.tahun}) {period.isActive && '(Aktif)'}
+                    {period.namaPeriode} {period.isActive && '(Aktif)'}
                   </option>
                 ))}
               </select>
@@ -454,7 +434,6 @@ const CkpInputPage = () => {
                         <th>Nama Pegawai</th>
                         <th>Jabatan</th>
                         <th>Skor CKP</th>
-                        <th>Level</th>
                         <th>Keterangan</th>
                         <th width="150">Aksi</th>
                       </tr>
@@ -464,12 +443,8 @@ const CkpInputPage = () => {
                         const scoreLevel = getScoreLevel(ckp.score);
                         return (
                           <tr key={ckp.id}>
-                            <td>
-                              <span className="fw-bold">{ckp.user.nip}</span>
-                            </td>
-                            <td>
-                              <strong>{ckp.user.nama}</strong>
-                            </td>
+                            <td className='text-dark'>{ckp.user.nip}</td>
+                            <td className="text-dark fw-semibold">{ckp.user.nama}</td>
                             <td>
                               <small className="text-muted">{ckp.user.jabatan}</small>
                             </td>
@@ -488,11 +463,6 @@ const CkpInputPage = () => {
                                   ></div>
                                 </div>
                               </div>
-                            </td>
-                            <td>
-                              <span className={`badge bg-${scoreLevel.color}`}>
-                                {scoreLevel.label}
-                              </span>
                             </td>
                             <td>
                               <small className="text-muted">
@@ -532,47 +502,6 @@ const CkpInputPage = () => {
                   </table>
                 </div>
 
-                {/* Summary Statistics */}
-                {ckpRecords.length > 0 && (
-                  <div className="mt-4 p-3 bg-light rounded">
-                    <div className="row text-center">
-                      <div className="col-md-2">
-                        <h5 className="text-primary mb-0">{ckpRecords.length}</h5>
-                        <small className="text-muted">Total Record</small>
-                      </div>
-                      <div className="col-md-2">
-                        <h5 className="text-success mb-0">
-                          {ckpRecords.filter(c => c.score >= 90).length}
-                        </h5>
-                        <small className="text-muted">Sangat Baik</small>
-                      </div>
-                      <div className="col-md-2">
-                        <h5 className="text-primary mb-0">
-                          {ckpRecords.filter(c => c.score >= 80 && c.score < 90).length}
-                        </h5>
-                        <small className="text-muted">Baik</small>
-                      </div>
-                      <div className="col-md-2">
-                        <h5 className="text-warning mb-0">
-                          {ckpRecords.filter(c => c.score >= 70 && c.score < 80).length}
-                        </h5>
-                        <small className="text-muted">Cukup</small>
-                      </div>
-                      <div className="col-md-2">
-                        <h5 className="text-danger mb-0">
-                          {ckpRecords.filter(c => c.score >= 60 && c.score < 70).length}
-                        </h5>
-                        <small className="text-muted">Kurang</small>
-                      </div>
-                      <div className="col-md-2">
-                        <h5 className="text-success mb-0">
-                          {ckpRecords.length > 0 ? (ckpRecords.reduce((sum, c) => sum + c.score, 0) / ckpRecords.length).toFixed(1) : 0}
-                        </h5>
-                        <small className="text-muted">Rata-rata</small>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -644,46 +573,6 @@ const CkpInputPage = () => {
                       <small className="form-text text-muted">
                         Masukkan nilai CKP antara 0-100 (bisa desimal)
                       </small>
-                    </div>
-
-                    <div className="col-md-6">
-                      <label className="form-label">Preview Level</label>
-                      <div className="form-control-plaintext">
-                        {formData.score ? (
-                          <span className={`badge bg-${getScoreLevel(parseFloat(formData.score)).color} fs-6`}>
-                            {getScoreLevel(parseFloat(formData.score)).label}
-                          </span>
-                        ) : (
-                          <span className="text-muted">Masukkan skor untuk melihat level</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Score Reference */}
-                    <div className="col-12">
-                      <div className="card bg-light">
-                        <div className="card-body">
-                          <h6 className="card-title text-secondary">Referensi Penilaian CKP</h6>
-                          <div className="row">
-                            <div className="col-md-3 text-center">
-                              <span className="badge bg-success mb-2 fs-6">90 - 100</span>
-                              <p className="small mb-0"><strong>Sangat Baik</strong><br/>Melebihi target</p>
-                            </div>
-                            <div className="col-md-3 text-center">
-                              <span className="badge bg-primary mb-2 fs-6">80 - 89</span>
-                              <p className="small mb-0"><strong>Baik</strong><br/>Mencapai target</p>
-                            </div>
-                            <div className="col-md-3 text-center">
-                              <span className="badge bg-warning mb-2 fs-6">70 - 79</span>
-                              <p className="small mb-0"><strong>Cukup</strong><br/>Hampir target</p>
-                            </div>
-                            <div className="col-md-3 text-center">
-                              <span className="badge bg-danger mb-2 fs-6">60 - 69</span>
-                              <p className="small mb-0"><strong>Kurang</strong><br/>Di bawah target</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
 
                     <div className="col-12">

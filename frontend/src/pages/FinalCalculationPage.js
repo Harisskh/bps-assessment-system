@@ -222,17 +222,6 @@ const FinalCalculationPage = () => {
         </div>
       )}
 
-      {/* Debug Info - Show in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="alert alert-info">
-          <h6>Debug Info:</h6>
-          <p><strong>Selected Period:</strong> {selectedPeriod || 'None'}</p>
-          <p><strong>Final Evaluations Count:</strong> {finalEvaluations.length}</p>
-          <p><strong>Best Employee:</strong> {bestEmployee ? bestEmployee.user.nama : 'None'}</p>
-          <p><strong>API Base URL:</strong> {process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}</p>
-        </div>
-      )}
-
       {/* Calculation Info */}
       <div className="card border-info mb-4">
         <div className="card-header bg-info text-white">
@@ -295,7 +284,7 @@ const FinalCalculationPage = () => {
                 <option value="">-- Pilih Periode --</option>
                 {periods.map(period => (
                   <option key={period.id} value={period.id}>
-                    {period.namaPeriode} ({period.tahun}) {period.isActive && '(Aktif)'}
+                    {period.namaPeriode} {period.isActive && '(Aktif)'}
                   </option>
                 ))}
               </select>

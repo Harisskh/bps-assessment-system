@@ -152,26 +152,6 @@ const Sidebar = () => {
           </div>
         ))}
 
-        {/* User Info */}
-        <div className="mt-auto pt-4 border-top border-secondary">
-          <div className="px-3 py-2">
-            <div className="d-flex align-items-center">
-              <div className="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" 
-                   style={{ width: '32px', height: '32px' }}>
-                <i className="fas fa-user text-white small"></i>
-              </div>
-              <div className="flex-grow-1">
-                <div className="small fw-bold text-truncate" title={user?.nama}>
-                  {user?.nama}
-                </div>
-                <div className={`badge ${user?.role === 'ADMIN' ? 'bg-danger' : user?.role === 'PIMPINAN' ? 'bg-warning text-dark' : 'bg-primary'} small`}>
-                  {user?.role}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Quick Stats for Admin */}
         {user?.role === 'ADMIN' && (
           <div className="mt-3 px-3">

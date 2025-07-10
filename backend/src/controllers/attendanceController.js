@@ -82,19 +82,28 @@ const getAllAttendance = async (req, res) => {
   }
 };
 
-// CREATE OR UPDATE ATTENDANCE
+// CREATE OR UPDATE ATTENDANCE - FIXED TO SUPPORT JUMLAH FIELDS
 const upsertAttendance = async (req, res) => {
   try {
     const {
       userId,
       periodId,
+      // OLD boolean fields (keep for backward compatibility)
       adaTidakKerja = false,
       adaPulangAwal = false,
       adaTelat = false,
       adaAbsenApel = false,
       adaCuti = false,
+      // NEW number fields (priority if provided)
+      jumlahTidakKerja,
+      jumlahPulangAwal,
+      jumlahTelat,
+      jumlahAbsenApel,
+      jumlahCuti,
       keterangan
     } = req.body;
+
+    console.log('📥 Received data:', req.body);
 
     // Validation
     if (!userId || !periodId) {
@@ -124,26 +133,89 @@ const upsertAttendance = async (req, res) => {
       });
     }
 
+    // FIXED: Determine values - prioritize jumlah fields if provided
+    let finalJumlahTK, finalJumlahPSW, finalJumlahTLT, finalJumlahAPEL, finalJumlahCT;
+    let finalAdaTK, finalAdaPSW, finalAdaTLT, finalAdaAPEL, finalAdaCT;
+
+    // Handle jumlahTidakKerja
+    if (typeof jumlahTidakKerja === 'number' || jumlahTidakKerja !== undefined) {
+      finalJumlahTK = parseInt(jumlahTidakKerja) || 0;
+      finalAdaTK = finalJumlahTK > 0;
+    } else {
+      finalAdaTK = Boolean(adaTidakKerja);
+      finalJumlahTK = finalAdaTK ? 1 : 0;
+    }
+
+    // Handle jumlahPulangAwal
+    if (typeof jumlahPulangAwal === 'number' || jumlahPulangAwal !== undefined) {
+      finalJumlahPSW = parseInt(jumlahPulangAwal) || 0;
+      finalAdaPSW = finalJumlahPSW > 0;
+    } else {
+      finalAdaPSW = Boolean(adaPulangAwal);
+      finalJumlahPSW = finalAdaPSW ? 1 : 0;
+    }
+
+    // Handle jumlahTelat
+    if (typeof jumlahTelat === 'number' || jumlahTelat !== undefined) {
+      finalJumlahTLT = parseInt(jumlahTelat) || 0;
+      finalAdaTLT = finalJumlahTLT > 0;
+    } else {
+      finalAdaTLT = Boolean(adaTelat);
+      finalJumlahTLT = finalAdaTLT ? 1 : 0;
+    }
+
+    // Handle jumlahAbsenApel
+    if (typeof jumlahAbsenApel === 'number' || jumlahAbsenApel !== undefined) {
+      finalJumlahAPEL = parseInt(jumlahAbsenApel) || 0;
+      finalAdaAPEL = finalJumlahAPEL > 0;
+    } else {
+      finalAdaAPEL = Boolean(adaAbsenApel);
+      finalJumlahAPEL = finalAdaAPEL ? 1 : 0;
+    }
+
+    // Handle jumlahCuti
+    if (typeof jumlahCuti === 'number' || jumlahCuti !== undefined) {
+      finalJumlahCT = parseInt(jumlahCuti) || 0;
+      finalAdaCT = finalJumlahCT > 0;
+    } else {
+      finalAdaCT = Boolean(adaCuti);
+      finalJumlahCT = finalAdaCT ? 1 : 0;
+    }
+
+    console.log('🧮 Final values:', {
+      finalJumlahTK, finalJumlahPSW, finalJumlahTLT, finalJumlahAPEL, finalJumlahCT,
+      finalAdaTK, finalAdaPSW, finalAdaTLT, finalAdaAPEL, finalAdaCT
+    });
+
     // Calculate pengurangan based on violations
     const persentaseTotal = 100.0;
-    const penguranganTK = adaTidakKerja ? 30.0 : 0.0;
-    const penguranganPSW = adaPulangAwal ? 10.0 : 0.0;
-    const penguranganTLT = adaTelat ? 10.0 : 0.0;
-    const penguranganAPEL = adaAbsenApel ? 10.0 : 0.0;
-    const penguranganCT = adaCuti ? 5.0 : 0.0;
+    const penguranganTK = finalAdaTK ? 30.0 : 0.0;
+    const penguranganPSW = finalAdaPSW ? 10.0 : 0.0;
+    const penguranganTLT = finalAdaTLT ? 10.0 : 0.0;
+    const penguranganAPEL = finalAdaAPEL ? 10.0 : 0.0;
+    const penguranganCT = finalAdaCT ? 5.0 : 0.0;
 
     const totalMinus = penguranganTK + penguranganPSW + penguranganTLT + penguranganAPEL + penguranganCT;
     const nilaiPresensi = Math.max(0, persentaseTotal - totalMinus); // Tidak boleh negatif
 
+    // FIXED: Save BOTH boolean AND number values to database
     const attendanceData = {
       userId,
       periodId,
       persentaseTotal,
-      adaTidakKerja,
-      adaPulangAwal,
-      adaTelat,
-      adaAbsenApel,
-      adaCuti,
+      // Boolean fields (for existing logic)
+      adaTidakKerja: finalAdaTK,
+      adaPulangAwal: finalAdaPSW,
+      adaTelat: finalAdaTLT,
+      adaAbsenApel: finalAdaAPEL,
+      adaCuti: finalAdaCT,
+      // FIXED: Number fields (new fields for detail)
+      jumlahTidakKerja: finalJumlahTK,
+      jumlahPulangAwal: finalJumlahPSW,
+      jumlahTelat: finalJumlahTLT,
+      jumlahAbsenApel: finalJumlahAPEL,
+      jumlahCuti: finalJumlahCT,
+      // Calculation fields
       penguranganTK,
       penguranganPSW,
       penguranganTLT,
@@ -154,6 +226,8 @@ const upsertAttendance = async (req, res) => {
       keterangan,
       inputBy: req.user.id
     };
+
+    console.log('💾 Saving to database:', attendanceData);
 
     // Upsert attendance record
     const attendance = await prisma.attendance.upsert({
@@ -185,6 +259,8 @@ const upsertAttendance = async (req, res) => {
       }
     });
 
+    console.log('✅ Saved successfully:', attendance.id);
+
     res.json({
       success: true,
       message: 'Data presensi berhasil disimpan',
@@ -192,7 +268,7 @@ const upsertAttendance = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upsert attendance error:', error);
+    console.error('❌ Upsert attendance error:', error);
     res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan server'
@@ -286,7 +362,7 @@ const deleteAttendance = async (req, res) => {
 };
 
 // =====================
-// CKP MANAGEMENT (30% bobot)
+// CKP MANAGEMENT (30% bobot) - UNCHANGED
 // =====================
 
 // GET ALL CKP SCORES
@@ -549,7 +625,7 @@ const deleteCkpScore = async (req, res) => {
 };
 
 // =====================
-// COMBINED STATISTICS
+// COMBINED STATISTICS - UNCHANGED
 // =====================
 
 // GET ATTENDANCE & CKP STATISTICS

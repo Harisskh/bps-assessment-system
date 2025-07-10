@@ -2,8 +2,10 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const multer = require('multer'); // ADD THIS
 const morgan = require('morgan');
 require('dotenv').config();
+const path = require('path'); // ADD THIS IMPORT
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +34,9 @@ app.use(morgan('combined'));
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Static files middleware - SERVE UPLOADED FILES
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Add request logging for debugging
 app.use((req, res, next) => {
@@ -149,6 +154,7 @@ app.get('/', (req, res) => {
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const profileRoutes = require('./routes/profile'); // NEW ROUTE
 const evaluationRoutes = require('./routes/evaluations');
 const attendanceRoutes = require('./routes/attendance');
 const finalEvaluationRoutes = require('./routes/finalEvaluation');
@@ -159,6 +165,9 @@ const monitoringRoutes = require('./routes/monitoring');
 // Authenticated routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/profile', profileRoutes); // NEW ROUTE
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/attendance', attendanceRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api', attendanceRoutes);              // attendance & ckp
 app.use('/api/final-evaluation', finalEvaluationRoutes);
@@ -184,6 +193,22 @@ app.use('/api/*', (req, res) => {
       'GET /api/evaluations/active-period'
     ]
   });
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('Error:', error);
+  
+  // Handle Multer errors
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'File terlalu besar. Maksimal 5MB' });
+  }
+  
+  if (error.message === 'File harus berupa gambar') {
+    return res.status(400).json({ error: 'File harus berupa gambar' });
+  }
+  
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // Enhanced global error handler

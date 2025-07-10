@@ -565,177 +565,251 @@ const AttendanceInputPage = () => {
         </div>
       </div>
 
-      {/* Input Modal */}
-      {showModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-lg">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  {modalMode === 'create' ? 'Input Data Presensi' : 'Edit Data Presensi'}
-                </h5>
-                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+      {/* Input Modal - FIXED VERSION */}
+{showModal && (
+  <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+    <div className="modal-dialog modal-lg">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h5 className="modal-title">
+            {modalMode === 'create' ? 'Input Data Presensi' : 'Edit Data Presensi'}
+          </h5>
+          <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+        </div>
+        <form onSubmit={handleFormSubmit}>
+          <div className="modal-body">
+            <div className="row g-3">
+              <div className="col-12">
+                <label className="form-label">Pegawai *</label>
+                <SearchableUserSelect
+                  users={users}
+                  value={formData.userId}
+                  onChange={(userId) => setFormData({...formData, userId})}
+                  placeholder="-- Pilih Pegawai --"
+                  disabled={modalMode === 'edit'}
+                  required={true}
+                  className="mb-2"
+                />
+                {modalMode === 'edit' && selectedAttendance && (
+                  <small className="text-info">
+                    <i className="fas fa-info-circle me-1"></i>
+                    Pegawai tidak dapat diubah saat edit data
+                  </small>
+                )}
               </div>
-              <form onSubmit={handleFormSubmit}>
-                <div className="modal-body">
-                  <div className="row g-3">
-                    <div className="col-12">
-                      <label className="form-label">Pegawai *</label>
-                      <SearchableUserSelect
-                        users={users}
-                        value={formData.userId}
-                        onChange={(userId) => setFormData({...formData, userId})}
-                        placeholder="-- Pilih Pegawai --"
-                        disabled={modalMode === 'edit'}
-                        required={true}
-                        className="mb-2"
-                      />
-                      {modalMode === 'edit' && selectedAttendance && (
-                        <small className="text-info">
-                          <i className="fas fa-info-circle me-1"></i>
-                          Pegawai tidak dapat diubah saat edit data
-                        </small>
-                      )}
-                    </div>
 
-                    <div className="col-12">
-                      <h6 className="text-muted">Jenis Pelanggaran Presensi</h6>
-                      <p><small className="text-muted">Masukkan jumlah pelanggaran. Pengurangan nilai tetap maksimal per kategori.</small></p>
-                    </div>
+              <div className="col-12">
+                <h6 className="text-muted">Jenis Pelanggaran Presensi</h6>
+                <p><small className="text-muted">Masukkan jumlah pelanggaran. Pengurangan nilai tetap maksimal per kategori.</small></p>
+              </div>
 
-                    <div className="col-md-6">
-                      <label className="form-label text-danger">
-                        <span className="badge bg-danger me-2">-30%</span>
-                        Jumlah Tidak Kerja
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        min="0"
-                        max="31"
-                        value={formData.jumlahTidakKerja}
-                        onChange={(e) => setFormData({...formData, jumlahTidakKerja: e.target.value})}
-                        placeholder=""
-                      />
-                      <small className="text-muted">Tidak masuk kerja tanpa keterangan</small>
-                    </div>
+              {/* FIXED: Anti-scroll number inputs */}
+              <div className="col-md-6">
+                <label className="form-label text-danger">
+                  <span className="badge bg-danger me-2">-30%</span>
+                  Jumlah Tidak Kerja
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-control"
+                  value={formData.jumlahTidakKerja}
+                  onChange={(e) => {
+                    // Only allow numbers
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    // Limit to max 31
+                    const numValue = parseInt(value) || 0;
+                    if (numValue <= 31) {
+                      setFormData({...formData, jumlahTidakKerja: value});
+                    }
+                  }}
+                  placeholder="0"
+                  maxLength="2"
+                  onWheel={(e) => e.target.blur()} // Prevent scroll
+                />
+                <small className="text-muted">Tidak masuk kerja tanpa keterangan</small>
+              </div>
 
-                    <div className="col-md-6">
-                      <label className="form-label text-warning">
-                        <span className="badge bg-warning text-dark me-2">-10%</span>
-                        Jumlah Pulang Sebelum Waktunya
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        min="0"
-                        max="31"
-                        value={formData.jumlahPulangAwal}
-                        onChange={(e) => setFormData({...formData, jumlahPulangAwal: e.target.value})}
-                        placeholder=""
-                      />
-                      <small className="text-muted">Pulang sebelum jam kerja selesai</small>
-                    </div>
+              <div className="col-md-6">
+                <label className="form-label text-warning">
+                  <span className="badge bg-warning text-dark me-2">-10%</span>
+                  Jumlah Pulang Sebelum Waktunya
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-control"
+                  value={formData.jumlahPulangAwal}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    const numValue = parseInt(value) || 0;
+                    if (numValue <= 31) {
+                      setFormData({...formData, jumlahPulangAwal: value});
+                    }
+                  }}
+                  placeholder="0"
+                  maxLength="2"
+                  onWheel={(e) => e.target.blur()}
+                />
+                <small className="text-muted">Pulang sebelum jam kerja selesai</small>
+              </div>
 
-                    <div className="col-md-6">
-                      <label className="form-label text-warning">
-                        <span className="badge bg-warning text-dark me-2">-10%</span>
-                        Jumlah Telambat
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        min="0"
-                        max="31"
-                        value={formData.jumlahTelat}
-                        onChange={(e) => setFormData({...formData, jumlahTelat: e.target.value})}
-                        placeholder=""
-                      />
-                      <small className="text-muted">Terlambat datang kerja</small>
-                    </div>
+              <div className="col-md-6">
+                <label className="form-label text-warning">
+                  <span className="badge bg-warning text-dark me-2">-10%</span>
+                  Jumlah Telat
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-control"
+                  value={formData.jumlahTelat}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    const numValue = parseInt(value) || 0;
+                    if (numValue <= 31) {
+                      setFormData({...formData, jumlahTelat: value});
+                    }
+                  }}
+                  placeholder="0"
+                  maxLength="2"
+                  onWheel={(e) => e.target.blur()}
+                />
+                <small className="text-muted">Terlambat datang kerja</small>
+              </div>
 
-                    <div className="col-md-6">
-                      <label className="form-label text-info">
-                        <span className="badge bg-info me-2">-10%</span>
-                        Jumlah Absen APEL
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        min="0"
-                        max="31"
-                        value={formData.jumlahAbsenApel}
-                        onChange={(e) => setFormData({...formData, jumlahAbsenApel: e.target.value})}
-                        placeholder=""
-                      />
-                      <small className="text-muted">Tidak mengikuti apel pagi</small>
-                    </div>
+              <div className="col-md-6">
+                <label className="form-label text-info">
+                  <span className="badge bg-info me-2">-10%</span>
+                  Jumlah Absen APEL
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-control"
+                  value={formData.jumlahAbsenApel}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    const numValue = parseInt(value) || 0;
+                    if (numValue <= 31) {
+                      setFormData({...formData, jumlahAbsenApel: value});
+                    }
+                  }}
+                  placeholder="0"
+                  maxLength="2"
+                  onWheel={(e) => e.target.blur()}
+                />
+                <small className="text-muted">Tidak mengikuti apel pagi</small>
+              </div>
 
-                    <div className="col-md-6">
-                      <label className="form-label text-secondary">
-                        <span className="badge bg-secondary me-2">-5%</span>
-                        Jumlah Cuti
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        min="0"
-                        max="31"
-                        value={formData.jumlahCuti}
-                        onChange={(e) => setFormData({...formData, jumlahCuti: e.target.value})}
-                        placeholder=""
-                      />
-                      <small className="text-muted">Mengambil cuti dalam periode ini</small>
-                    </div>
+              <div className="col-md-6">
+                <label className="form-label text-secondary">
+                  <span className="badge bg-secondary me-2">-5%</span>
+                  Jumlah Cuti
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-control"
+                  value={formData.jumlahCuti}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    const numValue = parseInt(value) || 0;
+                    if (numValue <= 31) {
+                      setFormData({...formData, jumlahCuti: value});
+                    }
+                  }}
+                  placeholder="0"
+                  maxLength="2"
+                  onWheel={(e) => e.target.blur()}
+                />
+                <small className="text-muted">Mengambil cuti dalam periode ini</small>
+              </div>
 
-                    <div className="col-12">
-                      <label className="form-label">Keterangan</label>
-                      <textarea
-                        className="form-control"
-                        rows="3"
-                        value={formData.keterangan}
-                        onChange={(e) => setFormData({...formData, keterangan: e.target.value})}
-                        placeholder="Keterangan tambahan..."
-                      />
-                    </div>
+              <div className="col-12">
+                <label className="form-label">Keterangan</label>
+                <textarea
+                  className="form-control"
+                  rows="3"
+                  value={formData.keterangan}
+                  onChange={(e) => setFormData({...formData, keterangan: e.target.value})}
+                  placeholder="Keterangan tambahan..."
+                />
+              </div>
 
-                    {/* Preview Nilai */}
-                    <div className="col-12">
-                      <div className="alert alert-info">
-                        <h6>Preview Nilai Presensi:</h6>
-                        <div className="d-flex align-items-center">
-                          <span className="me-3">100%</span>
-                          {parseInt(formData.jumlahTidakKerja) > 0 && <span className="me-2">- 30% (TK)</span>}
-                          {parseInt(formData.jumlahPulangAwal) > 0 && <span className="me-2">- 10% (PSW)</span>}
-                          {parseInt(formData.jumlahTelat) > 0 && <span className="me-2">- 10% (TLT)</span>}
-                          {parseInt(formData.jumlahAbsenApel) > 0 && <span className="me-2">- 10% (APEL)</span>}
-                          {parseInt(formData.jumlahCuti) > 0 && <span className="me-2">- 5% (CT)</span>}
-                          <span className="fw-bold text-primary">= {calculatePreview()}%</span>
-                        </div>
-                      </div>
-                    </div>
+              {/* Preview Nilai */}
+              <div className="col-12">
+                <div className="alert alert-info">
+                  <h6><i className="fas fa-calculator me-2"></i>Preview Nilai Presensi</h6>
+                  <div className="d-flex align-items-center flex-wrap">
+                    <span className="me-3">100%</span>
+                    {parseInt(formData.jumlahTidakKerja) > 0 && (
+                      <span className="me-2 mb-1">
+                        <span className="badge bg-danger me-1">-30%</span>
+                        TK ({parseInt(formData.jumlahTidakKerja)}x)
+                      </span>
+                    )}
+                    {parseInt(formData.jumlahPulangAwal) > 0 && (
+                      <span className="me-2 mb-1">
+                        <span className="badge bg-warning text-dark me-1">-10%</span>
+                        PSW ({parseInt(formData.jumlahPulangAwal)}x)
+                      </span>
+                    )}
+                    {parseInt(formData.jumlahTelat) > 0 && (
+                      <span className="me-2 mb-1">
+                        <span className="badge bg-warning text-dark me-1">-10%</span>
+                        TLT ({parseInt(formData.jumlahTelat)}x)
+                      </span>
+                    )}
+                    {parseInt(formData.jumlahAbsenApel) > 0 && (
+                      <span className="me-2 mb-1">
+                        <span className="badge bg-info me-1">-10%</span>
+                        APEL ({parseInt(formData.jumlahAbsenApel)}x)
+                      </span>
+                    )}
+                    {parseInt(formData.jumlahCuti) > 0 && (
+                      <span className="me-2 mb-1">
+                        <span className="badge bg-secondary me-1">-5%</span>
+                        CT ({parseInt(formData.jumlahCuti)}x)
+                      </span>
+                    )}
+                    <span className="fw-bold text-primary ms-auto">
+                      = {100 - ((parseInt(formData.jumlahTidakKerja) > 0 ? 30 : 0) + 
+                               (parseInt(formData.jumlahPulangAwal) > 0 ? 10 : 0) + 
+                               (parseInt(formData.jumlahTelat) > 0 ? 10 : 0) + 
+                               (parseInt(formData.jumlahAbsenApel) > 0 ? 10 : 0) + 
+                               (parseInt(formData.jumlahCuti) > 0 ? 5 : 0))}%
+                    </span>
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                    Batal
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
-                    {submitting ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                        Menyimpan...
-                      </>
-                    ) : (
-                      modalMode === 'create' ? 'Simpan' : 'Update'
-                    )}
-                  </button>
-                </div>
-              </form>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
+              Batal
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={submitting || !formData.userId}>
+              {submitting ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Menyimpan...
+                </>
+              ) : (
+                modalMode === 'create' ? 'Simpan' : 'Update'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Delete All Confirmation Modal */}
       {showDeleteAllModal && (

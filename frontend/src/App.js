@@ -1,4 +1,4 @@
-// src/App.js - UPDATED WITH NEW SIDEBAR LAYOUT
+// src/App.js - UPDATED WITH EVALUATION HISTORY ROUTE
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -9,6 +9,8 @@ import DashboardPage from './pages/DashboardPage';
 import EvaluationPage from './pages/EvaluationPage';
 import EvaluationManagementPage from './pages/EvaluationManagementPage';
 import UsersPage from './pages/UsersPage';
+import ProfilePage from './pages/ProfilePage';
+import EvaluationHistoryPage from './pages/EvaluationHistoryPage'; // IMPORT EVALUATION HISTORY
 
 // NEW PAGES
 import PeriodManagementPage from './pages/PeriodManagementPage';
@@ -62,11 +64,29 @@ function App() {
             </ProtectedRoute>
           } />
           
+          {/* Profile Route - Available for all authenticated users */}
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Layout>
+                <ProfilePage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
           {/* Staff & Pimpinan only - Evaluation */}
           <Route path="/evaluation" element={
             <ProtectedRoute requiredRole={['STAFF', 'PIMPINAN']}>
               <Layout>
                 <EvaluationPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          {/* 🔥 NEW: Evaluation History Route - Staff & Pimpinan only */}
+          <Route path="/evaluation-history" element={
+            <ProtectedRoute requiredRole={['STAFF', 'PIMPINAN']}>
+              <Layout>
+                <EvaluationHistoryPage />
               </Layout>
             </ProtectedRoute>
           } />

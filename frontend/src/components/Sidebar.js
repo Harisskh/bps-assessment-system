@@ -1,25 +1,66 @@
-// src/components/Sidebar.js
+// src/components/Sidebar.js - REMOVED NEW BADGE
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-// ... (Icon component and menuIcons object remain the same) ...
 const Icon = ({ path, className = "nav-icon" }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
     <path d={path} />
   </svg>
 );
 
-
-
-const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick  }) => { // Accept isMobileOpen prop
+const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [userImage, setUserImage] = useState(null);
+
+  // 🔥 HARDCODED FIX - NO MORE DYNAMIC URL CONSTRUCTION
+  const BACKEND_BASE_URL = 'http://localhost:5000';
+  
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    
+    console.log('🔍 Sidebar - Original image path:', imagePath);
+    
+    // 🔥 FORCE correct URL construction
+    const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+    const finalUrl = BACKEND_BASE_URL + cleanPath;
+    
+    console.log('🖼️ Sidebar - Final constructed URL:', finalUrl);
+    
+    return finalUrl;
+  };
+
+  // 🔥 LISTEN untuk update dari ProfilePage
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      if (user?.profilePicture) {
+        const newImageUrl = getImageUrl(user.profilePicture);
+        console.log('🔄 Sidebar - User updated, new image URL:', newImageUrl);
+        setUserImage(newImageUrl);
+      } else {
+        setUserImage(null);
+      }
+    };
+
+    // Set initial image
+    handleUserUpdate();
+
+    // Listen for updates
+    window.addEventListener('userUpdated', handleUserUpdate);
+    
+    return () => {
+      window.removeEventListener('userUpdated', handleUserUpdate);
+    };
+  }, [user]);
 
   const menuIcons = {
     dashboard: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
     evaluation: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
+    // History icon
+    history: "M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
     period: "M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z",
     evaluation_management: "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
     users: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z",
@@ -30,10 +71,13 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick  }) => { // Accept i
     logout: "M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"
   };
 
-  // ... (menuItems and other logic remain the same) ...
   const menuItems = [
     { path: '/dashboard', icon: menuIcons.dashboard, label: 'Dashboard', roles: ['STAFF', 'ADMIN', 'PIMPINAN'] },
     { path: '/evaluation', icon: menuIcons.evaluation, label: 'Penilaian BerAKHLAK', roles: ['STAFF', 'PIMPINAN'] },
+    
+    // 🔥 REMOVED: Badge "NEW" from Evaluation History Menu
+    { path: '/evaluation-history', icon: menuIcons.history, label: 'Riwayat Penilaian', roles: ['STAFF', 'PIMPINAN'] },
+    
     { type: 'divider', roles: ['ADMIN', 'PIMPINAN'] },
     { type: 'title', label: 'Manajemen', roles: ['ADMIN'] },
     { path: '/period-management', icon: menuIcons.period, label: 'Kelola Periode', roles: ['ADMIN'] },
@@ -48,6 +92,7 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick  }) => { // Accept i
     { path: '/monitoring', icon: menuIcons.monitoring, label: 'Monitoring', roles: ['ADMIN', 'PIMPINAN'] },
     { path: '/users', icon: menuIcons.users, label: 'Data Pegawai', roles: ['PIMPINAN'] },
   ];
+  
   const allowedMenus = menuItems.filter(item => item.roles.includes(user?.role));
 
   const getInitial = (name) => {
@@ -59,21 +104,23 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick  }) => { // Accept i
     return name.substring(0, 2);
   };
 
+  const handleProfileClick = (e) => {
+    e.preventDefault();
+    navigate('/profile');
+  };
+
   return (
     <div className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'open' : ''}`}>
       <div className="sidebar-header" onClick={onToggleClick}>
-        {/* 1. Beri class pada SVG dan hapus width/height agar diatur oleh CSS */}
         <svg className="logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M13 29V18.5C13 16.567 14.567 15 16.5 15H20.5" stroke="white" strokeWidth="3" strokeLinecap="round"/>
           <path d="M20.5 15H23.5C25.433 15 27 16.567 27 18.5V29" stroke="white" strokeWidth="3" strokeLinecap="round"/>
           <path d="M20.5 29V24C20.5 22.3431 19.1569 21 17.5 21H16.5" stroke="white" strokeWidth="3" strokeLinecap="round"/>
         </svg>
-        {/* 2. Beri class pada H4 dan hapus div pembungkusnya */}
         <h4 className="logo-text mt-1 mb-0 fw-bold text-white">SIPEKA</h4>
       </div>
 
       <nav className="nav-menu">
-        {/* ... (mapping of menuItems remains the same) ... */}
         {allowedMenus.map((item, index) => {
           if (item.type === 'divider') {
             return <hr key={`divider-${index}`} className="my-2" style={{borderColor: 'rgba(255,255,255,0.1)'}} />;
@@ -81,33 +128,83 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick  }) => { // Accept i
           if (item.type === 'title') {
             return <h6 key={`title-${index}`} className="nav-section-title">{item.label}</h6>;
           }
+          
           const isActive = location.pathname === item.path;
+          
           return (
             <div key={item.path + index} className="nav-item" title={isCollapsed ? item.label : ''}>
               <a href={item.path} className={`nav-link ${isActive ? 'active' : ''}`}>
                 <Icon path={item.icon} />
-                <span className="nav-label">{item.label}</span>
+                <span className="nav-label">
+                  {item.label}
+                  {/* 🔥 REMOVED: Badge rendering completely */}
+                </span>
               </a>
             </div>
           );
         })}
       </nav>
 
-      {/* ... (sidebar-footer remains the same) ... */}
       <div className="sidebar-footer">
-         <div className="user-profile">
-            <div className="user-avatar">{getInitial(user?.nama)}</div>
-            <div className="user-info">
-              <p className="user-name">{user?.nama}</p>
-              <p className="user-role">{user?.role}</p>
-            </div>
-         </div>
-         <div className="nav-item mt-2" title={isCollapsed ? "Logout" : ''}>
-            <a href="#" onClick={logout} className="nav-link">
-                <Icon path={menuIcons.logout} />
-                <span className="nav-label">Logout</span>
-            </a>
-         </div>
+        {/* Debug Info - TEMPORARY */}
+        {!isCollapsed && (
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', padding: '5px' }}>
+            Image URL: {userImage || 'None'}
+          </div>
+        )}
+        
+        {/* User Profile Section - Clickable (FIXED) */}
+        <div 
+          className="user-profile" 
+          onClick={handleProfileClick}
+          style={{ cursor: 'pointer' }}
+          title={isCollapsed ? "Administrator System" : ''}
+        >
+          <div className="user-avatar">
+            {userImage ? (
+              <img 
+                src={userImage}
+                alt="Profile" 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  borderRadius: '50%', 
+                  objectFit: 'cover' 
+                }}
+                onError={(e) => {
+                  console.error('❌ Sidebar image load error for URL:', e.target.src);
+                  // Hide broken image and show initials
+                  e.target.style.display = 'none';
+                  const parent = e.target.parentElement;
+                  if (parent && !parent.querySelector('.fallback-initials')) {
+                    const initialsSpan = document.createElement('span');
+                    initialsSpan.className = 'fallback-initials';
+                    initialsSpan.textContent = getInitial(user?.nama);
+                    initialsSpan.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-weight: 600; color: white;';
+                    parent.appendChild(initialsSpan);
+                  }
+                }}
+                onLoad={() => {
+                  console.log('✅ Sidebar image loaded successfully:', userImage);
+                }}
+              />
+            ) : (
+              getInitial(user?.nama)
+            )}
+          </div>
+          <div className="user-info">
+            <p className="user-name">{user?.nama}</p>
+            <p className="user-role">{user?.role}</p>
+          </div>
+        </div>
+        
+        {/* Logout Button */}
+        <div className="nav-item mt-2" title={isCollapsed ? "Logout" : ''}>
+          <a href="#" onClick={logout} className="nav-link">
+            <Icon path={menuIcons.logout} />
+            <span className="nav-label">Logout</span>
+          </a>
+        </div>
       </div>
     </div>
   );

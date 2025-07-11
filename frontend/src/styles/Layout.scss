@@ -1,6 +1,7 @@
 /*
-  File: frontend/src/styles/Layout.css
+  File: frontend/src/styles/Layout.scss
   Description: Custom styles for the main layout and the collapsible sidebar.
+  UPDATED: Added profile-related styles
 */
 
 /* Main layout container */
@@ -39,6 +40,7 @@
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
+
 /* Atur style header saat sidebar ditutup */
 .sidebar.collapsed .sidebar-header {
   justify-content: center; /* Membuat logo di tengah */
@@ -90,7 +92,6 @@
 .nav-menu::-webkit-scrollbar {
   display: none; /* Chrome, Safari, and Opera */
 }
-
 
 .nav-section-title {
   padding: 0.5rem 1.5rem;
@@ -180,16 +181,19 @@
   padding: 1rem 0.5rem;
 }
 
+/* UPDATED: User Profile Section - Now Clickable */
 .user-profile {
   display: flex;
   align-items: center;
   padding: 0.5rem;
   border-radius: 0.5rem;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
 }
 
 .user-profile:hover {
   background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
 }
 
 .user-avatar {
@@ -203,6 +207,13 @@
   justify-content: center;
   font-weight: 600;
   flex-shrink: 0;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: border-color 0.2s ease;
+}
+
+.user-profile:hover .user-avatar {
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .user-info {
@@ -221,6 +232,7 @@
   font-weight: 600;
   font-size: 0.9rem;
   margin: 0;
+  color: #ffffff;
 }
 
 .user-role {
@@ -243,80 +255,135 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem; /* Sedikit mengurangi padding vertikal */
-  background-color: #ffffff; /* Latar belakang putih bersih */
-  border-bottom: 1px solid #f1f3f5; /* Garis bawah yang sangat tipis untuk pemisah */
-  position: sticky;
-  top: 0;
-  z-index: 999;
-
-  /* Styling untuk semua tombol di dalam top-bar */
-  .sidebar-toggle, .dropdown-toggle {
-    background-color: transparent;
-    border: none;
-    color: #495057; /* Warna ikon dan teks yang kontras */
-    box-shadow: none;
-  }
-
-  /* Memberi feedback saat tombol disentuh/di-hover */
-  .sidebar-toggle:hover, .dropdown-toggle:hover {
-    background-color: #f8f9fa; /* Warna abu-abu sangat muda */
-  }
-
-  /* Mengatasi style bawaan bootstrap pada dropdown */
-  .dropdown-toggle::after {
-    color: #495057;
-  }
+  background-color: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Responsive adjustments */
+.sidebar-toggle {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #0A4D68;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background-color: rgba(10, 77, 104, 0.1);
+}
+
+.main-content-wrapper {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Mobile responsiveness */
 @media (max-width: 768px) {
   .sidebar {
-    position: absolute;
-    transform: translateX(-100%);
-    height: 100%;
+    position: fixed;
+    left: -260px;
+    height: 100vh;
+    z-index: 1050;
+    transition: left 0.3s ease;
   }
 
   .sidebar.open {
-    transform: translateX(0);
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1040;
   }
 
   .main-content {
-    margin-left: 0 !important;
+    padding: 1rem;
+  }
+
+  .top-bar {
+    display: flex;
   }
 }
 
-/* ... (all previous styles remain the same) ... */
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .sidebar {
-    position: absolute;
-    transform: translateX(-100%);
-    height: 100%;
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-  }
-
-  .main-content {
-    margin-left: 0 !important;
-  }
-}
-
-/* Added for mobile sidebar overlay */
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 999; /* Below sidebar (1000) but above content */
-}
-
-@media (max-width: 991.98px) {
-  .sidebar:not(.collapsed) .nav-section-title {
+/* Desktop only */
+@media (min-width: 769px) {
+  .top-bar {
     display: none;
+  }
+}
+
+/* Additional CSS for Sidebar Badge - Add this to Layout.scss */
+
+/* NEW Badge styling in sidebar */
+.sidebar .nav-label .badge {
+  font-size: 0.6rem !important;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.3rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Hide badge when sidebar is collapsed */
+.sidebar.collapsed .nav-label .badge {
+  display: none;
+}
+
+/* Evaluation History Card styling */
+.evaluation-history-compact .history-item-compact {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.2s ease;
+}
+
+.evaluation-history-compact .history-item-compact:last-child {
+  border-bottom: none;
+}
+
+.evaluation-history-compact .history-item-compact:hover {
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+/* Dashboard card hover effects */
+.dashboard-card {
+  transition: all 0.3s ease;
+  border: 1px solid #e9ecef;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+/* Responsive badge visibility */
+@media (max-width: 768px) {
+  .sidebar .nav-label .badge {
+    font-size: 0.5rem !important;
+    padding: 0.1rem 0.3rem;
   }
 }

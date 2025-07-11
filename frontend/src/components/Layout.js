@@ -1,4 +1,4 @@
-// src/components/Layout.js
+// src/components/Layout.js - INTEGRATED VERSION
 
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
@@ -25,7 +25,6 @@ const Layout = ({ children }) => {
       localStorage.setItem('sidebarCollapsed', JSON.stringify(isSidebarCollapsed));
     }
   }, [isSidebarCollapsed, isMobile]);
-
 
   const handleResize = () => {
     const mobileView = window.innerWidth <= 768;
@@ -74,7 +73,16 @@ const Layout = ({ children }) => {
                   {user.nama}
                 </button>
                 <ul className="dropdown-menu dropdown-menu-end">
-                  <li><a className="dropdown-item" href="#">Profil</a></li>
+                  <li><a className="dropdown-item" href="/profile">Profil</a></li>
+                  {/* NEW: Add Evaluation History to mobile dropdown */}
+                  {(user.role === 'STAFF' || user.role === 'PIMPINAN') && (
+                    <li>
+                      <a className="dropdown-item" href="/evaluation-history">
+                        <i className="fas fa-history me-2"></i>
+                        Riwayat Penilaian
+                      </a>
+                    </li>
+                  )}
                   <li><hr className="dropdown-divider" /></li>
                   <li><button className="dropdown-item text-danger" onClick={logout}>Logout</button></li>
                 </ul>

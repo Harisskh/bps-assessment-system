@@ -1,58 +1,140 @@
-/* src/styles/SearchableSelect.scss */
+// src/styles/SearchableSelect.scss
+@import './variables';
 
 .searchable-select {
-  .dropdown-toggle-custom {
+  position: relative;
+  width: 100%;
+
+  &__toggle {
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 0.75rem 1rem;
-    background-color: #ffffff;
-    border: 1px solid #ced4da;
-    border-radius: 0.5rem;
+    background-color: #fff;
+    border: 1px solid $input-border-color;
+    border-radius: $border-radius;
+    padding: 0.65rem 1rem;
     text-align: left;
+    font-size: $font-size-base;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
     &:hover {
-      border-color: #86b7fe;
+      border-color: darken($input-border-color, 10%);
     }
 
     &:focus, &.focus {
       outline: 0;
-      border-color: #86b7fe;
-      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-    }
-
-    .placeholder {
-      color: #6c757d;
+      border-color: $input-focus-border-color;
+      box-shadow: $input-focus-box-shadow;
     }
   }
 
-  .dropdown-menu {
-    border-radius: 0.5rem;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  &__arrow {
+    transition: transform 0.2s ease-out;
+    color: #adb5bd;
+  }
+
+  &.is-open &__arrow {
+    transform: rotate(180deg);
+  }
+
+  &__menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
     width: 100%;
+    background-color: #fff;
+    border-radius: $border-radius;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+    z-index: 1021;
+    overflow: hidden;
+    animation: slideDown 0.2s ease-out;
+  }
+  
+  &__search-wrapper {
+    position: relative;
+    padding: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
 
-    .search-header {
-      padding: 0.5rem 1rem;
-      background-color: #f8f9fa;
-      .form-control {
-        border-radius: 0.375rem;
+    .fa-search {
+      position: absolute;
+      left: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #adb5bd;
+    }
+  }
+  
+  &__search-input {
+    width: 100%;
+    border: 1px solid $input-border-color;
+    border-radius: $border-radius-sm;
+    padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+    font-size: 0.9rem;
+    &:focus {
+      outline: none;
+      border-color: $input-focus-border-color;
+      box-shadow: $input-focus-box-shadow;
+    }
+  }
+
+  &__options-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem 0;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  &__option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: $light;
+    }
+
+    &.is-selected {
+      background-color: lighten($primary, 50%);
+      color: $primary;
+      font-weight: 600;
+
+      .fa-check {
+        color: $primary;
       }
     }
+  }
 
-    .options-list {
-      max-height: 250px;
-      overflow-y: auto;
-    }
+  &__no-options {
+    padding: 1rem;
+    text-align: center;
+    color: #6c757d;
+  }
+}
 
-    .dropdown-item {
-      white-space: normal;
-      .user-jabatan {
-        font-size: 0.8em;
-        color: #6c757d;
-      }
-    }
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

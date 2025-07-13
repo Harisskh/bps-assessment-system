@@ -1,5 +1,4 @@
-// src/components/Sidebar.js - REMOVED NEW BADGE
-
+// src/components/Sidebar.js - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -16,50 +15,59 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
   const navigate = useNavigate();
   const [userImage, setUserImage] = useState(null);
 
-  // 🔥 HARDCODED FIX - NO MORE DYNAMIC URL CONSTRUCTION
   const BACKEND_BASE_URL = 'http://localhost:5000';
   
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
+  const getImageUrl = (imagePath, bustCache = false) => {
+    if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {
+      return null;
+    }
     
-    console.log('🔍 Sidebar - Original image path:', imagePath);
+    let cleanPath = imagePath;
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
     
-    // 🔥 FORCE correct URL construction
-    const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-    const finalUrl = BACKEND_BASE_URL + cleanPath;
+    if (!imagePath.startsWith('/')) {
+      cleanPath = '/' + imagePath;
+    }
     
-    console.log('🖼️ Sidebar - Final constructed URL:', finalUrl);
+    let finalUrl = BACKEND_BASE_URL + cleanPath;
+    
+    if (bustCache) {
+      finalUrl += '?t=' + Date.now();
+    }
     
     return finalUrl;
   };
 
-  // 🔥 LISTEN untuk update dari ProfilePage
   useEffect(() => {
-    const handleUserUpdate = () => {
+    const updateUserImage = () => {
       if (user?.profilePicture) {
-        const newImageUrl = getImageUrl(user.profilePicture);
-        console.log('🔄 Sidebar - User updated, new image URL:', newImageUrl);
+        const newImageUrl = getImageUrl(user.profilePicture, true);
         setUserImage(newImageUrl);
       } else {
         setUserImage(null);
       }
     };
 
-    // Set initial image
-    handleUserUpdate();
+    updateUserImage();
 
-    // Listen for updates
+    const handleUserUpdate = () => {
+      updateUserImage();
+    };
+
     window.addEventListener('userUpdated', handleUserUpdate);
+    window.addEventListener('userRefreshed', handleUserUpdate);
     
     return () => {
       window.removeEventListener('userUpdated', handleUserUpdate);
+      window.removeEventListener('userRefreshed', handleUserUpdate);
     };
   }, [user]);
 
   const menuIcons = {
     dashboard: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
     evaluation: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
-    // History icon
     history: "M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
     period: "M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z",
     evaluation_management: "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
@@ -74,8 +82,6 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
   const menuItems = [
     { path: '/dashboard', icon: menuIcons.dashboard, label: 'Dashboard', roles: ['STAFF', 'ADMIN', 'PIMPINAN'] },
     { path: '/evaluation', icon: menuIcons.evaluation, label: 'Penilaian BerAKHLAK', roles: ['STAFF', 'PIMPINAN'] },
-    
-    // 🔥 REMOVED: Badge "NEW" from Evaluation History Menu
     { path: '/evaluation-history', icon: menuIcons.history, label: 'Riwayat Penilaian', roles: ['STAFF', 'PIMPINAN'] },
     
     { type: 'divider', roles: ['ADMIN', 'PIMPINAN'] },
@@ -117,7 +123,7 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
           <path d="M20.5 15H23.5C25.433 15 27 16.567 27 18.5V29" stroke="white" strokeWidth="3" strokeLinecap="round"/>
           <path d="M20.5 29V24C20.5 22.3431 19.1569 21 17.5 21H16.5" stroke="white" strokeWidth="3" strokeLinecap="round"/>
         </svg>
-        <h4 className="logo-text mt-1 mb-0 fw-bold text-white">SIPEKA</h4>
+        <h4 className="logo-text mt-1 mb-0 fw-bold text-white">SiAPIK</h4>
       </div>
 
       <nav className="nav-menu">
@@ -135,10 +141,7 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
             <div key={item.path + index} className="nav-item" title={isCollapsed ? item.label : ''}>
               <a href={item.path} className={`nav-link ${isActive ? 'active' : ''}`}>
                 <Icon path={item.icon} />
-                <span className="nav-label">
-                  {item.label}
-                  {/* 🔥 REMOVED: Badge rendering completely */}
-                </span>
+                <span className="nav-label">{item.label}</span>
               </a>
             </div>
           );
@@ -146,25 +149,19 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
       </nav>
 
       <div className="sidebar-footer">
-        {/* Debug Info - TEMPORARY */}
-        {!isCollapsed && (
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', padding: '5px' }}>
-            Image URL: {userImage || 'None'}
-          </div>
-        )}
-        
-        {/* User Profile Section - Clickable (FIXED) */}
+        {/* User Profile Section */}
         <div 
           className="user-profile" 
           onClick={handleProfileClick}
           style={{ cursor: 'pointer' }}
-          title={isCollapsed ? "Administrator System" : ''}
+          title={isCollapsed ? "Lihat Profile" : ''}
         >
           <div className="user-avatar">
             {userImage ? (
               <img 
                 src={userImage}
                 alt="Profile" 
+                key={`sidebar-img-${Date.now()}`}
                 style={{ 
                   width: '100%', 
                   height: '100%', 
@@ -172,8 +169,7 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
                   objectFit: 'cover' 
                 }}
                 onError={(e) => {
-                  console.error('❌ Sidebar image load error for URL:', e.target.src);
-                  // Hide broken image and show initials
+                  console.error('Sidebar image load error:', e.target.src);
                   e.target.style.display = 'none';
                   const parent = e.target.parentElement;
                   if (parent && !parent.querySelector('.fallback-initials')) {
@@ -183,9 +179,6 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
                     initialsSpan.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-weight: 600; color: white;';
                     parent.appendChild(initialsSpan);
                   }
-                }}
-                onLoad={() => {
-                  console.log('✅ Sidebar image loaded successfully:', userImage);
                 }}
               />
             ) : (

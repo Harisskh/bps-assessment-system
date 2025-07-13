@@ -1,14 +1,37 @@
-// app.js - FIXED VERSION - Correct middleware order
+// backend/src/app.js - FIXED STATIC FILE SERVING
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const multer = require('multer'); // ADD THIS
+const multer = require('multer');
 const morgan = require('morgan');
 require('dotenv').config();
-const path = require('path'); // ADD THIS IMPORT
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// 🔥 CRITICAL: ENSURE UPLOAD DIRECTORIES EXIST FIRST
+const uploadDir = path.join(__dirname, '../uploads');
+const profilesDir = path.join(__dirname, '../uploads/profiles');
+
+console.log('📁 Checking upload directories...');
+console.log('📂 Upload dir path:', uploadDir);
+console.log('📂 Profiles dir path:', profilesDir);
+
+// Create directories if they don't exist
+if (!fs.existsSync(uploadDir)) {
+  console.log('🔧 Creating upload directory...');
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+if (!fs.existsSync(profilesDir)) {
+  console.log('🔧 Creating profiles directory...');
+  fs.mkdirSync(profilesDir, { recursive: true });
+}
+
+console.log('📂 Upload dir exists:', fs.existsSync(uploadDir));
+console.log('📂 Profiles dir exists:', fs.existsSync(profilesDir));
 
 // Enhanced CORS configuration
 app.use(cors({
@@ -25,7 +48,8 @@ app.use(cors({
 
 // Security middleware
 app.use(helmet({
-  crossOriginEmbedderPolicy: false // Allow embedding for development
+  crossOriginEmbedderPolicy: false, // Allow embedding for development
+  crossOriginResourcePolicy: { policy: "cross-origin" } // 🔥 CRITICAL FIX
 }));
 
 // Logging
@@ -35,12 +59,84 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files middleware - SERVE UPLOADED FILES
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// 🔥 CRITICAL FIX: STATIC FILES MIDDLEWARE - PROPER SETUP
+console.log('📁 Setting up static file serving...');
+
+// Middleware untuk log semua request ke /uploads
+app.use('/uploads', (req, res, next) => {
+  console.log(`📁 Static file request: ${req.method} ${req.originalUrl}`);
+  console.log(`📂 Requested file path: ${path.join(uploadDir, req.path)}`);
+  console.log(`📝 File exists: ${fs.existsSync(path.join(uploadDir, req.path))}`);
+  next();
+});
+
+// 🔥 STATIC FILE SERVING - FIXED VERSION
+app.use('/uploads', express.static(uploadDir, {
+  dotfiles: 'deny',
+  index: false,
+  redirect: false,
+  setHeaders: (res, path, stat) => {
+    // 🔥 CRITICAL: Set proper headers for images
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    console.log('📤 Serving file:', path);
+  }
+}));
+
+// 🔥 ADDITIONAL: Manual file serving as fallback
+app.get('/uploads/profiles/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(profilesDir, filename);
+  
+  console.log('🔍 Manual file serving request:');
+  console.log('📁 Filename:', filename);
+  console.log('📂 Full path:', filePath);
+  console.log('📝 File exists:', fs.existsSync(filePath));
+  
+  if (fs.existsSync(filePath)) {
+    console.log('✅ File found, serving...');
+    
+    // Set proper headers
+    res.set({
+      'Content-Type': 'image/jpeg',
+      'Access-Control-Allow-Origin': '*',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
+    res.sendFile(filePath);
+  } else {
+    console.log('❌ File not found');
+    res.status(404).json({ 
+      error: 'File not found',
+      filename: filename,
+      fullPath: filePath,
+      profilesDir: profilesDir,
+      filesInDir: fs.existsSync(profilesDir) ? fs.readdirSync(profilesDir) : []
+    });
+  }
+});
 
 // Add request logging for debugging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  
+  // 🔥 SPECIAL LOGGING for uploads requests
+  if (req.path.startsWith('/uploads')) {
+    console.log('📁 Static file request:', {
+      path: req.path,
+      fullPath: path.join(uploadDir, req.path.replace('/uploads', '')),
+      exists: fs.existsSync(path.join(uploadDir, req.path.replace('/uploads', '')))
+    });
+  }
+  
   if (req.body && Object.keys(req.body).length > 0) {
     console.log('Request body:', JSON.stringify(req.body, null, 2));
   }
@@ -48,7 +144,7 @@ app.use((req, res, next) => {
 });
 
 // =============================================
-// PUBLIC ENDPOINTS (NO AUTH REQUIRED) - MUST BE FIRST!
+// PUBLIC ENDPOINTS (NO AUTH REQUIRED)
 // =============================================
 
 app.get('/api/health', (req, res) => {
@@ -58,7 +154,13 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
-    cors: 'enabled'
+    cors: 'enabled',
+    staticFiles: 'enabled',
+    uploadPath: '/uploads',
+    uploadDir: uploadDir,
+    profilesDir: profilesDir,
+    uploadDirExists: fs.existsSync(uploadDir),
+    profilesDirExists: fs.existsSync(profilesDir)
   });
 });
 
@@ -72,11 +174,74 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// 🔥 ENHANCED DEBUG ENDPOINT
+app.get('/api/debug/files', (req, res) => {
+  try {
+    const uploadFiles = fs.existsSync(uploadDir) 
+      ? fs.readdirSync(uploadDir) 
+      : [];
+      
+    const profileFiles = fs.existsSync(profilesDir) 
+      ? fs.readdirSync(profilesDir) 
+      : [];
+      
+    // Test static serving
+    const testFilePath = profileFiles.length > 0 ? profileFiles[0] : null;
+    
+    res.json({
+      uploadsDir: uploadDir,
+      profilesDir: profilesDir,
+      uploadsDirExists: fs.existsSync(uploadDir),
+      profilesDirExists: fs.existsSync(profilesDir),
+      uploadFiles: uploadFiles,
+      profileFiles: profileFiles,
+      staticMiddlewareSetup: 'express.static() configured for /uploads',
+      backendBaseUrl: 'http://localhost:5000',
+      testUrl: testFilePath ? `http://localhost:5000/uploads/profiles/${testFilePath}` : null,
+      manualTestUrl: testFilePath ? `http://localhost:5000/api/test-file/${testFilePath}` : null
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      uploadsDir: uploadDir,
+      profilesDir: profilesDir
+    });
+  }
+});
+
+// 🔥 TEST FILE ENDPOINT
+app.get('/api/test-file/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(profilesDir, filename);
+  
+  console.log('🧪 Test file endpoint:');
+  console.log('📁 Filename:', filename);
+  console.log('📂 Full path:', filePath);
+  console.log('📝 File exists:', fs.existsSync(filePath));
+  
+  if (fs.existsSync(filePath)) {
+    console.log('✅ Test file found, serving...');
+    res.sendFile(filePath);
+  } else {
+    console.log('❌ Test file not found');
+    res.status(404).json({
+      error: 'File not found',
+      filename: filename,
+      fullPath: filePath,
+      profilesDir: profilesDir,
+      filesInDir: fs.existsSync(profilesDir) ? fs.readdirSync(profilesDir) : []
+    });
+  }
+});
+
 // Basic route - API documentation
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to BPS Assessment System API',
     docs: '/api/health',
+    debug: '/api/debug/files',
+    testFile: '/api/test-file/filename.jpg',
+    staticFiles: '/uploads/profiles/filename.jpg',
     endpoints: {
       auth: {
         login: 'POST /api/auth/login',
@@ -84,63 +249,15 @@ app.get('/', (req, res) => {
         changePassword: 'PUT /api/auth/change-password',
         register: 'POST /api/auth/register (Admin only)'
       },
-      users: {
-        getAll: 'GET /api/users (Admin/Pimpinan)',
-        getById: 'GET /api/users/:id',
-        update: 'PUT /api/users/:id',
-        delete: 'DELETE /api/users/:id (Admin only)',
-        activate: 'PUT /api/users/:id/activate (Admin only)',
-        resetPassword: 'PUT /api/users/:id/reset-password (Admin only)',
-        stats: 'GET /api/users/stats (Admin only)'
+      profile: {
+        get: 'GET /api/profile',
+        update: 'PUT /api/profile (with multipart/form-data)',
+        deletePicture: 'DELETE /api/profile/picture'
       },
-      evaluations: {
-        parameters: 'GET /api/evaluations/parameters',
-        scoreRanges: 'GET /api/evaluations/score-ranges',
-        activePeriod: 'GET /api/evaluations/active-period',
-        eligibleUsers: 'GET /api/evaluations/eligible-users',
-        submit: 'POST /api/evaluations/submit',
-        myEvaluations: 'GET /api/evaluations/my-evaluations',
-        all: 'GET /api/evaluations/all (Admin/Pimpinan)',
-        summary: 'GET /api/evaluations/summary/:periodId (Admin/Pimpinan)'
-      },
-      periods: {
-        getAll: 'GET /api/periods (Admin/Pimpinan)',
-        getActive: 'GET /api/periods/active',
-        getById: 'GET /api/periods/:id (Admin/Pimpinan)',
-        create: 'POST /api/periods (Admin only)',
-        update: 'PUT /api/periods/:id (Admin only)',
-        activate: 'PUT /api/periods/:id/activate (Admin only)',
-        delete: 'DELETE /api/periods/:id (Admin only)'
-      },
-      dashboard: {
-        stats: 'GET /api/dashboard/stats (Admin/Pimpinan)',
-        evaluationProgress: 'GET /api/dashboard/evaluation-progress (Admin/Pimpinan)',
-        charts: 'GET /api/dashboard/charts (Admin/Pimpinan)',
-        activities: 'GET /api/dashboard/activities (Admin/Pimpinan)'
-      },
-      monitoring: {
-        evaluationStatus: 'GET /api/monitoring/evaluation-status (Admin/Pimpinan)',
-        incompleteUsers: 'GET /api/monitoring/incomplete-users (Admin/Pimpinan)',
-        userDetail: 'GET /api/monitoring/user/:userId/detail (Admin/Pimpinan)'
-      },
-      attendance: {
-        getAll: 'GET /api/attendance (Admin/Pimpinan)',
-        getById: 'GET /api/attendance/:id (Admin/Pimpinan)',
-        createUpdate: 'POST/PUT /api/attendance (Admin only)',
-        delete: 'DELETE /api/attendance/:id (Admin only)',
-        stats: 'GET /api/stats (Admin/Pimpinan)'
-      },
-      ckp: {
-        getAll: 'GET /api/ckp (Admin/Pimpinan)',
-        getById: 'GET /api/ckp/:id (Admin/Pimpinan)',
-        createUpdate: 'POST/PUT /api/ckp (Admin only)',
-        delete: 'DELETE /api/ckp/:id (Admin only)'
-      },
-      finalEvaluation: {
-        calculate: 'POST /api/calculate (Admin only)',
-        getFinal: 'GET /api/final-evaluations (Admin/Pimpinan)',
-        bestEmployee: 'GET /api/best-employee/:periodId (Admin/Pimpinan)',
-        leaderboard: 'GET /api/leaderboard (Admin/Pimpinan)'
+      staticFiles: {
+        profiles: '/uploads/profiles/filename.jpg',
+        test: '/api/debug/files',
+        testFile: '/api/test-file/filename.jpg'
       }
     },
     version: '1.0.0'
@@ -154,7 +271,7 @@ app.get('/', (req, res) => {
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const profileRoutes = require('./routes/profile'); // NEW ROUTE
+const profileRoutes = require('./routes/profile');
 const evaluationRoutes = require('./routes/evaluations');
 const attendanceRoutes = require('./routes/attendance');
 const finalEvaluationRoutes = require('./routes/finalEvaluation');
@@ -165,7 +282,7 @@ const monitoringRoutes = require('./routes/monitoring');
 // Authenticated routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/profile', profileRoutes); // NEW ROUTE
+app.use('/api/profile', profileRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/evaluations', evaluationRoutes);
@@ -179,7 +296,7 @@ app.use('/api/monitoring', monitoringRoutes);   // evaluation monitoring
 // ERROR HANDLERS
 // =============================================
 
-// Enhanced 404 handler
+// Enhanced 404 handler for API
 app.use('/api/*', (req, res) => {
   console.log(`404 - API endpoint not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ 
@@ -187,11 +304,29 @@ app.use('/api/*', (req, res) => {
     message: `API endpoint not found: ${req.method} ${req.originalUrl}`,
     availableEndpoints: [
       'GET /api/health',
-      'GET /api/test',
+      'GET /api/debug/files',
+      'GET /api/test-file/:filename',
       'POST /api/auth/login',
       'GET /api/evaluations/parameters',
       'GET /api/evaluations/active-period'
     ]
+  });
+});
+
+// Static files 404 handler
+app.use('/uploads/*', (req, res) => {
+  console.log(`📁 Static file not found: ${req.originalUrl}`);
+  const filePath = path.join(uploadDir, req.path.replace('/uploads', ''));
+  console.log('📂 Looking for file at:', filePath);
+  console.log('📝 File exists:', fs.existsSync(filePath));
+  
+  res.status(404).json({ 
+    error: 'File not found',
+    requestedPath: req.originalUrl,
+    lookingAt: filePath,
+    exists: fs.existsSync(filePath),
+    uploadDir: uploadDir,
+    profilesDir: profilesDir
   });
 });
 
@@ -201,14 +336,23 @@ app.use((error, req, res, next) => {
   
   // Handle Multer errors
   if (error.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({ error: 'File terlalu besar. Maksimal 5MB' });
+    return res.status(400).json({ 
+      success: false,
+      error: 'File terlalu besar. Maksimal 5MB' 
+    });
   }
   
   if (error.message === 'File harus berupa gambar') {
-    return res.status(400).json({ error: 'File harus berupa gambar' });
+    return res.status(400).json({ 
+      success: false,
+      error: 'File harus berupa gambar' 
+    });
   }
   
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ 
+    success: false,
+    error: 'Internal server error' 
+  });
 });
 
 // Enhanced global error handler
@@ -247,17 +391,36 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server with better logging
+// Start server with enhanced logging
 app.listen(PORT, () => {
   console.log(`
 🚀 BPS Assessment System Backend Started!
 📍 Port: ${PORT}
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
 🔗 Health check: http://localhost:${PORT}/api/health
+🔗 Debug files: http://localhost:${PORT}/api/debug/files
 🔗 Test endpoint: http://localhost:${PORT}/api/test
 🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}
+📁 Upload directory: ${uploadDir}
+📂 Profiles directory: ${profilesDir}
 ⏰ Started at: ${new Date().toISOString()}
 `);
+
+  // 🔥 VERIFY UPLOAD DIRECTORIES AT STARTUP
+  console.log('📁 Final verification of upload directories...');
+  console.log('📂 Upload dir exists:', fs.existsSync(uploadDir));
+  console.log('📂 Profiles dir exists:', fs.existsSync(profilesDir));
+  
+  if (fs.existsSync(profilesDir)) {
+    const files = fs.readdirSync(profilesDir);
+    console.log('📄 Files in profiles directory:', files.length);
+    files.forEach(file => {
+      console.log(`   - ${file}`);
+    });
+  }
+  
+  console.log('✅ Upload directories verified!');
+  console.log('🔗 Test static serving: http://localhost:5000/uploads/profiles/');
 });
 
 module.exports = app;

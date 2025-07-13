@@ -1,0 +1,311 @@
+// src/styles/ProfilePage.scss - FIXED PHOTO UPLOAD UI
+.profile-page {
+  .profile-card {
+    border: none;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    
+    .card-body {
+      padding: 2rem;
+    }
+  }
+
+  .profile-picture-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1rem;
+    width: 150px;
+    height: 150px;
+    margin-left: auto;
+    margin-right: auto;
+
+    .profile-picture-wrapper,
+    .profile-picture-placeholder {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 4px solid #0A4D68;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .profile-picture-wrapper {
+      background: #f8f9fa;
+    }
+
+    .profile-picture {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .profile-picture-placeholder {
+      background: linear-gradient(135deg, #0A4D68, #1e6091);
+
+      .initials {
+        font-size: 3rem;
+        font-weight: bold;
+        color: white;
+        text-transform: uppercase;
+        z-index: 2;
+      }
+    }
+
+    // 🔥 FIXED: Perfect overlay positioning
+    .profile-picture-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      
+      // Show overlay immediately when editing (no hover needed)
+      opacity: 1;
+      
+      .btn {
+        padding: 0.75rem;
+        font-size: 1.5rem;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 3px solid white;
+        background: #0A4D68;
+        color: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        
+        &:hover {
+          background: #083a52;
+          transform: scale(1.1);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+        
+        i {
+          margin: 0 !important;
+          font-size: 1.25rem;
+        }
+      }
+    }
+
+    // Hide overlay when not editing
+    &:not(.editing) .profile-picture-overlay {
+      display: none;
+    }
+  }
+
+  // Add editing class when in edit mode
+  &.editing {
+    .profile-picture-container {
+      .profile-picture-overlay {
+        display: flex;
+      }
+    }
+  }
+
+  .card {
+    border: none;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    margin-bottom: 1.5rem;
+
+    .card-header {
+      background: linear-gradient(135deg, #0A4D68, #1e6091);
+      color: white;
+      border-radius: 15px 15px 0 0 !important;
+      padding: 1.25rem 1.5rem;
+      border: none;
+
+      .card-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+    }
+
+    .card-body {
+      padding: 1.5rem;
+    }
+  }
+
+  .form-label {
+    font-weight: 600;
+    color: #0A4D68;
+    margin-bottom: 0.5rem;
+  }
+
+  .form-control {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+
+    &:focus {
+      border-color: #0A4D68;
+      box-shadow: 0 0 0 0.2rem rgba(10, 77, 104, 0.25);
+    }
+
+    &:disabled {
+      background-color: #f8f9fa;
+      border-color: #dee2e6;
+      color: #6c757d;
+    }
+  }
+
+  .btn {
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+
+    &.btn-primary {
+      background: linear-gradient(135deg, #0A4D68, #1e6091);
+      border: none;
+      
+      &:hover {
+        background: linear-gradient(135deg, #083a52, #1a547d);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(10, 77, 104, 0.3);
+      }
+    }
+
+    &.btn-secondary {
+      background: #6c757d;
+      border: none;
+      
+      &:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+      }
+    }
+
+    &.btn-outline-danger {
+      border: 2px solid #dc3545;
+      color: #dc3545;
+      background: transparent;
+
+      &:hover {
+        background: #dc3545;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+      }
+    }
+  }
+
+  .alert {
+    border: none;
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+
+    &.alert-danger {
+      background: linear-gradient(135deg, #dc3545, #c82333);
+      color: white;
+      
+      .btn-close {
+        filter: brightness(0) invert(1);
+      }
+    }
+
+    &.alert-success {
+      background: linear-gradient(135deg, #28a745, #218838);
+      color: white;
+      
+      .btn-close {
+        filter: brightness(0) invert(1);
+      }
+    }
+  }
+
+  .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  // Responsive design
+  @media (max-width: 768px) {
+    .profile-picture-container {
+      width: 120px;
+      height: 120px;
+
+      .profile-picture-wrapper,
+      .profile-picture-placeholder,
+      .profile-picture-overlay {
+        width: 120px;
+        height: 120px;
+      }
+
+      .profile-picture-placeholder .initials {
+        font-size: 2.5rem;
+      }
+
+      .profile-picture-overlay .btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1rem;
+
+        i {
+          font-size: 1rem;
+        }
+      }
+    }
+
+    .card-body {
+      padding: 1rem;
+    }
+
+    .profile-card .card-body {
+      padding: 1.5rem;
+    }
+  }
+}
+
+// Animation for smooth transitions
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile-page .card {
+  animation: fadeIn 0.5s ease-out;
+}
+
+// Additional animation for overlay
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.profile-page.editing .profile-picture-overlay {
+  animation: overlayFadeIn 0.3s ease-out;
+}

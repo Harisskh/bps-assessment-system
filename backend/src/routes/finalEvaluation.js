@@ -24,7 +24,7 @@ router.post('/calculate', requireAdmin, calculateFinalEvaluations);
 
 // GET routes - Admin/Pimpinan for most, Staff can see leaderboard
 router.get('/final-evaluations', requirePimpinan, getFinalEvaluations);
-router.get('/best-employee/:periodId', requirePimpinan, getBestEmployee);
+router.get('/best-employee/:periodId', requireStaffOrAbove, getBestEmployee);
 router.get('/leaderboard', requireStaffOrAbove, getLeaderboard); // ✅ Allow staff access
 
 module.exports = router;

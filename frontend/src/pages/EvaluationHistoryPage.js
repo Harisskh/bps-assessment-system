@@ -18,6 +18,7 @@ const EvaluationHistoryPage = () => {
   const [showDetails, setShowDetails] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   
+  // 🔥 NEW: Enhanced filters with year and month
   const [filters, setFilters] = useState({
     tahun: '',
     bulan: '',
@@ -46,6 +47,7 @@ const EvaluationHistoryPage = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
     
+    // Generate dari 3 tahun lalu sampai tahun depan
     for (let year = currentYear - 3; year <= currentYear + 1; year++) {
       years.push(year);
     }
@@ -70,6 +72,7 @@ const EvaluationHistoryPage = () => {
       
       console.log('🔄 Loading data for user role:', user?.role);
       
+      // 🔥 Simplified approach: Ambil evaluations dan extract periods
       const evaluationsRes = await evaluationAPI.getMyEvaluations({ limit: 1000 });
       const userEvaluations = evaluationsRes.data.data?.evaluations || evaluationsRes.data.evaluations || [];
       setAllEvaluations(userEvaluations);
@@ -93,6 +96,7 @@ const EvaluationHistoryPage = () => {
         }
       });
       
+      // Sort periods by year and month (newest first)
       uniquePeriods.sort((a, b) => {
         if (a.isActive && !b.isActive) return -1;
         if (!a.isActive && b.isActive) return 1;
@@ -102,11 +106,13 @@ const EvaluationHistoryPage = () => {
       setPeriods(uniquePeriods);
       console.log('📅 Unique periods extracted:', uniquePeriods.length);
       
+      // 🔥 Try to get active period untuk period info yang lebih lengkap
       try {
         const activePeriodRes = await periodAPI.getActive();
         const activePeriod = activePeriodRes.data.data?.period || activePeriodRes.data.period;
         
         if (activePeriod) {
+          // Add atau update active period dalam list
           const existingIndex = uniquePeriods.findIndex(p => p.id === activePeriod.id);
           if (existingIndex >= 0) {
             uniquePeriods[existingIndex] = { ...activePeriod, hasEvaluations: uniquePeriods[existingIndex].hasEvaluations };
@@ -131,24 +137,28 @@ const EvaluationHistoryPage = () => {
   const filterEvaluations = () => {
     let filteredEvaluations = [...allEvaluations];
     
+    // Filter by year
     if (filters.tahun) {
       filteredEvaluations = filteredEvaluations.filter(e => 
         e.period && e.period.tahun === parseInt(filters.tahun)
       );
     }
     
+    // Filter by month
     if (filters.bulan) {
       filteredEvaluations = filteredEvaluations.filter(e => 
         e.period && e.period.bulan === parseInt(filters.bulan)
       );
     }
     
+    // Filter by ranking
     if (filters.ranking) {
       filteredEvaluations = filteredEvaluations.filter(e => 
         e.ranking === parseInt(filters.ranking)
       );
     }
 
+    // Apply sorting
     filteredEvaluations.sort((a, b) => {
       let aValue, bValue;
       
@@ -186,6 +196,7 @@ const EvaluationHistoryPage = () => {
 
     setEvaluations(filteredEvaluations);
     
+    // Calculate summary
     const summaryData = {
       totalEvaluations: filteredEvaluations.length,
       tokoh1Count: filteredEvaluations.filter(e => e.ranking === 1).length,
@@ -195,6 +206,12 @@ const EvaluationHistoryPage = () => {
       periodsInvolved: getUniquePeriodsCount(filteredEvaluations)
     };
     setSummary(summaryData);
+    
+    console.log('📊 Filter results:', {
+      filters,
+      totalFiltered: filteredEvaluations.length,
+      totalEvaluations: allEvaluations.length
+    });
   };
 
   const getUniquePeriodsCount = (evaluations) => {
@@ -224,11 +241,11 @@ const EvaluationHistoryPage = () => {
 
   const getRankingBadge = (ranking) => {
     const badges = {
-      1: { class: 'badge-tokoh-1', icon: 'fa-trophy', text: 'Tokoh 1' },
-      2: { class: 'badge-tokoh-2', icon: 'fa-medal', text: 'Tokoh 2' },
-      3: { class: 'badge-tokoh-3', icon: 'fa-award', text: 'Tokoh 3' }
+      1: { class: 'bg-success', icon: 'fa-trophy', text: 'Tokoh 1' },
+      2: { class: 'bg-primary', icon: 'fa-medal', text: 'Tokoh 2' },
+      3: { class: 'bg-info', icon: 'fa-award', text: 'Tokoh 3' }
     };
-    return badges[ranking] || { class: 'badge-tokoh-default', icon: 'fa-star', text: `Tokoh ${ranking}` };
+    return badges[ranking] || { class: 'bg-secondary', icon: 'fa-star', text: `Tokoh ${ranking}` };
   };
 
   const formatDate = (dateString) => {
@@ -297,19 +314,19 @@ const EvaluationHistoryPage = () => {
   return (
     <div className="evaluation-history-page">
       <div className="container-fluid p-3 p-md-4">
-        {/* Header */}
+          {/* Header */}
         <div className="page-header">
           <h2 className="page-title">
             <i className="fas fa-history"></i>
             Riwayat Penilaian
-          </h2>
+              </h2>
           <p className="page-subtitle">
-            Lihat seluruh riwayat penilaian yang telah Anda berikan
-            {user?.role === 'STAFF' && (
-              <span className="badge bg-info ms-2">Mode Staff</span>
-            )}
-          </p>
-        </div>
+                Lihat seluruh riwayat penilaian yang telah Anda berikan
+                {user?.role === 'STAFF' && (
+                  <span className="badge bg-info ms-2">Mode Staff</span>
+                )}
+              </p>
+            </div>
 
         {/* Mobile: Daftar Penilaian di Atas */}
         <div className="d-block d-md-none">
@@ -610,115 +627,126 @@ const EvaluationHistoryPage = () => {
           <div className="desktop-filters mb-4">
             <div className="card">
               <div className="card-header">
-                <h6 className="mb-0">
-                  <i className="fas fa-filter me-2"></i>
-                  Filter & Sorting
-                </h6>
-              </div>
-              <div className="card-body">
-                <div className="row g-3">
-                  <div className="col-md-2">
-                    <label className="form-label fw-semibold">
-                      <i className="fas fa-calendar-year me-1"></i>
-                      Tahun
-                    </label>
-                    <select 
+              <h6 className="mb-0">
+                <i className="fas fa-filter me-2"></i>
+                Filter & Sorting
+              </h6>
+            </div>
+            <div className="card-body">
+              <div className="row g-3">
+                {/* Filter Tahun */}
+                <div className="col-md-2">
+                  <label className="form-label fw-semibold">
+                    <i className="fas fa-calendar-year me-1"></i>
+                    Tahun
+                  </label>
+                  <select 
                       className="form-select"
-                      value={filters.tahun}
-                      onChange={(e) => setFilters({...filters, tahun: e.target.value})}
-                    >
-                      <option value="">Semua Tahun</option>
-                      {generateYearOptions().map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-md-2">
-                    <label className="form-label fw-semibold">
-                      <i className="fas fa-calendar-month me-1"></i>
-                      Bulan
-                    </label>
-                    <select 
-                      className="form-select"
-                      value={filters.bulan}
-                      onChange={(e) => setFilters({...filters, bulan: e.target.value})}
-                    >
-                      <option value="">Semua Bulan</option>
-                      {generateMonthOptions().map(month => (
-                        <option key={month.value} value={month.value}>
-                          {month.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-md-2">
-                    <label className="form-label fw-semibold">
-                      <i className="fas fa-award me-1"></i>
-                      Ranking
-                    </label>
-                    <select 
-                      className="form-select"
-                      value={filters.ranking}
-                      onChange={(e) => setFilters({...filters, ranking: e.target.value})}
-                    >
-                      <option value="">Semua Ranking</option>
-                      <option value="1">Tokoh 1</option>
-                      <option value="2">Tokoh 2</option>
-                      <option value="3">Tokoh 3</option>
-                    </select>
-                  </div>
-                  <div className="col-md-2">
-                    <label className="form-label fw-semibold">
-                      <i className="fas fa-sort me-1"></i>
-                      Urutkan
-                    </label>
-                    <select 
-                      className="form-select"
-                      value={filters.sortBy}
-                      onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-                    >
-                      <option value="submitDate">Tanggal Penilaian</option>
-                      <option value="period">Periode</option>
-                      <option value="targetName">Nama Pegawai</option>
-                      <option value="ranking">Ranking</option>
-                      <option value="averageScore">Rata-rata Skor</option>
-                    </select>
-                  </div>
-                  <div className="col-md-2">
-                    <label className="form-label fw-semibold">Urutan</label>
-                    <select 
-                      className="form-select"
-                      value={filters.sortOrder}
-                      onChange={(e) => setFilters({...filters, sortOrder: e.target.value})}
-                    >
-                      <option value="desc">Terbaru</option>
-                      <option value="asc">Terlama</option>
-                    </select>
-                  </div>
-                  <div className="col-md-2 d-flex align-items-end">
-                    <button 
-                      className="btn btn-outline-secondary w-100"
-                      onClick={resetFilters}
-                    >
-                      <i className="fas fa-redo me-1"></i>
-                      Reset
-                    </button>
-                  </div>
+                    value={filters.tahun}
+                    onChange={(e) => setFilters({...filters, tahun: e.target.value})}
+                  >
+                    <option value="">Semua Tahun</option>
+                    {generateYearOptions().map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
-                
+
+                {/* Filter Bulan */}
+                <div className="col-md-2">
+                  <label className="form-label fw-semibold">
+                    <i className="fas fa-calendar-month me-1"></i>
+                    Bulan
+                  </label>
+                  <select 
+                      className="form-select"
+                    value={filters.bulan}
+                    onChange={(e) => setFilters({...filters, bulan: e.target.value})}
+                  >
+                    <option value="">Semua Bulan</option>
+                    {generateMonthOptions().map(month => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter Ranking */}
+                <div className="col-md-2">
+                  <label className="form-label fw-semibold">
+                    <i className="fas fa-award me-1"></i>
+                    Ranking
+                  </label>
+                  <select 
+                      className="form-select"
+                    value={filters.ranking}
+                    onChange={(e) => setFilters({...filters, ranking: e.target.value})}
+                  >
+                    <option value="">Semua Ranking</option>
+                    <option value="1">Tokoh 1</option>
+                    <option value="2">Tokoh 2</option>
+                    <option value="3">Tokoh 3</option>
+                  </select>
+                </div>
+
+                {/* Sort By */}
+                <div className="col-md-2">
+                  <label className="form-label fw-semibold">
+                    <i className="fas fa-sort me-1"></i>
+                    Urutkan
+                  </label>
+                  <select 
+                      className="form-select"
+                    value={filters.sortBy}
+                    onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
+                  >
+                    <option value="submitDate">Tanggal Penilaian</option>
+                    <option value="period">Periode</option>
+                    <option value="targetName">Nama Pegawai</option>
+                    <option value="ranking">Ranking</option>
+                    <option value="averageScore">Rata-rata Skor</option>
+                  </select>
+                </div>
+
+                {/* Sort Order */}
+                <div className="col-md-2">
+                  <label className="form-label fw-semibold">Urutan</label>
+                  <select 
+                      className="form-select"
+                    value={filters.sortOrder}
+                    onChange={(e) => setFilters({...filters, sortOrder: e.target.value})}
+                  >
+                    <option value="desc">Terbaru</option>
+                    <option value="asc">Terlama</option>
+                  </select>
+                </div>
+
+                {/* Reset Button */}
+                <div className="col-md-2 d-flex align-items-end">
+                  <button 
+                      className="btn btn-outline-secondary w-100"
+                    onClick={resetFilters}
+                  >
+                    <i className="fas fa-redo me-1"></i>
+                    Reset
+                  </button>
+                </div>
+              </div>
+              
                 <div className="filter-summary mt-3 pt-3 border-top">
-                  <small className="text-muted">
-                    <i className="fas fa-info-circle me-1"></i>
-                    Menampilkan: <strong>{getFilterSummary()}</strong>
-                    {summary && (
-                      <span className="ms-2">
-                        | Total: <strong>{summary.totalEvaluations}</strong> penilaian
-                        {summary.periodsInvolved > 0 && (
-                          <span> dari <strong>{summary.periodsInvolved}</strong> periode</span>
-                        )}
-                      </span>
-                    )}
-                  </small>
+                <small className="text-muted">
+                  <i className="fas fa-info-circle me-1"></i>
+                  Menampilkan: <strong>{getFilterSummary()}</strong>
+                  {summary && (
+                    <span className="ms-2">
+                      | Total: <strong>{summary.totalEvaluations}</strong> penilaian
+                      {summary.periodsInvolved > 0 && (
+                        <span> dari <strong>{summary.periodsInvolved}</strong> periode</span>
+                      )}
+                    </span>
+                  )}
+                </small>
                 </div>
               </div>
             </div>

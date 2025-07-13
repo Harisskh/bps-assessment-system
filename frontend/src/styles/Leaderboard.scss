@@ -1,0 +1,491 @@
+// src/styles/Leaderboard.scss - UPDATED WITH PROFILE PHOTO STYLES
+.leaderboard-container {
+  .leaderboard-card {
+    border: none;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+
+    .card-header {
+      background: linear-gradient(135deg, #0A4D68, #1e6091);
+      color: white;
+      border-radius: 15px 15px 0 0 !important;
+      padding: 1.25rem 1.5rem;
+      border: none;
+
+      .card-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+    }
+
+    .card-body {
+      padding: 1.5rem;
+    }
+  }
+
+  .leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .leaderboard-item {
+    display: flex;
+    align-items: center;
+    padding: 1.5rem;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    background: #ffffff;
+    border: 2px solid #e9ecef;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    &.rank-1 {
+      background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
+      border: 2px solid #fdcb6e;
+      
+      .rank-badge {
+        background: linear-gradient(135deg, #fdcb6e, #e17055);
+        color: white;
+        box-shadow: 0 4px 15px rgba(253, 203, 110, 0.4);
+      }
+
+      .employee-avatar {
+        .avatar-image, .avatar-placeholder {
+          border: 4px solid #fdcb6e;
+          box-shadow: 0 4px 15px rgba(253, 203, 110, 0.3);
+        }
+      }
+    }
+
+    &.rank-2 {
+      background: linear-gradient(135deg, #e1e8f0, #c8d6e5);
+      border: 2px solid #a29bfe;
+      
+      .rank-badge {
+        background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+        color: white;
+        box-shadow: 0 4px 15px rgba(162, 155, 254, 0.4);
+      }
+
+      .employee-avatar {
+        .avatar-image, .avatar-placeholder {
+          border: 4px solid #a29bfe;
+          box-shadow: 0 4px 15px rgba(162, 155, 254, 0.3);
+        }
+      }
+    }
+
+    &.rank-3 {
+      background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+      border: 2px solid #fab1a0;
+      
+      .rank-badge {
+        background: linear-gradient(135deg, #fab1a0, #e17055);
+        color: white;
+        box-shadow: 0 4px 15px rgba(250, 177, 160, 0.4);
+      }
+
+      .employee-avatar {
+        .avatar-image, .avatar-placeholder {
+          border: 4px solid #fab1a0;
+          box-shadow: 0 4px 15px rgba(250, 177, 160, 0.3);
+        }
+      }
+    }
+
+    &.rank-other {
+      .rank-badge {
+        background: linear-gradient(135deg, #636e72, #2d3436);
+        color: white;
+      }
+
+      .employee-avatar {
+        .avatar-image, .avatar-placeholder {
+          border: 3px solid #dee2e6;
+        }
+      }
+    }
+  }
+
+  .rank-badge {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-right: 1.5rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+    .rank-icon {
+      font-size: 1.5rem;
+    }
+  }
+
+  // 🔥 PROFILE PHOTO STYLES
+  .employee-avatar {
+    width: 70px;
+    height: 70px;
+    margin-right: 1.5rem;
+    flex-shrink: 0;
+    position: relative;
+
+    .avatar-image {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #dee2e6;
+      transition: all 0.3s ease;
+    }
+
+    .avatar-placeholder {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0A4D68, #1e6091);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid #dee2e6;
+      transition: all 0.3s ease;
+
+      .avatar-initials {
+        color: white;
+        font-weight: bold;
+        font-size: 1.3rem;
+        text-transform: uppercase;
+      }
+    }
+  }
+
+  .employee-info {
+    flex: 1;
+    min-width: 0;
+    margin-right: 1rem;
+
+    .employee-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: #2d3436;
+      margin-bottom: 0.25rem;
+      line-height: 1.3;
+    }
+
+    .employee-details {
+      margin: 0;
+      color: #636e72;
+      font-size: 0.9rem;
+      line-height: 1.4;
+
+      .nip {
+        display: block;
+        font-weight: 500;
+      }
+
+      .jabatan {
+        display: block;
+        font-style: italic;
+        font-size: 0.85rem;
+      }
+    }
+  }
+
+  .score-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+
+    .final-score {
+      text-align: center;
+      margin-bottom: 0.75rem;
+
+      .score-value {
+        display: block;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0A4D68;
+        line-height: 1;
+      }
+
+      .score-label {
+        font-size: 0.8rem;
+        color: #636e72;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    .score-breakdown {
+      display: flex;
+      gap: 0.75rem;
+
+      .score-item {
+        text-align: center;
+        padding: 0.5rem 0.75rem;
+        background: rgba(10, 77, 104, 0.1);
+        border-radius: 8px;
+        min-width: 60px;
+
+        .score-type {
+          display: block;
+          font-size: 0.7rem;
+          color: #636e72;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          margin-bottom: 0.25rem;
+        }
+
+        .score-value-small {
+          display: block;
+          font-size: 1rem;
+          font-weight: 600;
+          color: #0A4D68;
+        }
+      }
+    }
+  }
+}
+
+// 🔥 BEST EMPLOYEE CARD STYLES
+.best-employee-card {
+  .card {
+    border: none;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+    border-radius: 20px;
+    background: linear-gradient(135deg, #74b9ff, #0984e3);
+    color: white;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    .card-body {
+      position: relative;
+      z-index: 2;
+      padding: 2rem;
+    }
+  }
+
+  .congratulations-badge {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 25px;
+    padding: 0.75rem 1.5rem;
+    margin-bottom: 1.5rem;
+    backdrop-filter: blur(10px);
+
+    i {
+      font-size: 1.5rem;
+      margin-right: 0.5rem;
+      color: #fdcb6e;
+    }
+
+    span {
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+  }
+
+  // 🔥 LARGE PROFILE PHOTO FOR BEST EMPLOYEE
+  .employee-avatar-large {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+    position: relative;
+
+    .avatar-image-large {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    .avatar-placeholder-large {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+
+      .avatar-initials {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: white;
+        text-transform: uppercase;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+    }
+  }
+
+  .employee-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .employee-details {
+    font-size: 0.95rem;
+    opacity: 0.9;
+
+    .nip, .jabatan {
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .jabatan {
+      font-style: italic;
+    }
+  }
+
+  .final-score-large {
+    .score-value {
+      display: block;
+      font-size: 3rem;
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .score-label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.9;
+      margin-top: 0.25rem;
+    }
+  }
+
+  .score-breakdown-large {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+
+    .score-item {
+      text-align: center;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      min-width: 80px;
+
+      .score-type {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        opacity: 0.9;
+      }
+
+      .score-value {
+        display: block;
+        font-size: 1.3rem;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+    }
+  }
+
+  .period-info {
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
+}
+
+// Animation for shimmer effect
+@keyframes shimmer {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .leaderboard-container {
+    .leaderboard-item {
+      padding: 1rem;
+      flex-direction: column;
+      text-align: center;
+
+      .rank-badge {
+        margin-right: 0;
+        margin-bottom: 1rem;
+      }
+
+      .employee-avatar {
+        margin-right: 0;
+        margin-bottom: 1rem;
+      }
+
+      .employee-info {
+        margin-right: 0;
+        margin-bottom: 1rem;
+      }
+
+      .score-section {
+        .score-breakdown {
+          justify-content: center;
+        }
+      }
+    }
+  }
+
+  .best-employee-card {
+    .employee-avatar-large {
+      width: 100px;
+      height: 100px;
+
+      .avatar-placeholder-large .avatar-initials {
+        font-size: 2rem;
+      }
+    }
+
+    .score-breakdown-large {
+      flex-direction: column;
+      gap: 0.5rem;
+
+      .score-item {
+        min-width: auto;
+      }
+    }
+  }
+}

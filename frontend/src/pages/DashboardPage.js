@@ -1,5 +1,4 @@
-// src/pages/DashboardPage.js
-
+// src/pages/DashboardPage.js - FIXED VERSION - Staff Best Employee Display
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardAPI, finalEvaluationAPI, periodAPI, evaluationAPI } from '../services/api';
@@ -23,12 +22,24 @@ const BestEmployeeCard = ({ employee }) => {
                 <div className="card-body text-center p-5">
                     <i className="fas fa-award fa-3x text-muted mb-3"></i>
                     <h6 className="text-muted">Best Employee belum ditentukan</h6>
-                    <p className="small text-muted">Silahkan melakukan penilaian dan jalankan perhitungan final untuk menentukan pegawai terbaik periode ini.</p>
+                    <p className="small text-muted">Jalankan perhitungan final untuk menentukan pegawai terbaik periode ini.</p>
                 </div>
             </div>
         );
     }
+    
     const getInitials = (name = '') => name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    
+    // 🔥 FIX: Handle different data structures more comprehensively
+    const userData = employee.user || employee;
+    const scores = {
+        // Handle multiple possible field names for each score type
+        berakhlak: employee.berakhlakScore || employee.tokohBerakhlakScore || employee.berAKHLAKScore || employee.berakhlak || 0,
+        presensi: employee.presensiScore || employee.attendanceScore || employee.presensi || 0,
+        ckp: employee.ckpScore || employee.ckp || 0,
+        final: employee.finalScore || employee.totalScore || employee.nilaiAkhir || 0
+    };
+    
     return (
         <div className="best-employee-card card dashboard-card mb-4">
             <div className="congrats-banner">
@@ -36,19 +47,19 @@ const BestEmployeeCard = ({ employee }) => {
             </div>
             <div className="text-center pt-4">
                 <div className="mx-auto d-flex align-items-center justify-content-center" style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #fceabb, #f8b500)', color: '#fff', fontSize: '2rem', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-                    {getInitials(employee.user.nama)}
+                    {getInitials(userData.nama)}
                 </div>
-                <h4 className="mt-3 mb-1 fw-bold">{employee.user.nama}</h4>
-                <p className="text-muted small mb-3">{employee.user.jabatan}</p>
+                <h4 className="mt-3 mb-1 fw-bold">{userData.nama}</h4>
+                <p className="text-muted small mb-3">{userData.jabatan}</p>
                 <div className="mb-3">
-                    <span className="h1 fw-bolder text-success me-2">{employee.finalScore.toFixed(2)}</span>
+                    <span className="h1 fw-bolder text-success me-2">{scores.final.toFixed(2)}</span>
                     <br />
                     <span className="text-muted">Nilai Akhir</span>
                 </div>
                 <div className="row gx-2">
-                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">BerAKHLAK</small><strong className="text-primary">{employee.berakhlakScore.toFixed(1)}</strong></div></div>
-                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">Presensi</small><strong className="text-primary">{employee.presensiScore.toFixed(1)}</strong></div></div>
-                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">CKP</small><strong className="text-primary">{employee.ckpScore.toFixed(1)}</strong></div></div>
+                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">BerAKHLAK</small><strong className="text-primary">{scores.berakhlak.toFixed(1)}</strong></div></div>
+                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">Presensi</small><strong className="text-primary">{scores.presensi.toFixed(1)}</strong></div></div>
+                    <div className="col"><div className="bg-light p-2 rounded text-center"><small className="text-muted d-block">CKP</small><strong className="text-primary">{scores.ckp.toFixed(1)}</strong></div></div>
                 </div>
             </div>
         </div>
@@ -85,47 +96,84 @@ const StaffActionCard = ({ periodName }) => (
 
 const EvaluationHistoryCard = ({ evaluations = [] }) => {
     const getRankingBadge = (ranking) => {
-        if (ranking === 1) return 'bg-success';
-        if (ranking === 2) return 'bg-primary';
-        return 'bg-info';
+        const badges = {
+            1: { class: 'bg-success', icon: 'fa-trophy', text: 'Tokoh 1' },
+            2: { class: 'bg-primary', icon: 'fa-medal', text: 'Tokoh 2' },
+            3: { class: 'bg-info', icon: 'fa-award', text: 'Tokoh 3' }
+        };
+        return badges[ranking] || { class: 'bg-secondary', icon: 'fa-star', text: `Tokoh ${ranking}` };
+    };
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
     };
 
     return (
-        <div className="dashboard-card">
+        <div className="card dashboard-card h-100">
             <div className="card-body p-4">
-                <h5 className="card-title mb-2">
-                    <i className="fas fa-history me-2"></i>
-                    Riwayat Penilaian Terakhir
-                </h5>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="card-title mb-0">
+                        <i className="fas fa-history me-2"></i>
+                        Riwayat Penilaian
+                    </h5>
+                    <span className="badge bg-primary">{evaluations.length}</span>
+                </div>
+
                 {evaluations.length > 0 ? (
-                    <div className="list-group list-group-flush">
-                        {evaluations.map(ev => (
-                            <div key={ev.id} className="list-group-item history-item px-0">
-                                <div className="d-flex align-items-center">
-                                    <span className={`badge ${getRankingBadge(ev.ranking)} me-3`}>Tokoh {ev.ranking}</span>
-                                    <div className="user-info">
-                                        <strong>{ev.target.nama}</strong>
-                                        <span className="jabatan">{ev.target.jabatan}</span>
+                    <div className="evaluation-history-compact">
+                        {evaluations.slice(0, 3).map((evaluation, index) => {
+                            const badge = getRankingBadge(evaluation.ranking);
+                            return (
+                                <div key={evaluation.id || index} className="history-item-compact mb-3">
+                                    <div className="d-flex align-items-center">
+                                        <span className={`badge ${badge.class} me-3`}>
+                                            <i className={`fas ${badge.icon} me-1`}></i>
+                                            {badge.text}
+                                        </span>
+                                        <div className="flex-grow-1">
+                                            <div className="fw-semibold">{evaluation.target?.nama || 'N/A'}</div>
+                                            <small className="text-muted">{evaluation.target?.jabatan || 'N/A'}</small>
+                                        </div>
+                                        <div className="text-end">
+                                            <small className="text-muted">
+                                                {formatDate(evaluation.submitDate)}
+                                            </small>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="text-end">
-                                    <span className="text-muted small">{ev.period.namaPeriode}</span>
-                                </div>
+                            );
+                        })}
+                        {evaluations.length > 3 && (
+                            <div className="text-center">
+                                <small className="text-muted">
+                                    +{evaluations.length - 3} penilaian lainnya
+                                </small>
                             </div>
-                        ))}
+                        )}
                     </div>
                 ) : (
-                    <p className="text-muted mt-3">Anda belum pernah melakukan penilaian.</p>
+                    <div className="text-center py-3">
+                        <i className="fas fa-inbox fa-2x text-muted mb-2"></i>
+                        <p className="text-muted mb-0">Belum ada riwayat penilaian untuk periode ini.</p>
+                        <div className="text-center mt-3">
+                            <Link to="/evaluation-history" className="btn btn-outline-primary btn-sm">
+                                <i className="fas fa-external-link-alt me-2"></i>
+                                Lihat Semua Riwayat
+                            </Link>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
     );
 };
 
-
 // --- Komponen Utama Dashboard ---
 const DashboardPage = () => {
-    // ... (Hooks useState dan useEffect tetap sama dari sebelumnya)
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -141,13 +189,30 @@ const DashboardPage = () => {
             try {
                 setLoading(true);
                 const periodRes = await periodAPI.getActive();
-                const periodId = periodRes.data.data.period.id;
-                setActivePeriod(periodRes.data.data.period);
+                const period = periodRes.data.data?.period || periodRes.data.period;
+                const periodId = period?.id;
+                
+                setActivePeriod(period);
 
                 const commonPromises = [
-                    finalEvaluationAPI.getLeaderboard({ periodId, limit: 1 }).catch(e => e),
                     evaluationAPI.getMyEvaluations({ periodId }).catch(e => e)
                 ];
+
+                // 🔥 FIX: Load best employee for ALL users (Admin, Pimpinan, Staff)
+                if (periodId) {
+                    // For ALL users, try getBestEmployee first, then fallback to leaderboard
+                    commonPromises.push(
+                        finalEvaluationAPI.getBestEmployee(periodId).catch(e => {
+                            console.warn('getBestEmployee failed, trying leaderboard:', e);
+                            return finalEvaluationAPI.getLeaderboard({ periodId }).catch(e2 => {
+                                console.warn('Leaderboard also failed:', e2);
+                                return null;
+                            });
+                        })
+                    );
+                } else {
+                    commonPromises.push(Promise.resolve(null));
+                }
 
                 if (user.role === 'ADMIN' || user.role === 'PIMPINAN') {
                     commonPromises.push(dashboardAPI.getStats({ periodId }).catch(e => e));
@@ -156,21 +221,64 @@ const DashboardPage = () => {
 
                 const results = await Promise.all(commonPromises);
                 
-                const leaderboardRes = results[0];
-                const myEvaluationsRes = results[1];
+                const myEvaluationsRes = results[0];
+                const bestEmployeeRes = results[1];
 
-                if (!(leaderboardRes instanceof Error) && leaderboardRes.data.data.leaderboard.length > 0 && leaderboardRes.data.data.leaderboard[0].isBestEmployee) {
-                    setBestEmployee(leaderboardRes.data.data.leaderboard[0]);
-                }
+                // Handle my evaluations
                 if (!(myEvaluationsRes instanceof Error)) {
-                    setMyEvaluations(myEvaluationsRes.data.data.evaluations);
+                    const evaluations = myEvaluationsRes.data.data?.evaluations || myEvaluationsRes.data.evaluations || [];
+                    setMyEvaluations(evaluations);
+                }
+
+                // 🔥 FIX: Handle best employee response for different user roles
+                if (bestEmployeeRes && bestEmployeeRes.data?.success) {
+                    const responseData = bestEmployeeRes.data.data || bestEmployeeRes.data;
+                    
+                    // Check if it's getBestEmployee response
+                    if (responseData.bestEmployee) {
+                        setBestEmployee(responseData.bestEmployee);
+                        console.log('✅ Best employee loaded:', responseData.bestEmployee.user.nama);
+                    }
+                    // Check if it's getLeaderboard response
+                    else if (responseData.leaderboard && responseData.leaderboard.length > 0) {
+                        // 🔥 FIX: Find the ACTUAL best employee from leaderboard (the one with status "Best Employee")
+                        const actualBestEmployee = responseData.leaderboard.find(employee => 
+                            employee.status === 'Best Employee' || 
+                            employee.isBestEmployee === true ||
+                            employee.rank === 1
+                        );
+                        
+                        if (actualBestEmployee) {
+                            setBestEmployee(actualBestEmployee);
+                            console.log('✅ Best employee from leaderboard:', actualBestEmployee.nama || actualBestEmployee.user?.nama);
+                        } else {
+                            // Fallback: if no specific best employee found, take the first one but log warning
+                            console.warn('⚠️ No specific best employee found, using top performer');
+                            setBestEmployee(responseData.leaderboard[0]);
+                        }
+                    }
+                    else {
+                        console.log('⚠️ No best employee data found in response');
+                        setBestEmployee(null);
+                    }
+                } else {
+                    console.log('⚠️ No best employee found for period:', periodId);
+                    setBestEmployee(null);
                 }
 
                 if (user.role === 'ADMIN' || user.role === 'PIMPINAN') {
                     const statsRes = results[2];
                     const progressRes = results[3];
-                    if (!(statsRes instanceof Error)) setStats(statsRes.data.data);
-                    if (!(progressRes instanceof Error)) setEvaluationProgress(progressRes.data.data);
+                    
+                    if (!(statsRes instanceof Error)) {
+                        const statsData = statsRes.data.data || statsRes.data;
+                        setStats(statsData);
+                    }
+                    
+                    if (!(progressRes instanceof Error)) {
+                        const progressData = progressRes.data.data || progressRes.data;
+                        setEvaluationProgress(progressData);
+                    }
                 }
 
             } catch (err) {
@@ -224,15 +332,19 @@ const DashboardPage = () => {
     );
     
     const renderStaffDashboard = () => (
-         <div className="row g-4">
+        <div className="row g-4">
             <div className="col-lg-7">
                 <StaffActionCard periodName={activePeriod?.namaPeriode} />
-                <div className="d-none d-lg-block mt-4">
-                  <EvaluationHistoryCard evaluations={myEvaluations} />
+                <div className="mt-4 d-none d-lg-block">
+                    <EvaluationHistoryCard evaluations={myEvaluations} />
                 </div>
             </div>
             <div className="col-lg-5">
+                {/* 🔥 FIX: Always show BestEmployeeCard for staff too */}
                 <BestEmployeeCard employee={bestEmployee} />
+            </div>
+            <div className="col-12 d-lg-none">
+                <EvaluationHistoryCard evaluations={myEvaluations} />
             </div>
         </div>
     );
@@ -264,8 +376,8 @@ const DashboardPage = () => {
                         <div className="row g-4 mb-4">
                             <div className="col-lg-3 col-md-6"><StatCardColorful title="Total Pegawai" value={stats?.overview?.totalUsers || 0} icon="fa-users" colorClass="bg-primary" /></div>
                             <div className="col-lg-3 col-md-6"><StatCardColorful title="Sudah Menilai" value={evaluationProgress?.summary?.completed || 0} icon="fa-user-check" unit={`/ ${evaluationProgress?.summary?.total || 0}`} colorClass="bg-success" /></div>
-                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Rata-rata Presensi" value={stats?.scores?.attendance?.average.toFixed(1) || '0.0'} icon="fa-calendar-check" colorClass="bg-warning text-dark" /></div>
-                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Rata-rata CKP" value={stats?.scores?.ckp?.average.toFixed(1) || '0.0'} icon="fa-chart-line" colorClass="bg-info" /></div>
+                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Rata-rata Presensi" value={stats?.scores?.attendance?.average?.toFixed(1) || '0.0'} icon="fa-calendar-check" colorClass="bg-warning text-dark" /></div>
+                            <div className="col-lg-3 col-md-6"><StatCardColorful title="Rata-rata CKP" value={stats?.scores?.ckp?.average?.toFixed(1) || '0.0'} icon="fa-chart-line" colorClass="bg-info" /></div>
                         </div>
                     )}
 

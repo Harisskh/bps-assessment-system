@@ -414,8 +414,8 @@ const SipekaLogo = () => (
             </svg>
         </div>
         <div className="text-start">
-            <h4 className="mb-0 fw-bold text-white">SIPEKA</h4>
-            <small className="text-white opacity-75">Sistem Penilaian Kinerja Pegawai</small>
+            <h4 className="mb-0 fw-bold text-white">SiAPIK</h4>
+            <small className="text-white opacity-75">Sistem Apresiasi Pegawai Terbaik</small>
         </div>
     </div>
 );

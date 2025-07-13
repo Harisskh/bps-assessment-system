@@ -1,4 +1,4 @@
-// src/styles/SearchableSelect.scss
+// src/styles/SearchableSelect.scss - FINAL VERSION
 @import './variables';
 
 .searchable-select {
@@ -11,27 +11,21 @@
     align-items: center;
     width: 100%;
     background-color: #fff;
-    border: 1px solid $input-border-color;
+    border: 1px solid #ced4da;
     border-radius: $border-radius;
     padding: 0.65rem 1rem;
     text-align: left;
     font-size: $font-size-base;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
-    &:hover {
-      border-color: darken($input-border-color, 10%);
-    }
-
-    &:focus, &.focus {
-      outline: 0;
-      border-color: $input-focus-border-color;
-      box-shadow: $input-focus-box-shadow;
+    &:hover:not(:disabled) {
+      border-color: darken(#ced4da, 10%);
     }
   }
 
   &__arrow {
     transition: transform 0.2s ease-out;
-    color: #adb5bd;
+    color: #6c757d;
   }
 
   &.is-open &__arrow {
@@ -45,21 +39,20 @@
     width: 100%;
     background-color: #fff;
     border-radius: $border-radius;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e9ecef;
-    z-index: 1021;
-    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid #dee2e6;
+    z-index: 1050;
     animation: slideDown 0.2s ease-out;
   }
   
   &__search-wrapper {
     position: relative;
-    padding: 0.75rem;
+    padding: 0.5rem;
     border-bottom: 1px solid #e9ecef;
 
     .fa-search {
       position: absolute;
-      left: 1.5rem;
+      left: 1.25rem;
       top: 50%;
       transform: translateY(-50%);
       color: #adb5bd;
@@ -68,21 +61,20 @@
   
   &__search-input {
     width: 100%;
-    border: 1px solid $input-border-color;
+    border: 1px solid #ced4da;
     border-radius: $border-radius-sm;
     padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-    font-size: 0.9rem;
     &:focus {
       outline: none;
       border-color: $input-focus-border-color;
-      box-shadow: $input-focus-box-shadow;
+      box-shadow: 0 0 0 0.2rem rgba($primary, .25);
     }
   }
 
   &__options-list {
     list-style: none;
     margin: 0;
-    padding: 0.5rem 0;
+    padding: 0.25rem 0;
     max-height: 220px;
     overflow-y: auto;
   }
@@ -91,22 +83,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1.25rem;
+    padding: 0.6rem 1.25rem;
     cursor: pointer;
-    transition: background-color 0.15s ease;
-
     &:hover {
       background-color: $light;
     }
-
     &.is-selected {
-      background-color: lighten($primary, 50%);
-      color: $primary;
-      font-weight: 600;
-
-      .fa-check {
-        color: $primary;
-      }
+      background-color: $primary;
+      color: white;
+      font-weight: 500;
     }
   }
 
@@ -114,27 +99,11 @@
     padding: 1rem;
     text-align: center;
     color: #6c757d;
+    list-style-type: none;
   }
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }

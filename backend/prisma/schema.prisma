@@ -1,5 +1,4 @@
-// Prisma Schema untuk Sistem BPS Pringsewu - REFINED VERSION
-// File: prisma/schema.prisma
+// File: prisma/schema.prisma - UPDATED WITH PROFILE PICTURE
 
 generator client {
   provider = "prisma-client-js"
@@ -32,6 +31,7 @@ model User {
   instansi          String   @default("BPS Kabupaten Pringsewu")
   kantor            String   @default("BPS Kabupaten Pringsewu")
   username          String   @unique
+  profilePicture    String?  // NEW FIELD - Profile picture path
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

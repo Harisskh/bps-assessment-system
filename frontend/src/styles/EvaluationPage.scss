@@ -1,0 +1,171 @@
+/* src/styles/EvaluationPage.scss (CORRECTED WITH ARROWS) */
+
+// Variabel warna dan transisi
+$primary: #2c549c;
+$success: #198754;
+$info: #0dcaf0;
+$warning: #ffc107;
+$light-gray: #f8f9fa;
+$darker-gray: #e9ecef;
+$border-color: #dee2e6;
+$text-muted: #6c757d;
+
+@mixin transition($property: all, $duration: 0.3s) {
+  transition: $property $duration ease-in-out;
+}
+
+// Kontainer utama
+.evaluation-page-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+// Header
+.evaluation-header {
+  background: linear-gradient(135deg, lighten($primary, 5%), $primary);
+  color: white;
+  padding: 2rem 1.5rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+
+  @media (min-width: 768px) {
+    padding: 2.5rem;
+    border-radius: 1rem;
+  }
+
+  h1 { font-weight: 700; font-size: 1.75rem; }
+
+  .progress-wrapper {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 50px;
+    padding: 4px;
+    .progress-bar { border-radius: 50px; @include transition; background: linear-gradient(90deg, $warning, lighten($warning, 15%)); box-shadow: 0 0 10px rgba($warning, 0.5); }
+  }
+}
+
+// Wrapper untuk setiap langkah
+.step-wrapper {
+  animation: fadeIn 0.5s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+// Step 1: Halaman Perkenalan
+.intro-section {
+  .intro-card { border: none; border-radius: 1rem; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+  .berakhlak-values-list .value-item { display: flex; align-items: flex-start; margin-bottom: 1.25rem; .value-icon { flex-shrink: 0; width: 45px; height: 45px; background-color: lighten($primary, 48%); color: $primary; border-radius: 12px; margin-right: 1rem; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; } }
+  .how-to-card { background-color: $darker-gray; border: 1px solid #d8dde2; border-radius: 1rem; padding: 2rem; height: 100%; }
+  .step-item { display: flex; align-items: flex-start; margin-bottom: 1.5rem; .step-icon { flex-shrink: 0; width: 50px; height: 50px; background-color: lighten($primary, 45%); color: $primary; border-radius: 50%; margin-right: 1rem; font-size: 1.2rem; } }
+  .btn-start-evaluation { font-size: 1.25rem; font-weight: 700; padding: 1rem 3rem; border-radius: 50px; box-shadow: 0 4px 15px rgba($warning, 0.4); @include transition; &:hover { transform: scale(1.05); } }
+}
+
+// GAYA BARU: Carousel Geser untuk Pemilihan Pegawai (Step 2 Mobile)
+.selection-carousel-container {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 1rem;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+.selection-carousel {
+  display: flex;
+  width: max-content;
+  padding: 0 24px;
+  gap: 1rem;
+}
+.carousel-item-wrapper {
+  width: calc(100vw - 72px);
+  max-width: 400px;
+  scroll-snap-align: center;
+  flex-shrink: 0;
+}
+.selection-card {
+  border-radius: 1rem;
+  background-color: #fff;
+  box-shadow: 0 4px 20px rgba(44, 84, 156, 0.12);
+  overflow: hidden;
+  height: 100%;
+  border: 1px solid $border-color;
+  .tokoh-header {
+    padding: 1rem 1.25rem;
+    color: white;
+    font-weight: 600;
+    &.tokoh-1 { background: linear-gradient(135deg, $success, lighten($success, 15%)); }
+    &.tokoh-2 { background: linear-gradient(135deg, $primary, lighten($primary, 15%)); }
+    &.tokoh-3 { background: linear-gradient(135deg, $info, lighten($info, 15%)); }
+  }
+  .p-3 { padding: 1.25rem !important; }
+}
+
+// GAYA BARU: Tombol Panah untuk Carousel Mobile
+.carousel-arrow {
+  position: absolute;
+  top: 40%; // Sedikit ke atas agar tidak menutupi konten
+  transform: translateY(-50%);
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $primary;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  cursor: pointer;
+  @include transition;
+
+  &:hover {
+    background-color: white;
+    transform: translateY(-50%) scale(1.1);
+  }
+  &.left { left: 4px; }
+  &.right { right: 4px; }
+}
+
+// Gaya Akordeon Penilaian (Step 3)
+.accordion-penilaian {
+  .accordion-item { border: none; border-radius: 1rem !important; margin-bottom: 1.25rem; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.07); @include transition;
+    &:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-2px); }
+    .accordion-button { font-weight: 600; color: white; padding: 1.25rem 1.5rem; &:not(.collapsed) { box-shadow: none; } &::after { filter: brightness(0) invert(1); } }
+    &.tokoh-1 { .accordion-button { background: linear-gradient(135deg, darken($success, 8%), $success); } .accordion-body { background-color: lighten($success, 49%); } }
+    &.tokoh-2 { .accordion-button { background: linear-gradient(135deg, darken($primary, 8%), $primary); } .accordion-body { background-color: lighten($primary, 51%); } }
+    &.tokoh-3 { .accordion-button { background: linear-gradient(135deg, darken($info, 2%), lighten($info, 5%)); } .accordion-body { background-color: lighten($info, 43%); } }
+  }
+}
+
+// Kartu Parameter di dalam akordeon
+.parameter-card {
+  background-color: #fff; border: 1px solid #e9ecef; border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; @include transition;
+  &:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.08); border-color: $primary; }
+}
+.parameter-label { font-weight: 500; color: #495057; margin-bottom: 1rem; }
+.validation-warning { font-size: 0.8rem; color: #dc3545; margin-top: 0.25rem; display: block; animation: fadeIn 0.3s; }
+
+// Input nilai
+.simple-number-input {
+  text-align: center; font-size: 1.25rem; font-weight: 700; border-radius: 0.5rem; border: 1px solid #ced4da; padding: 0.5rem; width: 100%; @include transition;
+  &:focus { border-color: $primary; box-shadow: 0 0 0 0.25rem rgba($primary, 0.25); outline: none; }
+  &.is-invalid { border-color: #dc3545; background-image: none; }
+}
+
+// Tombol navigasi
+.navigation-buttons {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; gap: 0.75rem;
+  .btn {
+    flex: 1; padding-top: 0.75rem; padding-bottom: 0.75rem; font-weight: 600;
+    @media (min-width: 768px) { flex: 0 1 auto; }
+  }
+  .btn .d-none.d-md-inline { @media (max-width: 767.98px) { display: inline !important; } }
+  .btn span + i, .btn i + span { @media (max-width: 767.98px) { display: none; } }
+}
+
+// Responsiveness lainnya
+@media (max-width: 768px) {
+  .accordion-body { padding: 1.5rem 1rem; }
+}

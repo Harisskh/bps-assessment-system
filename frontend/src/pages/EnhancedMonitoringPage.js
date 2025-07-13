@@ -97,7 +97,6 @@ const EnhancedMonitoringPage = () => {
   const getStatusBadge = (status) => {
     const badges = {
       COMPLETE: { bg: 'bg-success', icon: 'fa-check-circle', text: 'Selesai' },
-      PARTIAL: { bg: 'bg-warning text-dark', icon: 'fa-clock', text: 'Sebagian' },
       NOT_STARTED: { bg: 'bg-danger', icon: 'fa-times-circle', text: 'Belum Mulai' }
     };
     return badges[status] || badges.NOT_STARTED;
@@ -210,10 +209,6 @@ const EnhancedMonitoringPage = () => {
                     <small className="text-muted">Selesai</small>
                   </div>
                   <div className="col-md-3">
-                    <h5 className="text-warning mb-0">{evaluationStatus.summary.partial}</h5>
-                    <small className="text-muted">Sebagian</small>
-                  </div>
-                  <div className="col-md-3">
                     <h5 className="text-danger mb-0">{evaluationStatus.summary.notStarted}</h5>
                     <small className="text-muted">Belum</small>
                   </div>
@@ -253,10 +248,6 @@ const EnhancedMonitoringPage = () => {
                     <span className="text-success">
                       <i className="fas fa-circle me-1"></i>
                       Selesai ({evaluationStatus.summary.completed})
-                    </span>
-                    <span className="text-warning">
-                      <i className="fas fa-circle me-1"></i>
-                      Sebagian ({evaluationStatus.summary.partial})
                     </span>
                     <span className="text-danger">
                       <i className="fas fa-circle me-1"></i>
@@ -313,7 +304,6 @@ const EnhancedMonitoringPage = () => {
                   >
                     <option value="">Semua Status</option>
                     <option value="COMPLETE">Selesai</option>
-                    <option value="PARTIAL">Sebagian</option>
                     <option value="NOT_STARTED">Belum Mulai</option>
                   </select>
                 </div>

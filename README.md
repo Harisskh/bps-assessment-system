@@ -1,6 +1,6 @@
 # BPS Assessment System
 
-Sistem Penilaian Kinerja Pegawai (SIPEKA) BPS
+Sistem Apresiasi Pegawai Terbaik (SiAPIK) BPS
 
 ## Deskripsi
 Aplikasi ini digunakan untuk penilaian kinerja pegawai di lingkungan BPS. Sistem terdiri dari backend (Node.js + Express + Prisma) dan frontend (React.js). Fitur utama meliputi manajemen user, evaluasi kinerja, absensi, CKP, dashboard statistik, dan monitoring proses penilaian.

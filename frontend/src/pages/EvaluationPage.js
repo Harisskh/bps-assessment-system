@@ -1,729 +1,259 @@
-// src/pages/EvaluationPage.js - FIXED INPUT SYSTEM LENGKAP
-import React, { useState, useEffect } from 'react';
+// src/pages/EvaluationPage.js - FINAL CORRECTED WITH ARROWS
+import React, { useState, useEffect, useRef } from 'react'; // Tambahkan useRef
+import Select, { components } from 'react-select';
 import { evaluationAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import '../styles/EvaluationPage.scss';
 
-// Searchable Select Component
-const SearchableSelect = ({ options, value, onChange, placeholder, disabled = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const filteredOptions = options.filter(option =>
-    option.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    option.jabatan.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const selectedOption = options.find(option => option.id === value);
-
-  const handleSelect = (option) => {
-    onChange(option.id);
-    setIsOpen(false);
-    setSearchTerm('');
+// StyledSearchableSelect (Tidak ada perubahan)
+const StyledSearchableSelect = ({ options, value, onChange, placeholder, disabled = false }) => {
+  const formattedOptions = options.map(opt => ({ value: opt.id, label: opt.nama, jabatan: opt.jabatan }));
+  const selectedValue = formattedOptions.find(opt => opt.value === value);
+  const Option = (props) => ( <components.Option {...props}> <div className="fw-bold">{props.data.label}</div> <small className="text-muted">{props.data.jabatan}</small> </components.Option> );
+  const customStyles = {
+    control: (p, s) => ({ ...p, minHeight: '48px', border: s.isFocused ? '1px solid #2c549c' : '1px solid #ced4da', boxShadow: s.isFocused ? '0 0 0 0.25rem rgba(44, 84, 156, 0.25)' : 'none', '&:hover': { borderColor: s.isFocused ? '#2c549c' : '#adb5bd' } }),
+    option: (p, s) => ({ ...p, backgroundColor: s.isSelected ? '#2c549c' : s.isFocused ? '#f8f9fa' : 'white', color: s.isSelected ? 'white' : 'black', padding: '1rem' }),
+    placeholder: (p) => ({ ...p, color: '#6c757d' }),
+    menuPortal: base => ({ ...base, zIndex: 9999 })
   };
-
-  return (
-    <div className="position-relative">
-      <div 
-        className={`form-control d-flex justify-content-between align-items-center ${disabled ? 'bg-light' : ''}`}
-        style={{ cursor: disabled ? 'not-allowed' : 'pointer', minHeight: '38px' }}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-      >
-        <span className={selectedOption ? 'text-dark' : 'text-muted'}>
-          {selectedOption ? `${selectedOption.nama} - ${selectedOption.jabatan}` : placeholder}
-        </span>
-        <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'} text-muted`}></i>
-      </div>
-      
-      {isOpen && (
-        <div 
-          className="position-absolute w-100 bg-white border rounded shadow-lg"
-          style={{ zIndex: 1050, maxHeight: '300px', top: '100%' }}
-        >
-          <div className="p-2 border-bottom">
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              placeholder="Cari pegawai..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="overflow-auto" style={{ maxHeight: '240px' }}>
-            {filteredOptions.length === 0 ? (
-              <div className="p-3 text-muted text-center">
-                <i className="fas fa-search me-2"></i>
-                Tidak ada pegawai ditemukan
-              </div>
-            ) : (
-              filteredOptions.map(option => (
-                <div
-                  key={option.id}
-                  className={`p-2 cursor-pointer border-bottom ${value === option.id ? 'bg-primary text-white' : 'hover-bg-light'}`}
-                  onClick={() => handleSelect(option)}
-                  style={{ cursor: 'pointer' }}
-                  onMouseEnter={(e) => !value || value !== option.id ? e.target.classList.add('bg-light') : null}
-                  onMouseLeave={(e) => !value || value !== option.id ? e.target.classList.remove('bg-light') : null}
-                >
-                  <div className="fw-bold">{option.nama}</div>
-                  <small className={value === option.id ? 'text-white-50' : 'text-muted'}>
-                    {option.jabatan}
-                  </small>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <Select
+    options={formattedOptions} value={selectedValue} onChange={(opt) => onChange(opt.value)} placeholder={placeholder} isDisabled={disabled} components={{ Option }}
+    menuPortalTarget={document.body} styles={customStyles} noOptionsMessage={() => 'Tidak ada pegawai ditemukan'}
+    formatOptionLabel={({ label, jabatan }) => ( <div><div className="fw-bold">{label}</div><small className="text-muted">{jabatan}</small></div>)}
+  />;
 };
 
-// FIXED: Enhanced Number Input dengan icon + dan -
-const NumberInputWithArrows = ({ value, onChange, min, max, placeholder, disabled = false }) => {
-  const handleIncrement = () => {
-    const currentValue = value === '' ? min : parseInt(value);
-    const newValue = Math.min(max, currentValue + 1);
-    onChange(newValue.toString());
-  };
-
-  const handleDecrement = () => {
-    const currentValue = value === '' ? max : parseInt(value);
-    const newValue = Math.max(min, currentValue - 1);
-    onChange(newValue.toString());
-  };
-
-  // FIXED: Handle manual input properly
-  const handleInputChange = (e) => {
-    const inputValue = e.target.value;
-    
-    // Allow empty input
-    if (inputValue === '') {
-      onChange('');
-      return;
-    }
-
-    // FIXED: Allow only digits
-    const cleanValue = inputValue.replace(/[^0-9]/g, '');
-    
-    if (cleanValue === '') {
-      onChange('');
-      return;
-    }
-
-    const numValue = parseInt(cleanValue);
-    
-    // FIXED: Update immediately, validate on blur
-    if (!isNaN(numValue)) {
-      onChange(cleanValue);
-    }
-  };
-
-  // FIXED: Validate range on blur
-  const handleBlur = () => {
-    if (value === '') return;
-    
-    const numValue = parseInt(value);
-    if (!isNaN(numValue)) {
-      if (numValue < min) {
-        onChange(min.toString());
-      } else if (numValue > max) {
-        onChange(max.toString());
-      }
-    }
-  };
-
-  // FIXED: Handle key events
-  const handleKeyDown = (e) => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      handleIncrement();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      handleDecrement();
-    }
-  };
-
-  return (
-    <div className="input-group">
-      <button 
-        className="btn btn-outline-secondary d-flex align-items-center justify-content-center" 
-        type="button"
-        onClick={handleDecrement}
-        disabled={disabled || value === '' || parseInt(value || min) <= min}
-        title="Kurangi nilai"
-        style={{ width: '40px' }}
-      >
-        <i className="fas fa-minus"></i>
-      </button>
-      <input
-        type="text"
-        className="form-control text-center fw-bold"
-        value={value}
-        onChange={handleInputChange}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        disabled={disabled}
-        style={{ 
-          fontSize: '1.1rem',
-          minWidth: '80px'
-        }}
-        onFocus={(e) => e.target.select()}
-        inputMode="numeric"
-        pattern="[0-9]*"
-      />
-      <button 
-        className="btn btn-outline-secondary d-flex align-items-center justify-content-center" 
-        type="button"
-        onClick={handleIncrement}
-        disabled={disabled || value === '' || parseInt(value || max) >= max}
-        title="Tambah nilai"
-        style={{ width: '40px' }}
-      >
-        <i className="fas fa-plus"></i>
-      </button>
-    </div>
-  );
+// SimpleNumberInput (Tidak ada perubahan)
+const SimpleNumberInput = ({ value, onChange, onBlur, min, max, placeholder, isInvalid }) => {
+  const handleInputChange = (e) => { const inputValue = e.target.value; if (inputValue === '' || /^[0-9]+$/.test(inputValue)) { onChange(inputValue); } };
+  const handleKeyDown = (e) => { if (e.key === 'ArrowUp') { e.preventDefault(); const newValue = Math.min(max, (parseInt(value) || min - 1) + 1); onChange(newValue.toString()); } else if (e.key === 'ArrowDown') { e.preventDefault(); const newValue = Math.max(min, (parseInt(value) || max + 1) - 1); onChange(newValue.toString()); } };
+  return <input type="text" className={`simple-number-input ${isInvalid ? 'is-invalid' : ''}`} value={value} onChange={handleInputChange} onBlur={onBlur} onKeyDown={handleKeyDown} placeholder={placeholder} inputMode="numeric" maxLength="3" />;
 };
 
+// Komponen Utama (Tidak ada perubahan)
 const EvaluationPage = () => {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [hasEvaluated, setHasEvaluated] = useState(false);
-  
-  // Master data
   const [parameters, setParameters] = useState([]);
   const [scoreRanges, setScoreRanges] = useState([]);
   const [activePeriod, setActivePeriod] = useState(null);
   const [eligibleUsers, setEligibleUsers] = useState([]);
-  
-  // Form data
-  const [evaluations, setEvaluations] = useState([
-    { targetUserId: '', scores: {} }, // Tokoh 1
-    { targetUserId: '', scores: {} }, // Tokoh 2  
-    { targetUserId: '', scores: {} }  // Tokoh 3
-  ]);
-  
+  const [evaluations, setEvaluations] = useState([ { targetUserId: '', scores: {} }, { targetUserId: '', scores: {} }, { targetUserId: '', scores: {} } ]);
+  const [warnings, setWarnings] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Load master data and check existing evaluations
   useEffect(() => {
+    const loadMasterData = async () => {
+      try {
+        setLoading(true); setError('');
+        const [paramsRes, rangesRes, periodRes, usersRes, myEvalsRes] = await Promise.all([ evaluationAPI.getParameters(), evaluationAPI.getScoreRanges(), evaluationAPI.getActivePeriod(), evaluationAPI.getEligibleUsers(), evaluationAPI.getMyEvaluations() ]);
+        const period = periodRes.data.data.period;
+        setParameters(paramsRes.data.data.parameters); setScoreRanges(rangesRes.data.data.ranges); setActivePeriod(period); setEligibleUsers(usersRes.data.data.users);
+        const currentPeriodEvaluations = myEvalsRes.data.data.evaluations.filter(ev => ev.period.id === period.id);
+        if (currentPeriodEvaluations.length > 0) { setHasEvaluated(true); setStep(5); }
+        else { const initialScores = {}; paramsRes.data.data.parameters.forEach(param => { initialScores[param.id] = ''; }); setEvaluations(prev => prev.map(ev => ({ ...ev, scores: { ...initialScores } }))); }
+      } catch (err) { setError(`Gagal memuat data: ${err.response?.data?.message || err.message}`); }
+      finally { setLoading(false); }
+    };
     loadMasterData();
   }, []);
 
-  const loadMasterData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      console.log('Loading master data...');
-      
-      const [paramsRes, rangesRes, periodRes, usersRes, myEvaluationsRes] = await Promise.all([
-        evaluationAPI.getParameters(),
-        evaluationAPI.getScoreRanges(),
-        evaluationAPI.getActivePeriod(),
-        evaluationAPI.getEligibleUsers(),
-        evaluationAPI.getMyEvaluations() // Check if user has already evaluated
-      ]);
-
-      console.log('Master data loaded:', {
-        parameters: paramsRes.data,
-        ranges: rangesRes.data,
-        period: periodRes.data,
-        users: usersRes.data,
-        myEvaluations: myEvaluationsRes.data
-      });
-
-      setParameters(paramsRes.data.data.parameters);
-      setScoreRanges(rangesRes.data.data.ranges);
-      setActivePeriod(periodRes.data.data.period);
-      setEligibleUsers(usersRes.data.data.users);
-
-      // Check if user has already evaluated for this period
-      const currentPeriodEvaluations = myEvaluationsRes.data.data.evaluations.filter(
-        evaluation => evaluation.period.id === periodRes.data.data.period.id
-      );
-      
-      if (currentPeriodEvaluations.length > 0) {
-        setHasEvaluated(true);
-        setStep(5); // Show "Already Evaluated" step
-        return;
-      }
-
-      // Initialize scores for each evaluation
-      const initialScores = {};
-      paramsRes.data.data.parameters.forEach(param => {
-        initialScores[param.id] = '';
-      });
-
-      setEvaluations(prev => prev.map(evaluation => ({
-        ...evaluation,
-        scores: { ...initialScores }
-      })));
-
-    } catch (error) {
-      console.error('Load master data error:', error);
-      setError(`Gagal memuat data: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleUserSelection = (index, userId) => { setEvaluations(prev => { const updated = [...prev]; updated[index].targetUserId = userId; return updated; }); setError(''); };
+  const handleScoreChange = (evalIndex, paramId, value) => {
+    setEvaluations(prevEvals => { const newEvals = [...prevEvals]; newEvals[evalIndex].scores[paramId] = value; return newEvals; });
+    const range = scoreRanges.find(r => r.ranking === evalIndex + 1); const warningKey = `${evalIndex}-${paramId}`; const numValue = parseInt(value); setError('');
+    if (value === '' || (range && numValue >= range.nilaiMin && numValue <= range.nilaiMax)) { setWarnings(prev => { const newWarnings = { ...prev }; delete newWarnings[warningKey]; return newWarnings; }); }
+    else { setWarnings(prev => ({ ...prev, [warningKey]: `Nilai harus antara ${range.nilaiMin} - ${range.nilaiMax}` })); }
   };
-
-  const handleUserSelection = (evaluationIndex, userId) => {
-    setEvaluations(prev => {
-      const updated = [...prev];
-      updated[evaluationIndex] = {
-        ...updated[evaluationIndex],
-        targetUserId: userId
-      };
-      return updated;
-    });
-    setError('');
-  };
-
-  const handleScoreChange = (evaluationIndex, parameterId, value) => {
-    setError('');
-    
-    setEvaluations(prev => {
-      const updated = [...prev];
-      updated[evaluationIndex] = {
-        ...updated[evaluationIndex],
-        scores: {
-          ...updated[evaluationIndex].scores,
-          [parameterId]: value
-        }
-      };
-      return updated;
-    });
-  };
-
-  const validateStep = (stepNumber) => {
-    setError('');
-    
-    if (stepNumber === 2) {
-      const selectedUsers = evaluations.map(e => e.targetUserId).filter(Boolean);
-      if (selectedUsers.length !== 3) {
-        setError('Pilih 3 pegawai untuk dinilai (masing-masing untuk Tokoh 1, 2, dan 3)');
-        return false;
-      }
-      
-      const uniqueUsers = new Set(selectedUsers);
-      if (uniqueUsers.size !== 3) {
-        setError('Tidak dapat memilih pegawai yang sama untuk tokoh berbeda');
-        return false;
-      }
-    }
-    
-    if (stepNumber === 3) {
-      for (let i = 0; i < evaluations.length; i++) {
-        const evaluation = evaluations[i];
-        if (!evaluation.targetUserId) {
-          setError(`Pilih pegawai untuk Tokoh ${i + 1}`);
-          return false;
-        }
-        
-        for (const param of parameters) {
-          const score = evaluation.scores[param.id];
-          if (!score && score !== 0) {
-            setError(`Lengkapi nilai "${param.namaParameter}" untuk Tokoh ${i + 1}`);
-            return false;
-          }
-        }
-      }
-    }
-    
-    return true;
-  };
-
-  const nextStep = () => {
-    setError('');
-    
-    if (step === 1) {
-      setStep(2);
-    } else if (step === 2) {
-      const selectedUsers = evaluations.map(e => e.targetUserId).filter(Boolean);
-      if (selectedUsers.length !== 3) {
-        setError('Pilih 3 pegawai untuk dinilai (masing-masing untuk Tokoh 1, 2, dan 3)');
-        return;
-      }
-      
-      const uniqueUsers = new Set(selectedUsers);
-      if (uniqueUsers.size !== 3) {
-        setError('Tidak dapat memilih pegawai yang sama untuk tokoh berbeda');
-        return;
-      }
-      
-      setStep(3);
-    }
-  };
-
-  const prevStep = () => {
-    setStep(prev => prev - 1);
-    setError('');
-  };
-
+  const handleScoreBlur = (evalIndex, paramId) => { const value = evaluations[evalIndex].scores[paramId]; if (value === '') { const warningKey = `${evalIndex}-${paramId}`; setWarnings(prev => ({ ...prev, [warningKey]: 'Nilai tidak boleh kosong' })); } };
+  const nextStep = () => { setError(''); if (step === 1) setStep(2); if (step === 2) { const selectedUsers = evaluations.map(e => e.targetUserId).filter(Boolean); if (selectedUsers.length !== 3) { setError('Pilih 3 pegawai untuk dinilai.'); return; } if (new Set(selectedUsers).size !== 3) { setError('Pegawai yang dipilih tidak boleh sama.'); return; } setStep(3); } };
+  const prevStep = () => setStep(prev => prev - 1);
   const handleSubmit = async () => {
-    if (!validateStep(3)) return;
-    
+    setError('');
+    if (Object.keys(warnings).length > 0) { setError('Terdapat nilai yang tidak valid. Mohon perbaiki semua kolom yang ditandai merah.'); return; }
+    for (let i = 0; i < evaluations.length; i++) { for (const param of parameters) { const score = evaluations[i].scores[param.id]; if (score === '' || score === null) { setError(`Lengkapi semua nilai untuk Tokoh ${i + 1}.`); handleScoreChange(i, param.id, ''); return; } } }
     try {
       setSubmitting(true);
-      setError('');
-      
-      const submissionData = {
-        periodId: activePeriod.id,
-        evaluations: evaluations.map(evaluation => ({
-          targetUserId: evaluation.targetUserId,
-          scores: parameters.map(param => ({
-            parameterId: param.id,
-            value: parseInt(evaluation.scores[param.id])
-          }))
-        }))
-      };
+      const submissionData = { periodId: activePeriod.id, evaluations: evaluations.map(ev => ({ targetUserId: ev.targetUserId, scores: parameters.map(param => ({ parameterId: param.id, value: parseInt(ev.scores[param.id]) })) })) };
+      await evaluationAPI.submit(submissionData);
+      setSuccess('Evaluasi berhasil disimpan! Terima kasih atas partisipasi Anda.'); setStep(4);
+    } catch (err) { setError(err.response?.data?.message || err.message); } finally { setSubmitting(false); }
+  };
 
-      console.log('Submitting evaluation:', submissionData);
+  const getScoreRange = (ranking) => scoreRanges.find(r => r.ranking === ranking) ? `${scoreRanges.find(r => r.ranking === ranking).nilaiMin} - ${scoreRanges.find(r => r.ranking === ranking).nilaiMax}` : '';
+  const getAvailableUsers = (currentIndex) => eligibleUsers.filter(u => !evaluations.map((e, i) => i !== currentIndex ? e.targetUserId : null).filter(Boolean).includes(u.id));
 
-      const response = await evaluationAPI.submit(submissionData);
-      console.log('Submit response:', response.data);
+  if (loading) return ( <div className="d-flex vh-100 justify-content-center align-items-center"><div className="spinner-border text-primary" style={{width: '3rem', height: '3rem'}} role="status"></div></div> );
 
-      setSuccess('Evaluasi berhasil disimpan! Terima kasih atas partisipasi Anda.');
-      setStep(4);
-      
-    } catch (error) {
-      console.error('Submit evaluation error:', error);
-      setError(error.response?.data?.message || 'Gagal menyimpan evaluasi. Silakan coba lagi.');
-    } finally {
-      setSubmitting(false);
+  const renderHeader = () => ( <div className="evaluation-header text-center"><h1 className="mb-3"><i className="fas fa-star text-warning me-2"></i>Penilaian Tokoh BerAKHLAK</h1><p className="mb-3">Periode: <strong>{activePeriod?.namaPeriode}</strong> | Penilai: <strong>{user?.nama}</strong></p>{!hasEvaluated && (<><div className="progress-wrapper mx-auto" style={{maxWidth: '400px'}}><div className="progress" style={{ height: '8px' }}><div className="progress-bar" style={{ width: `${(step / 4) * 100}%` }}></div></div></div><small className="mt-2 d-block opacity-75">Langkah {step} dari 4</small></>)}</div> );
+
+  const renderStep = () => {
+    switch (step) {
+      case 1: return <Step1Intro nextStep={nextStep} />;
+      case 2: return <Step2UserSelection evaluations={evaluations} handleUserSelection={handleUserSelection} getAvailableUsers={getAvailableUsers} getScoreRange={getScoreRange} prevStep={prevStep} nextStep={nextStep} />;
+      case 3: return <Step3Scoring evaluations={evaluations} handleScoreChange={handleScoreChange} handleScoreBlur={handleScoreBlur} warnings={warnings} scoreRanges={scoreRanges} parameters={parameters} eligibleUsers={eligibleUsers} prevStep={prevStep} handleSubmit={handleSubmit} submitting={submitting} />;
+      case 4: return <Step4Success periodName={activePeriod?.namaPeriode} />;
+      case 5: return <Step5AlreadyEvaluated periodName={activePeriod?.namaPeriode} />;
+      default: return null;
     }
   };
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
-        <div className="text-center">
-          <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="text-muted">Memuat data evaluasi...</p>
-        </div>
+  return ( <div className="evaluation-page-container p-0 p-md-4">{renderHeader()}{error && ( <div className="alert alert-danger d-flex align-items-center mt-4 mx-3 mx-md-0" role="alert"><i className="fas fa-exclamation-triangle me-2"></i><div>{error}</div></div> )}<div className="step-wrapper mt-4">{renderStep()}</div></div> );
+};
+
+// Step1Intro (Tidak ada perubahan)
+const Step1Intro = ({ nextStep }) => { const berakhlakValues = [ { name: 'Berorientasi Pelayanan', description: 'Komitmen memberikan pelayanan prima demi kepuasan masyarakat.', icon: 'fa-hands-helping' }, { name: 'Akuntabel', description: 'Bertanggung jawab atas kepercayaan yang diberikan.', icon: 'fa-shield-alt' }, { name: 'Kompeten', description: 'Terus belajar dan mengembangkan kapabilitas.', icon: 'fa-graduation-cap' }, { name: 'Harmonis', description: 'Saling peduli dan menghargai perbedaan.', icon: 'fa-heart' }, { name: 'Loyal', description: 'Berdedikasi dan mengutamakan kepentingan Bangsa dan Negara.', icon: 'fa-flag' }, { name: 'Adaptif', description: 'Terus berinovasi dan antusias dalam menghadapi perubahan.', icon: 'fa-lightbulb' }, { name: 'Kolaboratif', description: 'Membangun kerja sama yang sinergis.', icon: 'fa-users' }]; return ( <div className="intro-section mx-3 mx-md-0"><div className="card intro-card"><div className="card-body p-4 p-lg-5"><div className="text-center mb-5"><button className="btn btn-warning btn-start-evaluation" onClick={nextStep}>Mulai Penilaian <i className="fas fa-arrow-right ms-2"></i></button></div><div className="row g-5"><div className="col-lg-7"><h2 className="text-primary mb-3">7 Nilai Inti ASN BerAKHLAK</h2><p className="text-muted mb-4">Sebagai landasan penilaian, mari kita ingat kembali 7 Core Values ASN yang diluncurkan Presiden RI pada 27 Juli 2021 sebagai wujud komitmen kita bersama.</p><div className="berakhlak-values-list">{berakhlakValues.map(value => ( <div className="value-item" key={value.name}><div className="value-icon"><i className={`fas ${value.icon}`}></i></div><div><strong>{value.name}</strong><p className="text-muted small mb-0">{value.description}</p></div></div> ))}</div></div><div className="col-lg-5"><div className="how-to-card"><h4 className="mb-4">Cara Penilaian</h4><div className="step-item"><div className="step-icon d-flex align-items-center justify-content-center"><i className="fas fa-users"></i></div><div><strong>Pilih 3 Pegawai</strong><p className="text-muted mb-0 small">Pilih tiga kandidat untuk dinominasikan sebagai Tokoh 1, 2, dan 3.</p></div></div><div className="step-item"><div className="step-icon d-flex align-items-center justify-content-center"><i className="fas fa-tasks"></i></div><div><strong>Beri Nilai 8 Parameter</strong><p className="text-muted mb-0 small">Berikan skor untuk setiap parameter BerAKHLAK pada masing-masing kandidat.</p></div></div><div className="step-item"><div className="step-icon d-flex align-items-center justify-content-center"><i className="fas fa-check-double"></i></div><div><strong>Submit Penilaian</strong><p className="text-muted mb-0 small">Anda hanya dapat melakukan penilaian satu kali untuk setiap periode.</p></div></div></div></div></div></div></div></div> ); };
+
+// =================================================================
+// PERUBAHAN UTAMA DI SINI: Menambahkan Panah pada Carousel Geser
+// =================================================================
+const Step2UserSelection = ({ evaluations, handleUserSelection, getAvailableUsers, getScoreRange, prevStep, nextStep }) => {
+  const scrollContainerRef = useRef(null);
+
+  const handleArrowScroll = (direction) => {
+    if (scrollContainerRef.current) {
+      const card = scrollContainerRef.current.querySelector('.carousel-item-wrapper');
+      if (!card) return;
+      
+      const scrollAmount = card.offsetWidth + 16; // Lebar kartu + gap
+      const newScrollLeft = scrollContainerRef.current.scrollLeft + (direction === 'right' ? scrollAmount : -scrollAmount);
+      
+      scrollContainerRef.current.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  };
+  
+  const renderSelectionCard = (rank) => (
+    <div className="selection-card">
+      <div className={`tokoh-header tokoh-${rank}`}>
+        <h5 className="mb-0">Tokoh {rank}</h5>
+        <small>Rentang Nilai: {getScoreRange(rank)}</small>
       </div>
-    );
-  }
-
-  const getUserName = (userId) => {
-    const targetUser = eligibleUsers.find(u => u.id === userId);
-    return targetUser ? `${targetUser.nama} - ${targetUser.jabatan}` : '';
-  };
-
-  const getScoreRange = (ranking) => {
-    const range = scoreRanges.find(r => r.ranking === ranking);
-    return range ? `${range.nilaiMin}-${range.nilaiMax}` : '';
-  };
-
-  const getAvailableUsers = (currentEvaluationIndex) => {
-    const selectedUserIds = evaluations
-      .map((e, index) => index !== currentEvaluationIndex ? e.targetUserId : null)
-      .filter(Boolean);
-    
-    return eligibleUsers.filter(user => !selectedUserIds.includes(user.id));
-  };
+      <div className="p-3">
+        <StyledSearchableSelect
+          options={getAvailableUsers(rank - 1)}
+          value={evaluations[rank - 1].targetUserId}
+          onChange={(userId) => handleUserSelection(rank - 1, userId)}
+          placeholder="Cari & pilih pegawai..."
+        />
+      </div>
+    </div>
+  );
 
   return (
-    <div className="container-fluid">
-      <div className="row">
-        <div className="col-md-10 mx-auto">
-          {/* Header */}
-          <div className="card mb-4 shadow-sm">
-            <div className="card-body text-center py-4">
-              <h1 className="h3 mb-3 text-primary">
-                <i className="fas fa-star text-warning me-2"></i>
-                Penilaian Tokoh BerAKHLAK
-              </h1>
-              <p className="text-muted mb-1">
-                Periode: <strong className="text-dark">{activePeriod?.namaPeriode}</strong>
-              </p>
-              <p className="text-muted mb-3">
-                Penilai: <strong className="text-dark">{user?.nama}</strong> ({user?.jabatan})
-              </p>
-              
-              {/* Progress Bar */}
-              {!hasEvaluated && (
-                <>
-                  <div className="progress mb-2" style={{ height: '10px' }}>
-                    <div 
-                      className="progress-bar bg-primary" 
-                      style={{ width: `${(step / 4) * 100}%` }}
-                    ></div>
-                  </div>
-                  <small className="text-muted">
-                    Langkah {step} dari 4
-                  </small>
-                </>
-              )}
+    <div className="card evaluation-card border-0 border-md-1">
+      <div className="card-body p-0 p-lg-5">
+        <h3 className="text-primary mb-4 px-3 px-lg-0">Langkah 2: Pilih 3 Pegawai</h3>
+
+        {/* Tampilan Desktop: Grid 3 kolom */}
+        <div className="row g-4 d-none d-lg-flex">
+          {[1, 2, 3].map(rank => (
+            <div key={`desktop-${rank}`} className="col-lg-4">{renderSelectionCard(rank)}</div>
+          ))}
+        </div>
+
+        {/* Tampilan Mobile: Carousel dengan Panah */}
+        <div className="d-lg-none position-relative">
+          <div ref={scrollContainerRef} className="selection-carousel-container">
+            <div className="selection-carousel">
+              {[1, 2, 3].map(rank => (
+                <div key={`mobile-${rank}`} className="carousel-item-wrapper">{renderSelectionCard(rank)}</div>
+              ))}
             </div>
           </div>
-
-          {/* Error Alert */}
-          {error && (
-            <div className="alert alert-danger alert-dismissible fade show" role="alert">
-              <i className="fas fa-exclamation-triangle me-2"></i>
-              <strong>Error!</strong> {error}
-              <button type="button" className="btn-close" onClick={() => setError('')}></button>
-            </div>
-          )}
-
-          {/* Success Alert */}
-          {success && (
-            <div className="alert alert-success" role="alert">
-              <i className="fas fa-check-circle me-2"></i>
-              {success}
-            </div>
-          )}
-
-          {/* Step 5: Already Evaluated */}
-          {step === 5 && hasEvaluated && (
-            <div className="card shadow-sm">
-              <div className="card-body text-center py-5">
-                <i className="fas fa-check-circle text-success mb-3" style={{ fontSize: '4rem' }}></i>
-                <h3 className="text-success mb-3">Anda Sudah Melakukan Penilaian!</h3>
-                <p className="text-muted mb-4 fs-5">
-                  Anda telah menyelesaikan penilaian untuk periode <strong>{activePeriod?.namaPeriode}</strong>.<br/>
-                  Setiap pegawai hanya dapat melakukan penilaian <strong>satu kali per periode</strong>.
-                </p>
-                <div className="alert alert-info">
-                  <i className="fas fa-info-circle me-2"></i>
-                  <strong>Informasi:</strong> Penilaian selanjutnya dapat dilakukan setelah periode baru dibuka oleh administrator.
-                </div>
-                <div className="d-flex justify-content-center gap-3">
-                  <a href="/dashboard" className="btn btn-primary px-4">
-                    <i className="fas fa-home me-2"></i>
-                    Kembali ke Dashboard
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 1: Introduction */}
-          {step === 1 && !hasEvaluated && (
-            <div className="card shadow-sm">
-              <div className="card-body p-4">
-                <h4 className="card-title text-primary mb-4">
-                  <i className="fas fa-info-circle me-2"></i>
-                  Tentang Penilaian Tokoh BerAKHLAK
-                </h4>
-                
-                <div className="row">
-                  <div className="col-md-6">
-                    <h6 className="text-secondary">Apa itu BerAKHLAK?</h6>
-                    <p className="text-muted">
-                      BerAKHLAK adalah nilai-nilai yang harus dimiliki oleh setiap pegawai BPS:
-                    </p>
-                    <div className="row">
-                      <div className="col-6">
-                        <ul className="list-unstyled">
-                          <li className="mb-1"><strong>Ber</strong>orientasi Pelayanan</li>
-                          <li className="mb-1"><strong>A</strong>kuntabel</li>
-                          <li className="mb-1"><strong>K</strong>ompeten</li>
-                          <li className="mb-1"><strong>H</strong>armonis</li>
-                        </ul>
-                      </div>
-                      <div className="col-6">
-                        <ul className="list-unstyled">
-                          <li className="mb-1"><strong>L</strong>oyal</li>
-                          <li className="mb-1"><strong>A</strong>daptif</li>
-                          <li className="mb-1"><strong>K</strong>olaboratif</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="col-md-6">
-                    <h6 className="text-secondary">Cara Penilaian:</h6>
-                    <ol className="text-muted">
-                      <li>Pilih <strong>3 pegawai</strong> yang akan dinilai</li>
-                      <li>Beri nilai untuk <strong>8 parameter</strong> setiap pegawai</li>
-                      <li>Rentang nilai:
-                        <div className="mt-2">
-                          <span className="badge bg-success me-2">Tokoh 1: 96-100</span>
-                          <span className="badge bg-primary me-2">Tokoh 2: 86-95</span>
-                          <span className="badge bg-info">Tokoh 3: 80-85</span>
-                        </div>
-                      </li>
-                    </ol>
-                    
-                    <div className="alert alert-warning">
-                      <i className="fas fa-exclamation-triangle me-2"></i>
-                      <strong>Penting:</strong> Anda hanya dapat melakukan penilaian <strong>satu kali per periode</strong>.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-center mt-4">
-                  <button 
-                    className="btn btn-primary btn-lg px-5"
-                    onClick={nextStep}
-                  >
-                    Mulai Penilaian
-                    <i className="fas fa-arrow-right ms-2"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: User Selection */}
-          {step === 2 && !hasEvaluated && (
-            <div className="card shadow-sm">
-              <div className="card-body p-4">
-                <h4 className="card-title text-primary mb-4">
-                  <i className="fas fa-users me-2"></i>
-                  Pilih 3 Pegawai untuk Dinilai
-                </h4>
-                
-                {[1, 2, 3].map(ranking => (
-                  <div key={ranking} className="mb-4">
-                    <label className="form-label">
-                      <span className={`badge ${ranking === 1 ? 'bg-success' : ranking === 2 ? 'bg-primary' : 'bg-info'} me-2 fs-6`}>
-                        Tokoh {ranking}
-                      </span>
-                      <span className="text-muted">Rentang Nilai: {getScoreRange(ranking)}</span>
-                    </label>
-                    
-                    <SearchableSelect
-                      options={getAvailableUsers(ranking - 1)}
-                      value={evaluations[ranking - 1].targetUserId}
-                      onChange={(userId) => handleUserSelection(ranking - 1, userId)}
-                      placeholder="-- Pilih Pegawai --"
-                    />
-                  </div>
-                ))}
-
-                <div className="d-flex justify-content-between mt-4">
-                  <button 
-                    className="btn btn-outline-secondary px-4"
-                    onClick={prevStep}
-                  >
-                    <i className="fas fa-arrow-left me-2"></i>
-                    Kembali
-                  </button>
-                  <button 
-                    className="btn btn-primary px-4"
-                    onClick={nextStep}
-                  >
-                    Lanjut ke Penilaian
-                    <i className="fas fa-arrow-right ms-2"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Scoring dengan FIXED Number Input */}
-          {step === 3 && !hasEvaluated && (
-            <div className="card shadow-sm">
-              <div className="card-body p-4">
-                <h4 className="card-title text-primary mb-4">
-                  <i className="fas fa-star text-warning me-2"></i>
-                  Berikan Nilai untuk Setiap Parameter
-                </h4>
-
-                {evaluations.map((evaluation, evalIndex) => (
-                  <div key={evalIndex} className="mb-5">
-                    <div className={`border rounded-3 p-4 ${evalIndex === 0 ? 'border-success bg-light' : evalIndex === 1 ? 'border-primary bg-light' : 'border-info bg-light'}`}>
-                      <h5 className="mb-3">
-                        <span className={`badge ${evalIndex === 0 ? 'bg-success' : evalIndex === 1 ? 'bg-primary' : 'bg-info'} me-2 fs-6`}>
-                          Tokoh {evalIndex + 1}
-                        </span>
-                        <span className="text-dark">{getUserName(evaluation.targetUserId)}</span>
-                        <small className="text-muted ms-2">
-                          (Rentang: {getScoreRange(evalIndex + 1)})
-                        </small>
-                      </h5>
-
-                      <div className="row">
-                        {parameters.map((param) => {
-                          const range = scoreRanges.find(r => r.ranking === evalIndex + 1);
-                          return (
-                            <div key={param.id} className="col-md-6 mb-3">
-                              <label className="form-label">
-                                <small><strong>{param.urutan}.</strong> {param.namaParameter}</small>
-                              </label>
-                              <NumberInputWithArrows
-                                value={evaluation.scores[param.id] || ''}
-                                onChange={(value) => handleScoreChange(evalIndex, param.id, value)}
-                                min={range?.nilaiMin || 80}
-                                max={range?.nilaiMax || 100}
-                                placeholder={`${range?.nilaiMin}-${range?.nilaiMax}`}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="d-flex justify-content-between mt-4">
-                  <button 
-                    className="btn btn-outline-secondary px-4"
-                    onClick={prevStep}
-                  >
-                    <i className="fas fa-arrow-left me-2"></i>
-                    Kembali
-                  </button>
-                  <button 
-                    className="btn btn-success btn-lg px-5"
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2"></span>
-                        Menyimpan...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-paper-plane me-2"></i>
-                        Submit Evaluasi
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Success */}
-          {step === 4 && (
-            <div className="card shadow-sm">
-              <div className="card-body text-center py-5">
-                <i className="fas fa-check-circle text-success mb-3" style={{ fontSize: '4rem' }}></i>
-                <h3 className="text-success mb-3">Evaluasi Berhasil Disimpan!</h3>
-                <p className="text-muted mb-4 fs-5">
-                  Terima kasih atas partisipasi Anda dalam penilaian Tokoh BerAKHLAK<br/>
-                  periode <strong>{activePeriod?.namaPeriode}</strong>.
-                </p>
-                <div className="alert alert-info">
-                  <i className="fas fa-info-circle me-2"></i>
-                  <strong>Catatan:</strong> Penilaian Anda telah tersimpan dan tidak dapat diubah. Penilaian selanjutnya dapat dilakukan di periode berikutnya.
-                </div>
-                <div className="d-flex justify-content-center gap-3">
-                  <a href="/dashboard" className="btn btn-primary px-4">
-                    <i className="fas fa-home me-2"></i>
-                    Kembali ke Dashboard
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
+          
+          <button className="carousel-arrow left" onClick={() => handleArrowScroll('left')} aria-label="Geser ke kiri">
+            <i className="fas fa-chevron-left"></i>
+          </button>
+          <button className="carousel-arrow right" onClick={() => handleArrowScroll('right')} aria-label="Geser ke kanan">
+            <i className="fas fa-chevron-right"></i>
+          </button>
+        </div>
+        
+        <div className="navigation-buttons mt-4 px-3 px-lg-0">
+          <button className="btn btn-outline-secondary" onClick={prevStep}>
+            <i className="fas fa-arrow-left me-md-2"></i>
+            <span className="d-none d-md-inline">Kembali</span>
+          </button>
+          <button className="btn btn-primary" onClick={nextStep}>
+            <span className="d-none d-md-inline">Lanjut</span>
+            <i className="fas fa-arrow-right ms-md-2"></i>
+          </button>
         </div>
       </div>
     </div>
   );
 };
+
+// Step3Scoring (Tidak ada perubahan)
+const Step3Scoring = ({ evaluations, handleScoreChange, handleScoreBlur, warnings, scoreRanges, parameters, eligibleUsers, prevStep, handleSubmit, submitting }) => {
+    return (
+      <div className="card evaluation-card mx-3 mx-md-0">
+            <div className="card-body p-4 p-lg-5">
+                <h3 className="text-primary mb-4">Langkah 3: Beri Nilai</h3>
+                <div className="accordion accordion-penilaian" id="accordionScoring">
+                    {evaluations.map((ev, index) => {
+                        const rank = index + 1;
+                        const range = scoreRanges.find(r => r.ranking === rank);
+                        const user = eligibleUsers.find(u => u.id === ev.targetUserId);
+                        return (
+                            <div className={`accordion-item tokoh-${rank}`} key={index}>
+                                <h2 className="accordion-header" id={`heading${rank}`}>
+                                    <button className="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target={`#collapse${rank}`} aria-expanded="true" aria-controls={`collapse${rank}`}>
+                                        <div className="d-flex w-100 justify-content-between align-items-center">
+                                            <span><strong>Tokoh {rank}</strong>: {user?.nama || 'Pegawai Belum Dipilih'}</span>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id={`collapse${rank}`} className="accordion-collapse collapse show" aria-labelledby={`heading${rank}`}>
+                                    <div className="accordion-body">
+                                        <div className="row g-3 g-md-4">
+                                            {parameters.map(param => (
+                                                <div className="col-md-6" key={param.id}>
+                                                    <div className="parameter-card h-100">
+                                                        <label className="parameter-label">{param.urutan}. {param.namaParameter}</label>
+                                                        <div>
+                                                            <SimpleNumberInput value={ev.scores[param.id] || ''} onChange={(value) => handleScoreChange(index, param.id, value)} onBlur={() => handleScoreBlur(index, param.id)} min={range?.nilaiMin || 80} max={range?.nilaiMax || 100} placeholder={`${range?.nilaiMin}-${range?.nilaiMax}`} isInvalid={!!warnings[`${index}-${param.id}`]} />
+                                                            {warnings[`${index}-${param.id}`] && (<small className="validation-warning">{warnings[`${index}-${param.id}`]}</small>)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="card-footer bg-transparent border-0 pt-0 pb-4 px-4 px-lg-5">
+                <div className="navigation-buttons">
+                    <button className="btn btn-outline-secondary" onClick={prevStep}>
+                        <i className="fas fa-arrow-left me-md-2"></i>
+                        <span className="d-none d-md-inline">Kembali</span>
+                    </button>
+                    <button className="btn btn-success" onClick={handleSubmit} disabled={submitting}>
+                        {submitting ? <><span className="spinner-border spinner-border-sm me-2"></span>Menyimpan...</> : <>
+                        <span className="d-none d-md-inline">Submit Evaluasi</span>
+                        <i className="fas fa-paper-plane ms-md-2"></i>
+                        </>}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Halaman Hasil (Tidak ada perubahan)
+const ResultPageBase = ({ icon, color, title, text, children }) => ( <div className="result-page"><div className="card"><div className="card-body text-center py-5 px-4"><i className={`fas ${icon} ${color} mb-3 result-icon`}></i><h2 className={`${color} mb-3`}>{title}</h2><p className="text-muted fs-5 mb-4">{text}</p><div className="d-flex justify-content-center mt-4">{children || <a href="/dashboard" className="btn btn-primary px-4"><i className="fas fa-home me-2"></i>Kembali ke Dashboard</a>}</div></div></div></div> );
+const Step4Success = ({ periodName }) => ( <ResultPageBase icon="fa-check-circle" color="text-success" title="Evaluasi Berhasil Disimpan!" text={<>Terima kasih atas partisipasi Anda dalam penilaian Tokoh BerAKHLAK periode <strong>{periodName}</strong>.</>} /> );
+const Step5AlreadyEvaluated = ({ periodName }) => ( <ResultPageBase icon="fa-shield-alt" color="text-primary" title="Anda Sudah Melakukan Penilaian!" text={<>Terima kasih atas partisipasi Anda dalam penilaian Tokoh BerAKHLAK periode <strong>{periodName}</strong>. Penilaian hanya dapat dilakukan satu kali per periode.</>} /> );
 
 export default EvaluationPage;

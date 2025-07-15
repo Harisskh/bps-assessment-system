@@ -1,4 +1,4 @@
-// src/pages/FinalCalculationPage.js - FIXED VERSION
+// src/pages/FinalCalculationPage.js - UPDATED WITH JOB POSITION FILTER
 import React, { useState, useEffect } from 'react';
 import { finalEvaluationAPI, periodAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -16,10 +16,19 @@ const FinalCalculationPage = () => {
   const [finalEvaluations, setFinalEvaluations] = useState([]);
   const [bestEmployee, setBestEmployee] = useState(null);
   const [calculationResult, setCalculationResult] = useState(null);
+  const [excludedPositions, setExcludedPositions] = useState([]);
   
   // View states
   const [showCandidatesOnly, setShowCandidatesOnly] = useState(false);
   const [showCalculationModal, setShowCalculationModal] = useState(false);
+
+  // EXCLUDED POSITIONS - Frontend reference
+  const EXCLUDED_POSITIONS = [
+    'Statistisi Ahli Madya BPS Kabupaten/Kota',
+    'Kepala BPS Kabupaten/Kota',
+    'Kasubbag Umum',
+    'Kepala Sub Bagian Umum'
+  ];
 
   useEffect(() => {
     loadInitialData();
@@ -71,6 +80,7 @@ const FinalCalculationPage = () => {
       console.log('Final evaluations response:', response.data);
       
       setFinalEvaluations(response.data.data.finalEvaluations || []);
+      setExcludedPositions(response.data.data.excludedPositions || EXCLUDED_POSITIONS);
       
     } catch (error) {
       console.error('Load final evaluations error:', error);
@@ -162,6 +172,16 @@ const FinalCalculationPage = () => {
     return 'bg-light text-dark';
   };
 
+  const isExcludedPosition = (jabatan) => {
+    if (!jabatan) return false;
+    return EXCLUDED_POSITIONS.some(excludedPos => 
+      jabatan.toLowerCase().includes(excludedPos.toLowerCase()) ||
+      (excludedPos.includes('Kepala BPS') && jabatan.toLowerCase().includes('kepala bps')) ||
+      (excludedPos.includes('Kasubbag') && jabatan.toLowerCase().includes('kasubbag')) ||
+      (excludedPos.includes('Kepala Sub Bagian') && jabatan.toLowerCase().includes('kepala sub bagian'))
+    );
+  };
+
   if (loading && finalEvaluations.length === 0 && !selectedPeriod) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
@@ -232,7 +252,7 @@ const FinalCalculationPage = () => {
         </div>
         <div className="card-body">
           <div className="row">
-            <div className="col-md-8">
+            <div className="col-md-6">
               <h6 className="text-primary">Bobot Penilaian:</h6>
               <div className="d-flex justify-content-around mb-3">
                 <div className="text-center">
@@ -258,7 +278,7 @@ const FinalCalculationPage = () => {
                 <strong>Formula:</strong> Nilai Akhir = (Presensi × 40%) + (BerAKHLAK × 30%) + (CKP × 30%)
               </p>
             </div>
-            <div className="col-md-4">
+            <div className="col-md-3">
               <h6 className="text-secondary">Kriteria Kandidat:</h6>
               <ul className="list-unstyled">
                 <li><i className="fas fa-check text-success me-2"></i>2 peringkat teratas jumlah pemilih</li>
@@ -266,6 +286,15 @@ const FinalCalculationPage = () => {
                 <li><i className="fas fa-check text-success me-2"></i>Nilai tertinggi = Best Employee</li>
               </ul>
             </div>
+            {/* <div className="col-md-3">
+              <h6 className="text-danger">Jabatan Dikecualikan:</h6>
+              <ul className="list-unstyled">
+                <li><i className="fas fa-times text-danger me-2"></i><small>Statistisi Ahli Madya</small></li>
+                <li><i className="fas fa-times text-danger me-2"></i><small>Kepala BPS</small></li>
+                <li><i className="fas fa-times text-danger me-2"></i><small>Kasubbag Umum</small></li>
+                <li><i className="fas fa-times text-danger me-2"></i><small>Kepala Sub Bagian Umum</small></li>
+              </ul>
+            </div> */}
           </div>
         </div>
       </div>
@@ -427,10 +456,16 @@ const FinalCalculationPage = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {finalEvaluations.map((evaluation, index) => (
+                        {finalEvaluations.map((evaluation, index) => {
+                          const isExcluded = isExcludedPosition(evaluation.user.jabatan);
+                          return (
                           <tr 
                             key={evaluation.user.id} 
-                            className={evaluation.isBestEmployee ? 'table-warning' : evaluation.isCandidate ? 'table-light' : ''}
+                            className={
+                              evaluation.isBestEmployee ? 'table-warning' : 
+                              evaluation.isCandidate ? 'table-light' : 
+                              isExcluded ? 'table-secondary' : ''
+                            }
                           >
                             <td>
                               {evaluation.ranking ? (
@@ -445,6 +480,12 @@ const FinalCalculationPage = () => {
                               <div>
                                 <strong className="text-primary">{evaluation.user.nama}</strong>
                                 <small className="d-block text-muted">NIP: {evaluation.user.nip}</small>
+                                {isExcluded && (
+                                  <small className="d-block text-danger">
+                                    <i className="fas fa-exclamation-triangle me-1"></i>
+                                    Dikecualikan dari kandidat
+                                  </small>
+                                )}
                               </div>
                             </td>
                             <td>
@@ -518,10 +559,17 @@ const FinalCalculationPage = () => {
                                     Kandidat
                                   </span>
                                 )}
+                                {isExcluded && (
+                                  <span className="badge bg-secondary">
+                                    <i className="fas fa-ban me-1"></i>
+                                    Dikecualikan
+                                  </span>
+                                )}
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -547,6 +595,12 @@ const FinalCalculationPage = () => {
                           <small className="text-muted">Best Employee</small>
                         </div>
                         <div className="col-md-2">
+                          <h5 className="text-danger mb-0">
+                            {finalEvaluations.filter(e => isExcludedPosition(e.user.jabatan)).length}
+                          </h5>
+                          <small className="text-muted">Dikecualikan</small>
+                        </div>
+                        <div className="col-md-2">
                           <h5 className="text-info mb-0">
                             {finalEvaluations.length > 0 ? 
                               (finalEvaluations.reduce((sum, e) => sum + e.finalScore, 0) / finalEvaluations.length).toFixed(1) : 0
@@ -559,12 +613,6 @@ const FinalCalculationPage = () => {
                             {finalEvaluations.length > 0 ? Math.max(...finalEvaluations.map(e => e.finalScore)).toFixed(1) : 0}
                           </h5>
                           <small className="text-muted">Tertinggi</small>
-                        </div>
-                        <div className="col-md-2">
-                          <h5 className="text-danger mb-0">
-                            {finalEvaluations.length > 0 ? Math.min(...finalEvaluations.map(e => e.finalScore)).toFixed(1) : 0}
-                          </h5>
-                          <small className="text-muted">Terendah</small>
                         </div>
                       </div>
                     </div>
@@ -626,9 +674,9 @@ const FinalCalculationPage = () => {
                     </div>
                   </div>
                   <div className="col-md-3">
-                    <div className="bg-info text-white rounded p-3">
-                      <h4 className="mb-0">{calculationResult.period}</h4>
-                      <small>Periode</small>
+                    <div className="bg-danger text-white rounded p-3">
+                      <h4 className="mb-0">{calculationResult.excludedUsers || 0}</h4>
+                      <small>Dikecualikan</small>
                     </div>
                   </div>
                 </div>
@@ -664,8 +712,26 @@ const FinalCalculationPage = () => {
                     <li><i className="fas fa-check text-success me-2"></i>Data Presensi telah dihitung dengan bobot 40%</li>
                     <li><i className="fas fa-check text-success me-2"></i>Data CKP telah dihitung dengan bobot 30%</li>
                     <li><i className="fas fa-check text-success me-2"></i>Kandidat ditentukan berdasarkan 2 peringkat teratas jumlah pemilih</li>
+                    <li><i className="fas fa-times text-danger me-2"></i>Jabatan tertentu dikecualikan dari kandidat (Statistisi Ahli Madya, Kepala BPS, Kasubbag Umum)</li>
                     <li><i className="fas fa-check text-success me-2"></i>Best Employee ditentukan dari nilai akhir tertinggi</li>
                   </ul>
+
+                  {calculationResult.summary?.excludedUserDetails && calculationResult.summary.excludedUserDetails.length > 0 && (
+                    <div className="mt-3">
+                      <h6 className="text-danger">Pegawai yang Dikecualikan:</h6>
+                      <div className="bg-light p-3 rounded">
+                        {calculationResult.summary.excludedUserDetails.map((user, index) => (
+                          <div key={index} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                            <div>
+                              <strong>{user.nama}</strong>
+                              <small className="d-block text-muted">NIP: {user.nip}</small>
+                            </div>
+                            <small className="text-danger">{user.jabatan}</small>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="modal-footer">

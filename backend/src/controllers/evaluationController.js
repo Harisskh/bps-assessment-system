@@ -2,6 +2,49 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+// EXCLUDED JOB POSITIONS FROM BEING EVALUATED
+const EXCLUDED_POSITIONS = [
+  'Statistisi Ahli Madya BPS Kabupaten/Kota',
+  'Statistisi Ahli Madya',
+  'Statistisi Ahli Madya Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala BPS',
+  'Kepala Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala BPS Kabupaten/Kota',
+  'Kasubbag Umum',
+  'Kasubbag Umum Badan Pusat Statistik Kabupaten/Kota',
+  'Kasubbag Umum BPS Kabupaten/Kota',
+  'Kepala Subbagian Umum Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala Subbagian Umum BPS Kabupaten/Kota',
+  'Kepala Subbagian Umum'
+];
+
+// Helper function to check if a position is excluded from being evaluated
+const isExcludedFromEvaluation = (jabatan) => {
+  if (!jabatan) return false;
+  
+  return EXCLUDED_POSITIONS.some(excludedPos => {
+    // Check exact match
+    if (jabatan.toLowerCase().includes(excludedPos.toLowerCase())) {
+      return true;
+    }
+    
+    // Check for variations
+    if (excludedPos.includes('Kepala BPS') && jabatan.toLowerCase().includes('kepala bps')) {
+      return true;
+    }
+    
+    if (excludedPos.includes('Kasubbag') && jabatan.toLowerCase().includes('kasubbag')) {
+      return true;
+    }
+    
+    if (excludedPos.includes('Kepala Sub Bagian') && jabatan.toLowerCase().includes('kepala sub bagian')) {
+      return true;
+    }
+    
+    return false;
+  });
+};
+
 // GET EVALUATION PARAMETERS (8 parameter BerAKHLAK)
 const getEvaluationParameters = async (req, res) => {
   try {
@@ -73,7 +116,7 @@ const getActivePeriod = async (req, res) => {
   }
 };
 
-// GET ELIGIBLE USERS FOR EVALUATION (exclude self)
+// GET ELIGIBLE USERS FOR EVALUATION - UPDATED LOGIC
 const getEligibleUsers = async (req, res) => {
   try {
     const currentUserId = req.user.id;
@@ -81,8 +124,8 @@ const getEligibleUsers = async (req, res) => {
     const users = await prisma.user.findMany({
       where: {
         isActive: true,
-        id: { not: currentUserId }, // Exclude current user
-        role: { in: ['STAFF', 'PIMPINAN'] } // Only staff and pimpinan can be evaluated
+        role: { not: 'ADMIN' }, // Exclude ADMIN role completely
+        // Note: Don't exclude current user here - allow self evaluation
       },
       select: {
         id: true,
@@ -94,9 +137,24 @@ const getEligibleUsers = async (req, res) => {
       orderBy: { nama: 'asc' }
     });
 
+    // Filter out users with excluded positions, but include current user
+    const eligibleUsers = users.filter(user => {
+      // Always include current user (self evaluation allowed)
+      if (user.id === currentUserId) {
+        return true;
+      }
+      
+      // For other users, check if their position is excluded
+      return !isExcludedFromEvaluation(user.jabatan);
+    });
+
     res.json({
       success: true,
-      data: { users }
+      data: { 
+        users: eligibleUsers,
+        excludedPositions: EXCLUDED_POSITIONS,
+        canEvaluateSelf: true // Indicate that self evaluation is allowed
+      }
     });
 
   } catch (error) {
@@ -248,14 +306,7 @@ const submitEvaluation = async (req, res) => {
         }
       }
 
-      // Check if target user exists and is not the evaluator
-      if (evaluation.targetUserId === evaluatorId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tidak dapat menilai diri sendiri'
-        });
-      }
-
+      // Check if target user exists and is eligible
       const targetUser = await prisma.user.findUnique({
         where: { id: evaluation.targetUserId }
       });
@@ -264,6 +315,22 @@ const submitEvaluation = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: `User target untuk tokoh ke-${ranking} tidak valid atau tidak aktif`
+        });
+      }
+
+      // Check if target user is ADMIN (not allowed to be evaluated)
+      if (targetUser.role === 'ADMIN') {
+        return res.status(400).json({
+          success: false,
+          message: `Admin tidak dapat dinilai sebagai tokoh ke-${ranking}`
+        });
+      }
+
+      // Check if target user has excluded position (except if it's self-evaluation)
+      if (evaluation.targetUserId !== evaluatorId && isExcludedFromEvaluation(targetUser.jabatan)) {
+        return res.status(400).json({
+          success: false,
+          message: `Pegawai dengan jabatan "${targetUser.jabatan}" tidak dapat dinilai sebagai tokoh ke-${ranking}`
         });
       }
     }
@@ -555,6 +622,74 @@ const getEvaluationSummary = async (req, res) => {
   }
 };
 
+// DELETE EVALUATION - ADD DELETE METHOD
+const deleteEvaluation = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if evaluation exists
+    const existingEvaluation = await prisma.evaluation.findUnique({
+      where: { id },
+      include: {
+        evaluator: {
+          select: { nama: true }
+        },
+        target: {
+          select: { nama: true }
+        },
+        scores: true
+      }
+    });
+
+    if (!existingEvaluation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Penilaian tidak ditemukan'
+      });
+    }
+
+    // Delete scores first (foreign key constraint)
+    await prisma.evaluationScore.deleteMany({
+      where: { evaluationId: id }
+    });
+
+    // Delete evaluation
+    await prisma.evaluation.delete({
+      where: { id }
+    });
+
+    res.json({
+      success: true,
+      message: `Penilaian dari ${existingEvaluation.evaluator.nama} untuk ${existingEvaluation.target.nama} berhasil dihapus`,
+      data: {
+        deletedEvaluation: {
+          id: existingEvaluation.id,
+          evaluatorName: existingEvaluation.evaluator.nama,
+          targetName: existingEvaluation.target.nama,
+          ranking: existingEvaluation.ranking,
+          scoresCount: existingEvaluation.scores.length
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Delete evaluation error:', error);
+    
+    // Handle specific database errors
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        message: 'Penilaian tidak ditemukan'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan saat menghapus penilaian'
+    });
+  }
+};
+
 module.exports = {
   getEvaluationParameters,
   getScoreRanges,
@@ -563,5 +698,6 @@ module.exports = {
   submitEvaluation,
   getMyEvaluations,
   getAllEvaluations,
-  getEvaluationSummary
+  getEvaluationSummary,
+  deleteEvaluation // ADD DELETE METHOD
 };

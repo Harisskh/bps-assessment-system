@@ -448,47 +448,6 @@ const EnhancedMonitoringPage = () => {
               </div>
             </div>
           </div>
-
-          {/* Quick Action for Incomplete Users */}
-          {incompleteUsers.length > 0 && (
-            <div className="card mt-4 border-warning">
-              <div className="card-header bg-warning text-dark">
-                <h6 className="mb-0">
-                  <i className="fas fa-exclamation-triangle me-2"></i>
-                  Pegawai yang Perlu Diingatkan ({incompleteUsers.length})
-                </h6>
-              </div>
-              <div className="card-body">
-                <div className="row">
-                  {incompleteUsers.slice(0, 6).map((incompleteUser) => (
-                    <div key={incompleteUser.user.id} className="col-md-4 mb-2">
-                      <div className="d-flex justify-content-between align-items-center p-2 bg-light rounded">
-                        <div>
-                          <strong className="small">{incompleteUser.user.nama}</strong>
-                          <small className="d-block text-muted">
-                            {incompleteUser.completedCount}/3 selesai
-                          </small>
-                        </div>
-                        <button 
-                          className="btn btn-outline-primary btn-sm"
-                          onClick={() => handleShowUserDetail(incompleteUser.user.id)}
-                        >
-                          <i className="fas fa-eye"></i>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {incompleteUsers.length > 6 && (
-                  <div className="text-center mt-2">
-                    <small className="text-muted">
-                      Dan {incompleteUsers.length - 6} pegawai lainnya yang belum menyelesaikan evaluasi
-                    </small>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </>
       ) : (
         <div className="card">

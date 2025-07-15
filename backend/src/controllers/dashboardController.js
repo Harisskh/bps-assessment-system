@@ -1,4 +1,4 @@
-// controllers/dashboardController.js
+// controllers/dashboardController.js - FIXED VERSION WITH PROFILE PICTURE
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -78,7 +78,7 @@ const getDashboardStats = async (req, res) => {
         _count: { id: true }
       }),
       
-      // Best employee
+      // 🔥 FIXED: Best employee WITH PROFILE PICTURE
       prisma.finalEvaluation.findFirst({
         where: { ...where, isBestEmployee: true },
         include: {
@@ -87,7 +87,8 @@ const getDashboardStats = async (req, res) => {
               id: true,
               nama: true,
               jabatan: true,
-              nip: true
+              nip: true,
+              profilePicture: true  // 🔥 TAMBAHKAN INI
             }
           }
         }

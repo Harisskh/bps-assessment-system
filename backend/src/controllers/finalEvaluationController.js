@@ -2,6 +2,49 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+// EXCLUDED JOB POSITIONS FROM BEST EMPLOYEE CANDIDACY
+const EXCLUDED_POSITIONS = [
+  'Statistisi Ahli Madya BPS Kabupaten/Kota',
+  'Statistisi Ahli Madya',
+  'Statistisi Ahli Madya Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala BPS',
+  'Kepala Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala BPS Kabupaten/Kota',
+  'Kasubbag Umum',
+  'Kasubbag Umum Badan Pusat Statistik Kabupaten/Kota',
+  'Kasubbag Umum BPS Kabupaten/Kota',
+  'Kepala Sub Bagian Umum Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala Sub Bagian Umum BPS Kabupaten/Kota',  
+  'Kepala Sub Bagian Umum'
+];
+
+// Helper function to check if a position is excluded
+const isExcludedPosition = (jabatan) => {
+  if (!jabatan) return false;
+  
+  return EXCLUDED_POSITIONS.some(excludedPos => {
+    // Check exact match
+    if (jabatan.toLowerCase().includes(excludedPos.toLowerCase())) {
+      return true;
+    }
+    
+    // Check for variations
+    if (excludedPos.includes('Kepala BPS') && jabatan.toLowerCase().includes('kepala bps')) {
+      return true;
+    }
+    
+    if (excludedPos.includes('Kasubbag') && jabatan.toLowerCase().includes('kasubbag')) {
+      return true;
+    }
+    
+    if (excludedPos.includes('Kepala Sub Bagian') && jabatan.toLowerCase().includes('kepala sub bagian')) {
+      return true;
+    }
+    
+    return false;
+  });
+};
+
 // CALCULATE AND UPDATE FINAL EVALUATIONS
 const calculateFinalEvaluations = async (req, res) => {
   try {
@@ -43,7 +86,7 @@ const calculateFinalEvaluations = async (req, res) => {
       where: { periodId },
       include: {
         user: {
-          select: { id: true, nama: true }
+          select: { id: true, nama: true, jabatan: true }
         }
       }
     });
@@ -53,7 +96,7 @@ const calculateFinalEvaluations = async (req, res) => {
       where: { periodId },
       include: {
         user: {
-          select: { id: true, nama: true }
+          select: { id: true, nama: true, jabatan: true }
         }
       }
     });
@@ -127,18 +170,49 @@ const calculateFinalEvaluations = async (req, res) => {
       berakhlakScores[userId].tokoh3Avg = tokoh3Avg;
     }
 
-    // Determine candidates based on total evaluators (top 2 ranks)
-    const userEvaluatorCounts = Object.entries(berakhlakScores)
-      .map(([userId, data]) => ({ userId, count: data.totalEvaluators }))
+    // Get all users with their job positions to apply filtering
+    const allUsers = await prisma.user.findMany({
+      select: {
+        id: true,
+        nama: true,
+        jabatan: true,
+        nip: true
+      }
+    });
+
+    // Create a map for quick user lookup
+    const userMap = {};
+    allUsers.forEach(user => {
+      userMap[user.id] = user;
+    });
+
+    // Determine candidates based on total evaluators (top 2 ranks) 
+    // BUT EXCLUDE users with specific job positions
+    const allUserEvaluatorCounts = Object.entries(berakhlakScores)
+      .map(([userId, data]) => {
+        const user = userMap[userId];
+        return {
+          userId,
+          count: data.totalEvaluators,
+          jabatan: user?.jabatan || '',
+          isEligible: user ? !isExcludedPosition(user.jabatan) : false
+        };
+      })
       .sort((a, b) => b.count - a.count);
 
-    // Get top 2 unique counts
-    const uniqueCounts = [...new Set(userEvaluatorCounts.map(u => u.count))].slice(0, 2);
-    const candidateUserIds = userEvaluatorCounts
-      .filter(u => uniqueCounts.includes(u.count))
+    // Filter to get only eligible users, then get top 2 unique counts
+    const eligibleUserCounts = allUserEvaluatorCounts.filter(u => u.isEligible);
+    const uniqueEligibleCounts = [...new Set(eligibleUserCounts.map(u => u.count))].slice(0, 2);
+    
+    // Get candidate user IDs from eligible users with top 2 counts
+    const candidateUserIds = eligibleUserCounts
+      .filter(u => uniqueEligibleCounts.includes(u.count))
       .map(u => u.userId);
 
-    console.log('Candidates based on evaluator count:', candidateUserIds);
+    console.log('All user evaluator counts:', allUserEvaluatorCounts);
+    console.log('Eligible users for candidacy:', eligibleUserCounts);
+    console.log('Top 2 unique counts from eligible users:', uniqueEligibleCounts);
+    console.log('Final candidates based on eligibility filter:', candidateUserIds);
 
     // Create or update final evaluations
     const finalEvaluations = [];
@@ -161,6 +235,7 @@ const calculateFinalEvaluations = async (req, res) => {
 
       const attendanceData = attendances.find(a => a.userId === userId);
       const ckpData = ckpScores.find(c => c.userId === userId);
+      const user = userMap[userId];
 
       // Calculate weighted scores
       const berakhlakScore = berakhlakData.finalScore || 0;
@@ -172,7 +247,9 @@ const calculateFinalEvaluations = async (req, res) => {
       const ckpWeighted = ckpScore * 0.30;
       const finalScore = berakhlakWeighted + presensiWeighted + ckpWeighted;
 
-      const isCandidate = candidateUserIds.includes(userId);
+      // Check if user is eligible for candidacy (not excluded by job position)
+      const isEligibleForCandidacy = user ? !isExcludedPosition(user.jabatan) : false;
+      const isCandidate = isEligibleForCandidacy && candidateUserIds.includes(userId);
 
       const finalEvaluationData = {
         userId,
@@ -217,7 +294,7 @@ const calculateFinalEvaluations = async (req, res) => {
       finalEvaluations.push(finalEvaluation);
     }
 
-    // Rank candidates by final score
+    // Rank candidates by final score (only eligible candidates)
     const rankedCandidates = finalEvaluations
       .filter(fe => fe.isCandidate)
       .sort((a, b) => b.finalScore - a.finalScore);
@@ -240,6 +317,10 @@ const calculateFinalEvaluations = async (req, res) => {
       candidate.isBestEmployee = isBestEmployee;
     }
 
+    // Count excluded users for reporting
+    const excludedUsers = allUsers.filter(user => isExcludedPosition(user.jabatan));
+    const excludedCount = excludedUsers.length;
+
     res.json({
       success: true,
       message: 'Final evaluations calculated successfully',
@@ -247,10 +328,19 @@ const calculateFinalEvaluations = async (req, res) => {
         period: period.namaPeriode,
         totalUsers: finalEvaluations.length,
         candidates: rankedCandidates.length,
+        excludedUsers: excludedCount,
         bestEmployee: rankedCandidates[0] || null,
         summary: {
           candidateUserIds,
-          uniqueEvaluatorCounts: uniqueCounts
+          uniqueEvaluatorCounts: uniqueEligibleCounts,
+          excludedPositions: EXCLUDED_POSITIONS,
+          allUserCounts: allUserEvaluatorCounts,
+          eligibleUserCounts: eligibleUserCounts,
+          excludedUserDetails: excludedUsers.map(u => ({
+            nama: u.nama,
+            jabatan: u.jabatan,
+            nip: u.nip
+          }))
         }
       }
     });
@@ -292,7 +382,8 @@ const getFinalEvaluations = async (req, res) => {
               nama: true,
               jabatan: true,
               nip: true,
-              role: true
+              role: true,
+              profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
             }
           },
           period: {
@@ -315,12 +406,22 @@ const getFinalEvaluations = async (req, res) => {
       prisma.finalEvaluation.count({ where })
     ]);
 
+    // Add eligibility information to each evaluation
+    const evaluationsWithEligibility = finalEvaluations.map(evaluation => ({
+      ...evaluation,
+      isEligibleForCandidacy: !isExcludedPosition(evaluation.user.jabatan),
+      excludedReason: isExcludedPosition(evaluation.user.jabatan) 
+        ? 'Jabatan tidak memenuhi syarat untuk menjadi kandidat best employee'
+        : null
+    }));
+
     const totalPages = Math.ceil(totalCount / limitNum);
 
     res.json({
       success: true,
       data: {
-        finalEvaluations,
+        finalEvaluations: evaluationsWithEligibility,
+        excludedPositions: EXCLUDED_POSITIONS,
         pagination: {
           currentPage: pageNum,
           totalPages,
@@ -341,7 +442,7 @@ const getFinalEvaluations = async (req, res) => {
   }
 };
 
-// GET BEST EMPLOYEE
+// 🔥 GET BEST EMPLOYEE WITH PROFILE PICTURE
 const getBestEmployee = async (req, res) => {
   try {
     const { periodId } = req.params;
@@ -358,7 +459,8 @@ const getBestEmployee = async (req, res) => {
             nama: true,
             jabatan: true,
             nip: true,
-            role: true
+            role: true,
+            profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
           }
         },
         period: {
@@ -391,19 +493,30 @@ const getBestEmployee = async (req, res) => {
             id: true,
             nama: true,
             jabatan: true,
-            nip: true
+            nip: true,
+            profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
           }
         }
       },
       orderBy: { ranking: 'asc' }
     });
 
+    // Add eligibility information
+    const candidatesWithEligibility = allCandidates.map(candidate => ({
+      ...candidate,
+      isEligibleForCandidacy: !isExcludedPosition(candidate.user.jabatan)
+    }));
+
     res.json({
       success: true,
       data: {
-        bestEmployee,
-        allCandidates,
-        period: bestEmployee.period
+        bestEmployee: {
+          ...bestEmployee,
+          isEligibleForCandidacy: !isExcludedPosition(bestEmployee.user.jabatan)
+        },
+        allCandidates: candidatesWithEligibility,
+        period: bestEmployee.period,
+        excludedPositions: EXCLUDED_POSITIONS
       }
     });
 
@@ -416,7 +529,7 @@ const getBestEmployee = async (req, res) => {
   }
 };
 
-// GET LEADERBOARD
+// 🔥 GET LEADERBOARD WITH PROFILE PICTURES
 const getLeaderboard = async (req, res) => {
   try {
     const { periodId, limit = 10 } = req.query;
@@ -433,7 +546,8 @@ const getLeaderboard = async (req, res) => {
             nama: true,
             jabatan: true,
             nip: true,
-            role: true
+            role: true,
+            profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
           }
         },
         period: {
@@ -453,9 +567,36 @@ const getLeaderboard = async (req, res) => {
       take: parseInt(limit)
     });
 
+    // 🔥 Format response data untuk leaderboard dengan profile picture
+    const formattedLeaderboard = leaderboard.map((evaluation, index) => ({
+      id: evaluation.user.id,
+      nama: evaluation.user.nama,
+      nip: evaluation.user.nip,
+      jabatan: evaluation.user.jabatan,
+      profilePicture: evaluation.user.profilePicture,  // 🔥 INCLUDE PROFILE PICTURE
+      nilaiAkhir: evaluation.finalScore,
+      nilaiBerakhlak: evaluation.berakhlakScore,
+      nilaiPresensi: evaluation.presensiScore,
+      nilaiCkp: evaluation.ckpScore,
+      rank: index + 1,
+      isBestEmployee: evaluation.isBestEmployee,
+      isCandidate: evaluation.isCandidate,
+      totalEvaluators: evaluation.totalEvaluators,
+      ranking: evaluation.ranking,
+      isEligibleForCandidacy: !isExcludedPosition(evaluation.user.jabatan),
+      excludedReason: isExcludedPosition(evaluation.user.jabatan) 
+        ? 'Jabatan tidak memenuhi syarat untuk menjadi kandidat best employee'
+        : null,
+      status: evaluation.isBestEmployee ? 'Best Employee' : evaluation.isCandidate ? 'Candidate' : 'Regular'
+    }));
+
     res.json({
       success: true,
-      data: { leaderboard }
+      data: { 
+        leaderboard: formattedLeaderboard,
+        excludedPositions: EXCLUDED_POSITIONS,
+        period: leaderboard.length > 0 ? leaderboard[0].period : null
+      }
     });
 
   } catch (error) {

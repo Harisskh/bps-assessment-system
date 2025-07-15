@@ -1,4 +1,4 @@
-// src/pages/DashboardPage.js - FIXED VERSION - Staff Best Employee Display
+// src/pages/DashboardPage.js - FIXED VERSION WITH PROFILE PICTURE SUPPORT
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardAPI, finalEvaluationAPI, periodAPI, evaluationAPI } from '../services/api';
@@ -15,7 +15,39 @@ const StatCardColorful = ({ title, value, icon, unit = '', colorClass = 'bg-prim
     </div>
 );
 
+// 🔥 FIXED: BestEmployeeCard dengan profile picture support
 const BestEmployeeCard = ({ employee }) => {
+    const BACKEND_BASE_URL = 'http://localhost:5000';
+    
+    // 🔥 Helper function untuk construct image URL
+    const getImageUrl = (imagePath) => {
+        if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {
+            return null;
+        }
+        
+        let finalUrl;
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            finalUrl = imagePath;
+        } else {
+            const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+            finalUrl = BACKEND_BASE_URL + cleanPath;
+        }
+        
+        // Add cache busting
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        
+        return finalUrl;
+    };
+    
+    const getInitials = (name = '') => {
+        if (!name) return '?';
+        const parts = name.split(' ');
+        if (parts.length > 1) {
+            return parts[0][0] + parts[1][0];
+        }
+        return name.substring(0, 2);
+    };
+    
     if (!employee) {
         return (
             <div className="card dashboard-card mb-4">
@@ -28,8 +60,6 @@ const BestEmployeeCard = ({ employee }) => {
         );
     }
     
-    const getInitials = (name = '') => name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-    
     // 🔥 FIX: Handle different data structures more comprehensively
     const userData = employee.user || employee;
     const scores = {
@@ -40,15 +70,41 @@ const BestEmployeeCard = ({ employee }) => {
         final: employee.finalScore || employee.totalScore || employee.nilaiAkhir || 0
     };
     
+    // 🔥 Profile picture URL
+    const profileImageUrl = userData.profilePicture ? getImageUrl(userData.profilePicture) : null;
+    
     return (
         <div className="best-employee-card card dashboard-card mb-4">
             <div className="congrats-banner">
                 <i className="fas fa-star"></i> CONGRATULATIONS!
             </div>
             <div className="text-center pt-4">
-                <div className="mx-auto d-flex align-items-center justify-content-center" style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #fceabb, #f8b500)', color: '#fff', fontSize: '2rem', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-                    {getInitials(userData.nama)}
+                {/* 🔥 PROFILE PICTURE SECTION */}
+                <div className="employee-avatar-large mx-auto mb-3">
+                    {profileImageUrl ? (
+                        <img 
+                            src={profileImageUrl}
+                            alt={userData.nama}
+                            className="avatar-image-large"
+                            onError={(e) => {
+                                // Fallback ke initials jika gambar gagal load
+                                e.target.style.display = 'none';
+                                const parent = e.target.parentElement;
+                                if (parent && !parent.querySelector('.avatar-placeholder-large')) {
+                                    const placeholderDiv = document.createElement('div');
+                                    placeholderDiv.className = 'avatar-placeholder-large';
+                                    placeholderDiv.innerHTML = `<span class="avatar-initials">${getInitials(userData.nama)}</span>`;
+                                    parent.appendChild(placeholderDiv);
+                                }
+                            }}
+                        />
+                    ) : (
+                        <div className="avatar-placeholder-large">
+                            <span className="avatar-initials">{getInitials(userData.nama)}</span>
+                        </div>
+                    )}
                 </div>
+                
                 <h4 className="mt-3 mb-1 fw-bold">{userData.nama}</h4>
                 <p className="text-muted small mb-3">{userData.jabatan}</p>
                 <div className="mb-3">
@@ -238,6 +294,7 @@ const DashboardPage = () => {
                     if (responseData.bestEmployee) {
                         setBestEmployee(responseData.bestEmployee);
                         console.log('✅ Best employee loaded:', responseData.bestEmployee.user.nama);
+                        console.log('📸 Profile picture:', responseData.bestEmployee.user.profilePicture);
                     }
                     // Check if it's getLeaderboard response
                     else if (responseData.leaderboard && responseData.leaderboard.length > 0) {
@@ -251,6 +308,7 @@ const DashboardPage = () => {
                         if (actualBestEmployee) {
                             setBestEmployee(actualBestEmployee);
                             console.log('✅ Best employee from leaderboard:', actualBestEmployee.nama || actualBestEmployee.user?.nama);
+                            console.log('📸 Profile picture:', actualBestEmployee.profilePicture || actualBestEmployee.user?.profilePicture);
                         } else {
                             // Fallback: if no specific best employee found, take the first one but log warning
                             console.warn('⚠️ No specific best employee found, using top performer');

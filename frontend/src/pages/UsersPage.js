@@ -297,7 +297,7 @@ const UsersPage = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h1 className="h3 mb-1">
-            {isPimpinan ? 'Data Pegawai' : 'User Management'}
+            {isPimpinan ? 'Data Pegawai' : 'Kelola User'}
           </h1>
           <p className="text-muted">
             {isPimpinan 
@@ -372,14 +372,8 @@ const UsersPage = () => {
                   <option value="">Semua Status</option>
                   <option value="PNS">PNS</option>
                   <option value="PPPK">PPPK</option>
+                  <option value="HONORER">Honorer</option>
                 </select>
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">&nbsp;</label>
-                <button type="submit" className="btn btn-outline-primary w-100">
-                  <i className="fas fa-search me-2"></i>
-                  Cari
-                </button>
               </div>
               <div className="col-md-2">
                 <label className="form-label">&nbsp;</label>
@@ -793,6 +787,7 @@ const UsersPage = () => {
                         >
                           <option value="PNS">PNS</option>
                           <option value="PPPK">PPPK</option>
+                          <option value="HONORER">HONORER</option>
                         </select>
                       </div>
                       <div className="col-md-4">

@@ -1,4 +1,4 @@
-// controllers/periodController.js
+// controllers/periodController.js - UPDATED WITH CASCADE DELETE
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -204,7 +204,7 @@ const updatePeriod = async (req, res) => {
   }
 };
 
-// DELETE PERIOD
+// DELETE PERIOD - UPDATED WITH CASCADE DELETE
 const deletePeriod = async (req, res) => {
   try {
     const { id } = req.params;
@@ -213,10 +213,14 @@ const deletePeriod = async (req, res) => {
     const existingPeriod = await prisma.period.findUnique({
       where: { id },
       include: {
-        evaluations: { take: 1 },
-        attendances: { take: 1 },
-        ckpScores: { take: 1 },
-        finalEvaluations: { take: 1 }
+        _count: {
+          select: {
+            evaluations: true,
+            attendances: true,
+            ckpScores: true,
+            finalEvaluations: true
+          }
+        }
       }
     });
 
@@ -227,33 +231,105 @@ const deletePeriod = async (req, res) => {
       });
     }
 
-    // Check if period has data
-    const hasData = existingPeriod.evaluations.length > 0 ||
-                   existingPeriod.attendances.length > 0 ||
-                   existingPeriod.ckpScores.length > 0 ||
-                   existingPeriod.finalEvaluations.length > 0;
-
-    if (hasData) {
+    // Prevent deletion of active period
+    if (existingPeriod.isActive) {
       return res.status(400).json({
         success: false,
-        message: 'Tidak dapat menghapus periode yang sudah memiliki data'
+        message: 'Tidak dapat menghapus periode yang sedang aktif. Nonaktifkan terlebih dahulu.'
       });
     }
 
-    await prisma.period.delete({
-      where: { id }
+    // Get data counts for confirmation message
+    const dataCounts = existingPeriod._count;
+    
+    // Delete all related data in transaction (CASCADE DELETE)
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete evaluation scores first (has foreign key to evaluations)
+      if (dataCounts.evaluations > 0) {
+        const evaluationIds = await tx.evaluation.findMany({
+          where: { periodId: id },
+          select: { id: true }
+        });
+        
+        if (evaluationIds.length > 0) {
+          await tx.evaluationScore.deleteMany({
+            where: {
+              evaluationId: { in: evaluationIds.map(e => e.id) }
+            }
+          });
+        }
+      }
+
+      // 2. Delete evaluations
+      await tx.evaluation.deleteMany({
+        where: { periodId: id }
+      });
+
+      // 3. Delete final evaluations
+      await tx.finalEvaluation.deleteMany({
+        where: { periodId: id }
+      });
+
+      // 4. Delete attendances
+      await tx.attendance.deleteMany({
+        where: { periodId: id }
+      });
+
+      // 5. Delete CKP scores
+      await tx.ckpScore.deleteMany({
+        where: { periodId: id }
+      });
+
+      // 6. Finally delete the period
+      await tx.period.delete({
+        where: { id }
+      });
     });
+
+    // Create summary message
+    let deleteMessage = `Periode ${existingPeriod.namaPeriode} berhasil dihapus`;
+    const deletedItems = [];
+    
+    if (dataCounts.evaluations > 0) deletedItems.push(`${dataCounts.evaluations} evaluasi`);
+    if (dataCounts.attendances > 0) deletedItems.push(`${dataCounts.attendances} data presensi`);
+    if (dataCounts.ckpScores > 0) deletedItems.push(`${dataCounts.ckpScores} data CKP`);
+    if (dataCounts.finalEvaluations > 0) deletedItems.push(`${dataCounts.finalEvaluations} evaluasi final`);
+
+    if (deletedItems.length > 0) {
+      deleteMessage += ` beserta ${deletedItems.join(', ')}`;
+    }
 
     res.json({
       success: true,
-      message: `Periode ${existingPeriod.namaPeriode} berhasil dihapus`
+      message: deleteMessage,
+      data: {
+        deletedPeriod: {
+          id: existingPeriod.id,
+          namaPeriode: existingPeriod.namaPeriode,
+          deletedData: {
+            evaluations: dataCounts.evaluations,
+            attendances: dataCounts.attendances,
+            ckpScores: dataCounts.ckpScores,
+            finalEvaluations: dataCounts.finalEvaluations
+          }
+        }
+      }
     });
 
   } catch (error) {
     console.error('Delete period error:', error);
+    
+    // Handle specific database errors
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        message: 'Tidak dapat menghapus periode karena masih memiliki data terkait yang tidak dapat dihapus'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan saat menghapus periode'
     });
   }
 };

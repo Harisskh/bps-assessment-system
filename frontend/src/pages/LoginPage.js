@@ -461,15 +461,6 @@ const LoginIllustration = () => (
                 }}>
                     Selamat Datang
                 </h1>
-                <p className="lead mb-0 welcome-text" style={{
-                    fontFamily: "'Inter', sans-serif",
-                    fontWeight: '500',
-                    fontSize: '1.25rem',
-                    letterSpacing: '0.3px',
-                    opacity: '0.95'
-                }}>
-                    Sistem Penilaian Kinerja Pegawai
-                </p>
             </div>
         </div>
     </div>

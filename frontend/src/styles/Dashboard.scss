@@ -531,3 +531,118 @@ transform: scale(1.05);
 opacity: 1;
 }
 }
+
+/* src/styles/Dashboard.scss - ADD THESE STYLES FOR PROFILE PICTURE */
+
+// 🔥 PROFILE PICTURE STYLES FOR BEST EMPLOYEE CARD
+.best-employee-card {
+  .employee-avatar-large {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+    position: relative;
+    margin-bottom: 1rem;
+
+    .avatar-image-large {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    .avatar-placeholder-large {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+
+      .avatar-initials {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: white;
+        text-transform: uppercase;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+    }
+  }
+
+  .congrats-banner {
+    background: linear-gradient(135deg, #fdcb6e, #e17055);
+    color: white;
+    text-align: center;
+    padding: 0.75rem 1.5rem;
+    margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+    border-radius: 15px 15px 0 0;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(253, 203, 110, 0.4);
+
+    i {
+      margin-right: 0.5rem;
+      font-size: 1.2rem;
+    }
+  }
+
+  .card {
+    border: none;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+    border-radius: 20px;
+    background: linear-gradient(135deg, #74b9ff, #0984e3);
+    color: white;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    .card-body {
+      position: relative;
+      z-index: 2;
+      padding: 2rem;
+    }
+  }
+}
+
+// Animation for shimmer effect
+@keyframes shimmer {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Responsive design for mobile
+@media (max-width: 768px) {
+  .best-employee-card {
+    .employee-avatar-large {
+      width: 100px;
+      height: 100px;
+
+      .avatar-placeholder-large .avatar-initials {
+        font-size: 2rem;
+      }
+    }
+  }
+}

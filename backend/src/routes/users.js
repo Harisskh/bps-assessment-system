@@ -1,4 +1,3 @@
-// routes/users.js - FIXED DENGAN PERMANENT DELETE ROUTE
 const express = require('express');
 const router = express.Router();
 
@@ -6,9 +5,10 @@ const router = express.Router();
 const {
   getAllUsers,
   getUserById,
+  createUser,        // 🔥 ADD THIS IMPORT
   updateUser,
   deleteUser,
-  permanentDeleteUser, // FIXED: Import permanent delete
+  permanentDeleteUser,
   activateUser,
   resetUserPassword,
   getUserStats
@@ -26,17 +26,20 @@ const {
 router.use(authenticateToken);
 
 // GET routes
-router.get('/', requirePimpinan, getAllUsers);           // Admin & Pimpinan can see all users
-router.get('/stats', requireAdmin, getUserStats);       // Admin only - user statistics
-router.get('/:id', requireStaffOrAbove, getUserById);   // All authenticated users
+router.get('/', requirePimpinan, getAllUsers);           
+router.get('/stats', requireAdmin, getUserStats);       
+router.get('/:id', requireStaffOrAbove, getUserById);   
+
+// POST routes - 🔥 ADD THIS LINE
+router.post('/', requireAdmin, createUser);             // 🔥 NEW: Create user route
 
 // PUT routes  
-router.put('/:id', requireStaffOrAbove, updateUser);    // Users can update self, Admin can update all
-router.put('/:id/activate', requireAdmin, activateUser); // Admin only
-router.put('/:id/reset-password', requireAdmin, resetUserPassword); // Admin only
+router.put('/:id', requireStaffOrAbove, updateUser);    
+router.put('/:id/activate', requireAdmin, activateUser); 
+router.put('/:id/reset-password', requireAdmin, resetUserPassword); 
 
 // DELETE routes
-router.delete('/:id', requireAdmin, deleteUser);        // Admin only (soft delete)
-router.delete('/:id/permanent', requireAdmin, permanentDeleteUser); // FIXED: Permanent delete route
+router.delete('/:id', requireAdmin, deleteUser);        
+router.delete('/:id/permanent', requireAdmin, permanentDeleteUser); 
 
 module.exports = router;

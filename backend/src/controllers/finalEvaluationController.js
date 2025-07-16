@@ -1,3 +1,4 @@
+// controllers/finalEvaluationController.js - UPDATED WITH NEW BERAKHLAK FORMULA
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -23,12 +24,10 @@ const isExcludedPosition = (jabatan) => {
   if (!jabatan) return false;
   
   return EXCLUDED_POSITIONS.some(excludedPos => {
-    // Check exact match
     if (jabatan.toLowerCase().includes(excludedPos.toLowerCase())) {
       return true;
     }
     
-    // Check for variations
     if (excludedPos.includes('Kepala BPS') && jabatan.toLowerCase().includes('kepala bps')) {
       return true;
     }
@@ -45,7 +44,7 @@ const isExcludedPosition = (jabatan) => {
   });
 };
 
-// CALCULATE AND UPDATE FINAL EVALUATIONS
+// 🔥 UPDATED: CALCULATE FINAL EVALUATIONS WITH NEW BERAKHLAK FORMULA
 const calculateFinalEvaluations = async (req, res) => {
   try {
     const { periodId } = req.body;
@@ -69,6 +68,8 @@ const calculateFinalEvaluations = async (req, res) => {
       });
     }
 
+    console.log('🔄 Starting calculation for period:', period.namaPeriode);
+
     // Get all evaluations for this period
     const evaluations = await prisma.evaluation.findMany({
       where: { periodId },
@@ -80,6 +81,8 @@ const calculateFinalEvaluations = async (req, res) => {
         }
       }
     });
+
+    console.log('📊 Found evaluations:', evaluations.length);
 
     // Get attendance data for this period
     const attendances = await prisma.attendance.findMany({
@@ -101,76 +104,37 @@ const calculateFinalEvaluations = async (req, res) => {
       }
     });
 
-    // Calculate BERAKHLAK scores for each user
+    // 🔥 NEW FORMULA: Calculate BERAKHLAK scores with SUMMATION instead of AVERAGING
     const berakhlakScores = {};
     const evaluatorCounts = {};
 
     // Group evaluations by target user
     for (const evaluation of evaluations) {
       const targetUserId = evaluation.targetUserId;
-      const ranking = evaluation.ranking;
-
+      
+      // 🔥 NEW: Since we only have 1 tokoh berakhlak now, no need for ranking separation
       if (!berakhlakScores[targetUserId]) {
         berakhlakScores[targetUserId] = {
-          tokoh1Scores: [],
-          tokoh2Scores: [],
-          tokoh3Scores: [],
-          tokoh1Count: 0,
-          tokoh2Count: 0,
-          tokoh3Count: 0,
-          totalEvaluators: 0
+          totalScore: 0,  // 🔥 NEW: Direct sum instead of averaging
+          evaluatorCount: 0,
+          evaluations: []
         };
       }
 
-      // Calculate average score for this evaluation (8 parameters)
+      // Calculate total score for this evaluation (8 parameters)
       const totalScore = evaluation.scores.reduce((sum, score) => sum + score.score, 0);
-      const averageScore = totalScore / evaluation.scores.length;
 
-      // Add to appropriate ranking
-      if (ranking === 1) {
-        berakhlakScores[targetUserId].tokoh1Scores.push(averageScore);
-        berakhlakScores[targetUserId].tokoh1Count++;
-      } else if (ranking === 2) {
-        berakhlakScores[targetUserId].tokoh2Scores.push(averageScore);
-        berakhlakScores[targetUserId].tokoh2Count++;
-      } else if (ranking === 3) {
-        berakhlakScores[targetUserId].tokoh3Scores.push(averageScore);
-        berakhlakScores[targetUserId].tokoh3Count++;
-      }
-
-      berakhlakScores[targetUserId].totalEvaluators++;
+      // 🔥 NEW FORMULA: Add to total score directly (no averaging)
+      berakhlakScores[targetUserId].totalScore += totalScore;
+      berakhlakScores[targetUserId].evaluatorCount++;
+      berakhlakScores[targetUserId].evaluations.push({
+        evaluatorId: evaluation.evaluatorId,
+        totalScore: totalScore,
+        submitDate: evaluation.submitDate
+      });
     }
 
-    // Calculate final BERAKHLAK score for each user
-    for (const userId in berakhlakScores) {
-      const userScores = berakhlakScores[userId];
-      
-      // Calculate average for each tokoh category
-      const tokoh1Avg = userScores.tokoh1Scores.length > 0 
-        ? userScores.tokoh1Scores.reduce((a, b) => a + b, 0) / userScores.tokoh1Scores.length 
-        : 0;
-      
-      const tokoh2Avg = userScores.tokoh2Scores.length > 0 
-        ? userScores.tokoh2Scores.reduce((a, b) => a + b, 0) / userScores.tokoh2Scores.length 
-        : 0;
-      
-      const tokoh3Avg = userScores.tokoh3Scores.length > 0 
-        ? userScores.tokoh3Scores.reduce((a, b) => a + b, 0) / userScores.tokoh3Scores.length 
-        : 0;
-
-      // Final BERAKHLAK score = average of 3 categories
-      const categoryCount = (tokoh1Avg > 0 ? 1 : 0) + (tokoh2Avg > 0 ? 1 : 0) + (tokoh3Avg > 0 ? 1 : 0);
-      const finalBerakhlakScore = categoryCount > 0 
-        ? (tokoh1Avg + tokoh2Avg + tokoh3Avg) / categoryCount 
-        : 0;
-
-      berakhlakScores[userId].finalScore = finalBerakhlakScore;
-      berakhlakScores[userId].tokoh1Avg = tokoh1Avg;
-      berakhlakScores[userId].tokoh2Avg = tokoh2Avg;
-      berakhlakScores[userId].tokoh3Avg = tokoh3Avg;
-    }
-
-    // Get all users with their job positions to apply filtering
+    // Get all users with their job positions
     const allUsers = await prisma.user.findMany({
       select: {
         id: true,
@@ -186,19 +150,22 @@ const calculateFinalEvaluations = async (req, res) => {
       userMap[user.id] = user;
     });
 
-    // Determine candidates based on total evaluators (top 2 ranks) 
+    // 🔥 NEW: Determine candidates based on evaluator count (top 2 ranks)
     // BUT EXCLUDE users with specific job positions
     const allUserEvaluatorCounts = Object.entries(berakhlakScores)
       .map(([userId, data]) => {
         const user = userMap[userId];
         return {
           userId,
-          count: data.totalEvaluators,
+          count: data.evaluatorCount,
+          totalScore: data.totalScore,
           jabatan: user?.jabatan || '',
           isEligible: user ? !isExcludedPosition(user.jabatan) : false
         };
       })
-      .sort((a, b) => b.count - a.count);
+      .sort((a, b) => b.count - a.count); // Sort by evaluator count
+
+    console.log('📋 All user evaluator counts:', allUserEvaluatorCounts);
 
     // Filter to get only eligible users, then get top 2 unique counts
     const eligibleUserCounts = allUserEvaluatorCounts.filter(u => u.isEligible);
@@ -209,10 +176,7 @@ const calculateFinalEvaluations = async (req, res) => {
       .filter(u => uniqueEligibleCounts.includes(u.count))
       .map(u => u.userId);
 
-    console.log('All user evaluator counts:', allUserEvaluatorCounts);
-    console.log('Eligible users for candidacy:', eligibleUserCounts);
-    console.log('Top 2 unique counts from eligible users:', uniqueEligibleCounts);
-    console.log('Final candidates based on eligibility filter:', candidateUserIds);
+    console.log('✅ Eligible candidates:', candidateUserIds);
 
     // Create or update final evaluations
     const finalEvaluations = [];
@@ -226,28 +190,26 @@ const calculateFinalEvaluations = async (req, res) => {
 
     for (const userId of allUserIds) {
       const berakhlakData = berakhlakScores[userId] || {
-        finalScore: 0,
-        totalEvaluators: 0,
-        tokoh1Count: 0,
-        tokoh2Count: 0,
-        tokoh3Count: 0
+        totalScore: 0,
+        evaluatorCount: 0
       };
 
       const attendanceData = attendances.find(a => a.userId === userId);
       const ckpData = ckpScores.find(c => c.userId === userId);
       const user = userMap[userId];
 
-      // Calculate weighted scores
-      const berakhlakScore = berakhlakData.finalScore || 0;
+      // 🔥 NEW FORMULA: Calculate weighted scores with new BerAKHLAK formula
+      const berakhlakScore = berakhlakData.totalScore || 0; // Direct sum, no averaging
       const presensiScore = attendanceData?.nilaiPresensi || 0;
       const ckpScore = ckpData?.score || 0;
 
+      // Calculate weighted scores for final calculation
       const berakhlakWeighted = berakhlakScore * 0.30;
       const presensiWeighted = presensiScore * 0.40;
       const ckpWeighted = ckpScore * 0.30;
       const finalScore = berakhlakWeighted + presensiWeighted + ckpWeighted;
 
-      // Check if user is eligible for candidacy (not excluded by job position)
+      // Check if user is eligible for candidacy
       const isEligibleForCandidacy = user ? !isExcludedPosition(user.jabatan) : false;
       const isCandidate = isEligibleForCandidacy && candidateUserIds.includes(userId);
 
@@ -261,10 +223,7 @@ const calculateFinalEvaluations = async (req, res) => {
         presensiWeighted,
         ckpWeighted,
         finalScore,
-        totalEvaluators: berakhlakData.totalEvaluators,
-        tokoh1Count: berakhlakData.tokoh1Count,
-        tokoh2Count: berakhlakData.tokoh2Count,
-        tokoh3Count: berakhlakData.tokoh3Count,
+        totalEvaluators: berakhlakData.evaluatorCount,
         isCandidate,
         isBestEmployee: false, // Will be updated after ranking
         ranking: null
@@ -299,6 +258,13 @@ const calculateFinalEvaluations = async (req, res) => {
       .filter(fe => fe.isCandidate)
       .sort((a, b) => b.finalScore - a.finalScore);
 
+    console.log('🏆 Ranked candidates:', rankedCandidates.map(c => ({
+      nama: c.user.nama,
+      finalScore: c.finalScore,
+      berakhlakScore: c.berakhlakScore,
+      evaluators: c.totalEvaluators
+    })));
+
     // Update rankings and determine best employee
     for (let i = 0; i < rankedCandidates.length; i++) {
       const candidate = rankedCandidates[i];
@@ -321,9 +287,11 @@ const calculateFinalEvaluations = async (req, res) => {
     const excludedUsers = allUsers.filter(user => isExcludedPosition(user.jabatan));
     const excludedCount = excludedUsers.length;
 
+    console.log('✅ Calculation completed successfully');
+
     res.json({
       success: true,
-      message: 'Final evaluations calculated successfully',
+      message: 'Final evaluations calculated successfully with new BerAKHLAK formula',
       data: {
         period: period.namaPeriode,
         totalUsers: finalEvaluations.length,
@@ -334,8 +302,7 @@ const calculateFinalEvaluations = async (req, res) => {
           candidateUserIds,
           uniqueEvaluatorCounts: uniqueEligibleCounts,
           excludedPositions: EXCLUDED_POSITIONS,
-          allUserCounts: allUserEvaluatorCounts,
-          eligibleUserCounts: eligibleUserCounts,
+          newFormula: 'BerAKHLAK = Sum of all evaluations (no averaging)',
           excludedUserDetails: excludedUsers.map(u => ({
             nama: u.nama,
             jabatan: u.jabatan,
@@ -346,23 +313,26 @@ const calculateFinalEvaluations = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Calculate final evaluations error:', error);
+    console.error('❌ Calculate final evaluations error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// GET FINAL EVALUATIONS (with ranking)
+// GET FINAL EVALUATIONS (with ranking) - UPDATED
 const getFinalEvaluations = async (req, res) => {
   try {
     const { 
       periodId,
       onlyCandidates = false,
       page = 1,
-      limit = 20
+      limit = 100  // Increase default limit
     } = req.query;
+
+    console.log('📊 Getting final evaluations:', { periodId, onlyCandidates, page, limit });
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -383,7 +353,7 @@ const getFinalEvaluations = async (req, res) => {
               jabatan: true,
               nip: true,
               role: true,
-              profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
+              profilePicture: true
             }
           },
           period: {
@@ -406,7 +376,7 @@ const getFinalEvaluations = async (req, res) => {
       prisma.finalEvaluation.count({ where })
     ]);
 
-    // Add eligibility information to each evaluation
+    // Add eligibility information
     const evaluationsWithEligibility = finalEvaluations.map(evaluation => ({
       ...evaluation,
       isEligibleForCandidacy: !isExcludedPosition(evaluation.user.jabatan),
@@ -416,6 +386,8 @@ const getFinalEvaluations = async (req, res) => {
     }));
 
     const totalPages = Math.ceil(totalCount / limitNum);
+
+    console.log('✅ Final evaluations retrieved:', evaluationsWithEligibility.length);
 
     res.json({
       success: true,
@@ -434,18 +406,21 @@ const getFinalEvaluations = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get final evaluations error:', error);
+    console.error('❌ Get final evaluations error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// 🔥 GET BEST EMPLOYEE WITH PROFILE PICTURE
+// GET BEST EMPLOYEE WITH PROFILE PICTURE - UPDATED
 const getBestEmployee = async (req, res) => {
   try {
     const { periodId } = req.params;
+
+    console.log('👑 Getting best employee for period:', periodId);
 
     const bestEmployee = await prisma.finalEvaluation.findFirst({
       where: {
@@ -460,7 +435,7 @@ const getBestEmployee = async (req, res) => {
             jabatan: true,
             nip: true,
             role: true,
-            profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
+            profilePicture: true
           }
         },
         period: {
@@ -494,7 +469,7 @@ const getBestEmployee = async (req, res) => {
             nama: true,
             jabatan: true,
             nip: true,
-            profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
+            profilePicture: true
           }
         }
       },
@@ -506,6 +481,8 @@ const getBestEmployee = async (req, res) => {
       ...candidate,
       isEligibleForCandidacy: !isExcludedPosition(candidate.user.jabatan)
     }));
+
+    console.log('✅ Best employee retrieved:', bestEmployee.user.nama);
 
     res.json({
       success: true,
@@ -521,18 +498,21 @@ const getBestEmployee = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get best employee error:', error);
+    console.error('❌ Get best employee error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// 🔥 GET LEADERBOARD WITH PROFILE PICTURES
+// GET LEADERBOARD WITH PROFILE PICTURES - UPDATED
 const getLeaderboard = async (req, res) => {
   try {
     const { periodId, limit = 10 } = req.query;
+
+    console.log('📊 Getting leaderboard:', { periodId, limit });
 
     const where = {};
     if (periodId) where.periodId = periodId;
@@ -547,7 +527,7 @@ const getLeaderboard = async (req, res) => {
             jabatan: true,
             nip: true,
             role: true,
-            profilePicture: true  // 🔥 TAMBAHKAN PROFILE PICTURE
+            profilePicture: true
           }
         },
         period: {
@@ -567,13 +547,13 @@ const getLeaderboard = async (req, res) => {
       take: parseInt(limit)
     });
 
-    // 🔥 Format response data untuk leaderboard dengan profile picture
+    // Format response data untuk leaderboard
     const formattedLeaderboard = leaderboard.map((evaluation, index) => ({
       id: evaluation.user.id,
       nama: evaluation.user.nama,
       nip: evaluation.user.nip,
       jabatan: evaluation.user.jabatan,
-      profilePicture: evaluation.user.profilePicture,  // 🔥 INCLUDE PROFILE PICTURE
+      profilePicture: evaluation.user.profilePicture,
       nilaiAkhir: evaluation.finalScore,
       nilaiBerakhlak: evaluation.berakhlakScore,
       nilaiPresensi: evaluation.presensiScore,
@@ -590,6 +570,8 @@ const getLeaderboard = async (req, res) => {
       status: evaluation.isBestEmployee ? 'Best Employee' : evaluation.isCandidate ? 'Candidate' : 'Regular'
     }));
 
+    console.log('✅ Leaderboard retrieved:', formattedLeaderboard.length);
+
     res.json({
       success: true,
       data: { 
@@ -600,10 +582,11 @@ const getLeaderboard = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get leaderboard error:', error);
+    console.error('❌ Get leaderboard error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };

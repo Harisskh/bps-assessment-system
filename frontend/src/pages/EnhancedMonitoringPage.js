@@ -1,4 +1,4 @@
-// src/pages/EnhancedMonitoringPage.js - MONITORING SISTEM LENGKAP
+// src/pages/EnhancedMonitoringPage.js - UPDATED FOR SINGLE BERAKHLAK SYSTEM
 import React, { useState, useEffect } from 'react';
 import { monitoringAPI, periodAPI, evaluationAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +21,7 @@ const EnhancedMonitoringPage = () => {
   const [userDetailData, setUserDetailData] = useState(null);
   
   // Filter states
-  const [statusFilter, setStatusFilter] = useState(''); // '', 'COMPLETE', 'PARTIAL', 'NOT_STARTED'
+  const [statusFilter, setStatusFilter] = useState(''); // '', 'COMPLETE', 'NOT_STARTED'
   const [departmentFilter, setDepartmentFilter] = useState('');
 
   useEffect(() => {
@@ -39,6 +39,8 @@ const EnhancedMonitoringPage = () => {
       setLoading(true);
       setError('');
       
+      console.log('🔄 Loading initial data...');
+      
       const periodsRes = await periodAPI.getAll({ limit: 50 });
       setPeriods(periodsRes.data.data.periods);
 
@@ -48,8 +50,10 @@ const EnhancedMonitoringPage = () => {
         setSelectedPeriod(activePeriod.id);
       }
 
+      console.log('✅ Initial data loaded');
+
     } catch (error) {
-      console.error('Load initial data error:', error);
+      console.error('❌ Load initial data error:', error);
       setError('Gagal memuat data initial');
     } finally {
       setLoading(false);
@@ -61,16 +65,23 @@ const EnhancedMonitoringPage = () => {
       setLoading(true);
       setError('');
       
+      console.log('🔄 Loading monitoring data for period:', selectedPeriod);
+      
       const [statusRes, incompleteRes] = await Promise.all([
         monitoringAPI.getEvaluationStatus({ periodId: selectedPeriod }),
         monitoringAPI.getIncompleteUsers({ periodId: selectedPeriod })
       ]);
 
+      console.log('📊 Status response:', statusRes.data);
+      console.log('❌ Incomplete response:', incompleteRes.data);
+
       setEvaluationStatus(statusRes.data.data);
       setIncompleteUsers(incompleteRes.data.data.incompleteUsers);
       
+      console.log('✅ Monitoring data loaded');
+      
     } catch (error) {
-      console.error('Load monitoring data error:', error);
+      console.error('❌ Load monitoring data error:', error);
       setError('Gagal memuat data monitoring');
     } finally {
       setLoading(false);
@@ -82,12 +93,16 @@ const EnhancedMonitoringPage = () => {
       setLoading(true);
       setSelectedUserDetail(userId);
       
+      console.log('👤 Loading user detail for:', userId);
+      
       const response = await monitoringAPI.getUserDetail(userId, { periodId: selectedPeriod });
+      console.log('📋 User detail response:', response.data);
+      
       setUserDetailData(response.data.data);
       setShowDetailModal(true);
       
     } catch (error) {
-      console.error('Load user detail error:', error);
+      console.error('❌ Load user detail error:', error);
       setError('Gagal memuat detail user');
     } finally {
       setLoading(false);
@@ -111,8 +126,9 @@ const EnhancedMonitoringPage = () => {
     return badges[role] || 'bg-secondary';
   };
 
+  // 🔥 NEW: Updated for single evaluation system
   const getProgressPercentage = (completedCount) => {
-    return Math.round((completedCount / 3) * 100);
+    return Math.round((completedCount / 1) * 100); // Only need 1 evaluation now
   };
 
   const filteredUserStatuses = evaluationStatus?.userStatuses?.filter(userStatus => {
@@ -149,7 +165,7 @@ const EnhancedMonitoringPage = () => {
             <i className="fas fa-chart-pie me-2"></i>
             Monitoring Evaluasi
           </h1>
-          <p className="text-muted">Monitor progress pengisian evaluasi Tokoh BerAKHLAK</p>
+          <p className="text-muted">Monitor progress pengisian evaluasi Tokoh BerAKHLAK - Sistem Baru (1 Evaluasi)</p>
         </div>
         <button 
           className="btn btn-outline-primary"
@@ -177,6 +193,38 @@ const EnhancedMonitoringPage = () => {
           <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
         </div>
       )}
+
+      {/* 🔥 NEW: System Info Card */}
+      <div className="card border-info mb-4">
+        <div className="card-body">
+          <h6 className="card-title text-info">
+            <i className="fas fa-info-circle me-2"></i>
+            Sistem Evaluasi BerAKHLAK Baru
+          </h6>
+          <div className="row">
+            <div className="col-md-6">
+              <div className="alert alert-warning mb-0">
+                <strong>Perubahan Sistem:</strong>
+                <ul className="mb-0 mt-2">
+                  <li>Hanya perlu <strong>1 evaluasi Tokoh BerAKHLAK</strong></li>
+                  <li>Rentang nilai: <strong>80-100</strong></li>
+                  <li>Penjumlahan langsung (tanpa rata-rata)</li>
+                </ul>
+              </div>
+            </div>
+            <div className="col-md-6">
+              <div className="alert alert-success mb-0">
+                <strong>Kriteria Selesai:</strong>
+                <ul className="mb-0 mt-2">
+                  <li>Mengisi <strong>1 evaluasi</strong> sudah dianggap selesai</li>
+                  <li>Tidak perlu 3 tokoh seperti sistem lama</li>
+                  <li>Lebih sederhana dan efisien</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Period Selection */}
       <div className="card mb-4">
@@ -212,6 +260,10 @@ const EnhancedMonitoringPage = () => {
                     <h5 className="text-danger mb-0">{evaluationStatus.summary.notStarted}</h5>
                     <small className="text-muted">Belum</small>
                   </div>
+                  <div className="col-md-3">
+                    <h5 className="text-info mb-0">{evaluationStatus.summary.completionRate}%</h5>
+                    <small className="text-muted">Progress</small>
+                  </div>
                 </div>
               )}
             </div>
@@ -226,17 +278,13 @@ const EnhancedMonitoringPage = () => {
             <div className="col-md-8">
               <div className="card">
                 <div className="card-body">
-                  <h6 className="card-title">Progress Keseluruhan</h6>
+                  <h6 className="card-title">Progress Keseluruhan - Sistem Baru (1 Evaluasi)</h6>
                   <div className="d-flex align-items-center mb-3">
                     <div className="flex-grow-1 me-3">
                       <div className="progress" style={{ height: '20px' }}>
                         <div 
                           className="progress-bar bg-success" 
                           style={{ width: `${(evaluationStatus.summary.completed / evaluationStatus.summary.total * 100)}%` }}
-                        ></div>
-                        <div 
-                          className="progress-bar bg-warning" 
-                          style={{ width: `${(evaluationStatus.summary.partial / evaluationStatus.summary.total * 100)}%` }}
                         ></div>
                       </div>
                     </div>
@@ -253,6 +301,12 @@ const EnhancedMonitoringPage = () => {
                       <i className="fas fa-circle me-1"></i>
                       Belum ({evaluationStatus.summary.notStarted})
                     </span>
+                  </div>
+                  <div className="mt-2">
+                    <small className="text-muted">
+                      <i className="fas fa-info-circle me-1"></i>
+                      Sistem baru: Hanya perlu 1 evaluasi untuk dianggap selesai
+                    </small>
                   </div>
                 </div>
               </div>
@@ -286,6 +340,12 @@ const EnhancedMonitoringPage = () => {
                       <small className="text-muted">Complete</small>
                     </div>
                   </div>
+                  <div className="mt-2">
+                    <small className="text-success">
+                      <i className="fas fa-star me-1"></i>
+                      Sistem Baru: 1 Evaluasi
+                    </small>
+                  </div>
                 </div>
               </div>
             </div>
@@ -303,7 +363,7 @@ const EnhancedMonitoringPage = () => {
                     onChange={(e) => setStatusFilter(e.target.value)}
                   >
                     <option value="">Semua Status</option>
-                    <option value="COMPLETE">Selesai</option>
+                    <option value="COMPLETE">Selesai (1 evaluasi)</option>
                     <option value="NOT_STARTED">Belum Mulai</option>
                   </select>
                 </div>
@@ -351,7 +411,7 @@ const EnhancedMonitoringPage = () => {
             <div className="card-header">
               <h5 className="mb-0">
                 <i className="fas fa-users me-2"></i>
-                Status Pengisian Evaluasi
+                Status Pengisian Evaluasi - Sistem Baru (1 Evaluasi)
               </h5>
             </div>
             <div className="card-body">
@@ -401,12 +461,12 @@ const EnhancedMonitoringPage = () => {
                               <div className="d-flex align-items-center">
                                 <div className="progress flex-grow-1 me-2" style={{ height: '8px' }}>
                                   <div 
-                                    className={`progress-bar ${userStatus.status === 'COMPLETE' ? 'bg-success' : userStatus.status === 'PARTIAL' ? 'bg-warning' : 'bg-danger'}`}
+                                    className={`progress-bar ${userStatus.status === 'COMPLETE' ? 'bg-success' : 'bg-danger'}`}
                                     style={{ width: `${progressPercentage}%` }}
                                   ></div>
                                 </div>
                                 <small className="text-muted">
-                                  {userStatus.completedCount}/3
+                                  {userStatus.completedCount}/1
                                 </small>
                               </div>
                             </td>
@@ -415,6 +475,12 @@ const EnhancedMonitoringPage = () => {
                                 <i className={`fas ${statusBadge.icon} me-1`}></i>
                                 {statusBadge.text}
                               </span>
+                              {userStatus.status === 'COMPLETE' && (
+                                <small className="d-block text-success mt-1">
+                                  <i className="fas fa-star me-1"></i>
+                                  Sistem Baru
+                                </small>
+                              )}
                             </td>
                             <td>
                               {userStatus.lastSubmission ? (
@@ -454,12 +520,12 @@ const EnhancedMonitoringPage = () => {
           <div className="card-body text-center py-5">
             <i className="fas fa-chart-pie fa-3x text-muted mb-3"></i>
             <h5 className="text-muted">Pilih Periode untuk Monitoring</h5>
-            <p className="text-muted">Silakan pilih periode penilaian untuk melihat progress evaluasi</p>
+            <p className="text-muted">Silakan pilih periode penilaian untuk melihat progress evaluasi dengan sistem baru</p>
           </div>
         </div>
       )}
 
-      {/* User Detail Modal */}
+      {/* 🔥 UPDATED: User Detail Modal for Single Evaluation System */}
       {showDetailModal && userDetailData && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-xl">
@@ -468,6 +534,7 @@ const EnhancedMonitoringPage = () => {
                 <h5 className="modal-title">
                   <i className="fas fa-user-check me-2"></i>
                   Detail Evaluasi - {userDetailData.user.nama}
+                  <span className="badge bg-info ms-2">Sistem Baru</span>
                 </h5>
                 <button 
                   type="button" 
@@ -487,6 +554,10 @@ const EnhancedMonitoringPage = () => {
                           <td>{userDetailData.user.nama}</td>
                         </tr>
                         <tr>
+                          <td><strong>NIP:</strong></td>
+                          <td>{userDetailData.user.nip || '-'}</td>
+                        </tr>
+                        <tr>
                           <td><strong>Jabatan:</strong></td>
                           <td>{userDetailData.user.jabatan || '-'}</td>
                         </tr>
@@ -502,22 +573,54 @@ const EnhancedMonitoringPage = () => {
                     </table>
                   </div>
                   <div className="col-md-6">
-                    <h6 className="text-secondary">Status Evaluasi</h6>
+                    <h6 className="text-secondary">Status Evaluasi - Sistem Baru</h6>
                     <div className="text-center">
                       <div className="d-flex justify-content-center align-items-center mb-2">
                         <div className="progress me-3" style={{ width: '100px', height: '8px' }}>
                           <div 
-                            className={`progress-bar ${userDetailData.summary.isComplete ? 'bg-success' : userDetailData.summary.completedCount > 0 ? 'bg-warning' : 'bg-danger'}`}
-                            style={{ width: `${(userDetailData.summary.completedCount / 3) * 100}%` }}
+                            className={`progress-bar ${userDetailData.summary.isComplete ? 'bg-success' : 'bg-danger'}`}
+                            style={{ width: `${(userDetailData.summary.completedCount / userDetailData.summary.requiredCount) * 100}%` }}
                           ></div>
                         </div>
                         <span className="fw-bold">
-                          {userDetailData.summary.completedCount}/3
+                          {userDetailData.summary.completedCount}/{userDetailData.summary.requiredCount}
                         </span>
                       </div>
-                      <span className={`badge ${getStatusBadge(userDetailData.summary.isComplete ? 'COMPLETE' : userDetailData.summary.completedCount > 0 ? 'PARTIAL' : 'NOT_STARTED').bg} fs-6`}>
-                        {getStatusBadge(userDetailData.summary.isComplete ? 'COMPLETE' : userDetailData.summary.completedCount > 0 ? 'PARTIAL' : 'NOT_STARTED').text}
+                      <span className={`badge ${getStatusBadge(userDetailData.summary.isComplete ? 'COMPLETE' : 'NOT_STARTED').bg} fs-6`}>
+                        {getStatusBadge(userDetailData.summary.isComplete ? 'COMPLETE' : 'NOT_STARTED').text}
                       </span>
+                      <div className="mt-2">
+                        <small className="text-success">
+                          <i className="fas fa-star me-1"></i>
+                          Sistem Baru: Hanya perlu 1 evaluasi
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Change Notice */}
+                <div className="alert alert-info mb-4">
+                  <h6 className="text-info">
+                    <i className="fas fa-info-circle me-2"></i>
+                    Perubahan Sistem Evaluasi
+                  </h6>
+                  <div className="row">
+                    <div className="col-md-6">
+                      <strong className="text-danger">Sistem Lama:</strong>
+                      <ul className="mb-0 mt-1">
+                        <li>Perlu 3 evaluasi (Tokoh 1, 2, 3)</li>
+                        <li>Rentang nilai berbeda per tokoh</li>
+                        <li>Perhitungan rata-rata</li>
+                      </ul>
+                    </div>
+                    <div className="col-md-6">
+                      <strong className="text-success">Sistem Baru:</strong>
+                      <ul className="mb-0 mt-1">
+                        <li>Hanya perlu 1 evaluasi</li>
+                        <li>Rentang nilai: 80-100</li>
+                        <li>Penjumlahan langsung</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
@@ -527,28 +630,28 @@ const EnhancedMonitoringPage = () => {
                 {userDetailData.evaluations.length === 0 ? (
                   <div className="alert alert-warning text-center">
                     <i className="fas fa-exclamation-triangle me-2"></i>
-                    Pegawai ini belum mengisi evaluasi apapun
+                    Pegawai ini belum mengisi evaluasi BerAKHLAK
+                    <div className="mt-2">
+                      <small className="text-muted">
+                        Sistem baru: Hanya perlu mengisi 1 evaluasi untuk dianggap selesai
+                      </small>
+                    </div>
                   </div>
                 ) : (
                   <div className="table-responsive">
                     <table className="table table-bordered">
                       <thead className="table-light">
                         <tr>
-                          <th>Tokoh Ke-</th>
                           <th>Yang Dinilai</th>
                           <th>Tanggal Submit</th>
                           <th>Rata-rata Skor</th>
                           <th>Detail Skor</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {userDetailData.evaluations.map((evaluation) => (
                           <tr key={evaluation.id}>
-                            <td>
-                              <span className={`badge ${evaluation.ranking === 1 ? 'bg-success' : evaluation.ranking === 2 ? 'bg-primary' : 'bg-info'} fs-6`}>
-                                Tokoh {evaluation.ranking}
-                              </span>
-                            </td>
                             <td>
                               <strong>{evaluation.target.nama}</strong>
                               <small className="d-block text-muted">{evaluation.target.jabatan}</small>
@@ -566,6 +669,7 @@ const EnhancedMonitoringPage = () => {
                             </td>
                             <td>
                               <span className="h6 text-primary">{evaluation.averageScore}</span>
+                              <small className="d-block text-success">Sistem Baru</small>
                             </td>
                             <td>
                               <div className="d-flex flex-wrap gap-1">
@@ -580,6 +684,12 @@ const EnhancedMonitoringPage = () => {
                                 ))}
                               </div>
                             </td>
+                            <td>
+                              <span className="badge bg-success">
+                                <i className="fas fa-check me-1"></i>
+                                Selesai
+                              </span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -590,20 +700,23 @@ const EnhancedMonitoringPage = () => {
                 {/* Missing Evaluations */}
                 {userDetailData.summary.missingCount > 0 && (
                   <div className="mt-4">
-                    <h6 className="text-danger">Evaluasi yang Belum Diselesaikan</h6>
-                    <div className="alert alert-danger">
+                    <h6 className="text-warning">Evaluasi yang Belum Diselesaikan</h6>
+                    <div className="alert alert-warning">
                       <i className="fas fa-exclamation-triangle me-2"></i>
-                      Pegawai ini masih perlu menyelesaikan evaluasi untuk:
-                      <ul className="mb-0 mt-2">
-                        {userDetailData.summary.missingRankings.map(ranking => (
-                          <li key={ranking}>
-                            <strong>Tokoh BerAKHLAK ke-{ranking}</strong>
-                          </li>
-                        ))}
-                      </ul>
+                      Pegawai ini masih perlu menyelesaikan evaluasi BerAKHLAK.
+                      <div className="mt-2">
+                        <strong>Sistem Baru:</strong> Hanya perlu mengisi <strong>1 evaluasi</strong> untuk dianggap selesai.
+                      </div>
+                      <div className="mt-2">
+                        <small className="text-muted">
+                          <i className="fas fa-info-circle me-1"></i>
+                          Pegawai dapat memilih siapa saja yang dinilai dengan rentang nilai 80-100
+                        </small>
+                      </div>
                     </div>
                   </div>
                 )}
+
               </div>
               <div className="modal-footer">
                 <button 
@@ -613,19 +726,6 @@ const EnhancedMonitoringPage = () => {
                 >
                   Tutup
                 </button>
-                {userDetailData.summary.missingCount > 0 && (
-                  <button 
-                    type="button" 
-                    className="btn btn-warning"
-                    onClick={() => {
-                      setSuccess(`Reminder telah dikirim kepada ${userDetailData.user.nama}`);
-                      setShowDetailModal(false);
-                    }}
-                  >
-                    <i className="fas fa-bell me-2"></i>
-                    Kirim Reminder
-                  </button>
-                )}
               </div>
             </div>
           </div>

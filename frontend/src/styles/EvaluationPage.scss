@@ -1,4 +1,4 @@
-/* src/styles/EvaluationPage.scss (CORRECTED WITH ARROWS) */
+/* src/styles/EvaluationPage.scss (UPDATED FOR SINGLE BERAKHLAK CATEGORY) */
 
 // Variabel warna dan transisi
 $primary: #2c549c;
@@ -9,6 +9,7 @@ $light-gray: #f8f9fa;
 $darker-gray: #e9ecef;
 $border-color: #dee2e6;
 $text-muted: #6c757d;
+$accent-blue: #007bff;
 
 @mixin transition($property: all, $duration: 0.3s) {
   transition: $property $duration ease-in-out;
@@ -62,27 +63,41 @@ $text-muted: #6c757d;
   .btn-start-evaluation { font-size: 1.25rem; font-weight: 700; padding: 1rem 3rem; border-radius: 50px; box-shadow: 0 4px 15px rgba($warning, 0.4); @include transition; &:hover { transform: scale(1.05); } }
 }
 
-// GAYA BARU: Carousel Geser untuk Pemilihan Pegawai (Step 2 Mobile)
-.selection-carousel-container {
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding-bottom: 1rem;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
+.selected-user-info .alert {
+  border-radius: 1rem;
+  border: 2px solid $accent-blue; // Border solid dengan warna aksen
+  background: linear-gradient(135deg, lighten($accent-blue, 45%), lighten($accent-blue, 55%)); // Gradient latar belakang
+  color: darken($accent-blue, 30%); // Warna teks kontras
+  padding: 1.5rem 2rem; // Padding lebih besar
+  font-weight: 500;
+  box-shadow: 0 6px 20px rgba($accent-blue, 0.3); // Shadow menonjol
+  display: flex; 
+  flex-direction: column; // Stack konten di dalam alert
+  align-items: flex-start; // Konten rata kiri
+  position: relative;
+  overflow: hidden;
+
+  strong {
+    color: $primary; // Nama pegawai sangat menonjol dengan warna utama
+    font-size: 1.25rem; // Ukuran font lebih besar
+    margin-bottom: 0.2rem;
+    display: block;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  small {
+    font-size: 0.9rem; 
+    line-height: 1.4;
+    color: $text-muted; // Warna muted untuk jabatan
+  }
 }
-.selection-carousel {
-  display: flex;
-  width: max-content;
-  padding: 0 24px;
-  gap: 1rem;
+
+@keyframes pulseLight {
+  0% { transform: scale(1); box-shadow: 0 6px 20px rgba($accent-blue, 0.3); }
+  100% { transform: scale(1.01); box-shadow: 0 8px 25px rgba($accent-blue, 0.4); }
 }
-.carousel-item-wrapper {
-  width: calc(100vw - 72px);
-  max-width: 400px;
-  scroll-snap-align: center;
-  flex-shrink: 0;
-}
+
+// 🔥 UPDATED: Simplified Selection Card (Step 2 - single choice)
+// Menghapus styling carousel dan panah karena tidak lagi dibutuhkan
 .selection-card {
   border-radius: 1rem;
   background-color: #fff;
@@ -94,50 +109,64 @@ $text-muted: #6c757d;
     padding: 1rem 1.25rem;
     color: white;
     font-weight: 600;
-    &.tokoh-1 { background: linear-gradient(135deg, $success, lighten($success, 15%)); }
-    &.tokoh-2 { background: linear-gradient(135deg, $primary, lighten($primary, 15%)); }
-    &.tokoh-3 { background: linear-gradient(135deg, $info, lighten($info, 15%)); }
+    // Gunakan warna utama untuk header tokoh tunggal
+    background: linear-gradient(135deg, $primary, lighten($primary, 15%)); 
   }
   .p-3 { padding: 1.25rem !important; }
 }
 
-// GAYA BARU: Tombol Panah untuk Carousel Mobile
+// Hapus gaya carousel dan tombol panah jika tidak diperlukan lagi
+// Jika ada elemen ini di HTML, mereka tidak akan tampil karena tidak ada lagi di EvaluationPage.js
+.selection-carousel-container,
+.selection-carousel,
+.carousel-item-wrapper,
 .carousel-arrow {
-  position: absolute;
-  top: 40%; // Sedikit ke atas agar tidak menutupi konten
-  transform: translateY(-50%);
-  z-index: 10;
-  background-color: rgba(255, 255, 255, 0.95);
-  border: 1px solid #ddd;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: $primary;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-  cursor: pointer;
-  @include transition;
-
-  &:hover {
-    background-color: white;
-    transform: translateY(-50%) scale(1.1);
-  }
-  &.left { left: 4px; }
-  &.right { right: 4px; }
+  display: none; 
 }
 
-// Gaya Akordeon Penilaian (Step 3)
+
+// Gaya Akordeon Penilaian (Step 3) - Disesuaikan untuk tampilan single tokoh
 .accordion-penilaian {
-  .accordion-item { border: none; border-radius: 1rem !important; margin-bottom: 1.25rem; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.07); @include transition;
-    &:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-2px); }
-    .accordion-button { font-weight: 600; color: white; padding: 1.25rem 1.5rem; &:not(.collapsed) { box-shadow: none; } &::after { filter: brightness(0) invert(1); } }
-    &.tokoh-1 { .accordion-button { background: linear-gradient(135deg, darken($success, 8%), $success); } .accordion-body { background-color: lighten($success, 49%); } }
-    &.tokoh-2 { .accordion-button { background: linear-gradient(135deg, darken($primary, 8%), $primary); } .accordion-body { background-color: lighten($primary, 51%); } }
-    &.tokoh-3 { .accordion-button { background: linear-gradient(135deg, darken($info, 2%), lighten($info, 5%)); } .accordion-body { background-color: lighten($info, 43%); } }
+  .accordion-item { 
+    border: none; 
+    border-radius: 1rem !important; 
+    margin-bottom: 1.25rem; 
+    overflow: hidden; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.07); 
+    @include transition;
+    &:hover { 
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1); 
+      transform: translateY(-2px); 
+    }
+    // Gaya untuk satu accordion item
+    .accordion-button { 
+      font-weight: 600; 
+      color: white; 
+      padding: 1.25rem 1.5rem; 
+      &:not(.collapsed) { box-shadow: none; } 
+      &::after { filter: brightness(0) invert(1); } 
+      // Background untuk accordion item tunggal
+      background: linear-gradient(135deg, darken($primary, 8%), $primary); 
+    }
+    .accordion-body { 
+      background-color: lighten($primary, 51%); 
+    }
   }
 }
+
+// Tambahan styling untuk info pegawai yang dipilih di Step 3
+.selected-user-info .alert {
+    border-radius: 0.5rem;
+    padding: 0.8rem 1rem;
+    font-size: 0.85rem;
+    strong {
+      font-size: 1rem;
+    }
+    small {
+      font-size: 0.75rem;
+    }
+  }
+
 
 // Kartu Parameter di dalam akordeon
 .parameter-card {

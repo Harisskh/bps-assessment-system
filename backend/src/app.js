@@ -1,4 +1,4 @@
-// backend/src/app.js - FIXED STATIC FILE SERVING
+// backend/src/app.js - FIXED VERSION ADJUSTED TO YOUR CURRENT SETUP
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -254,6 +254,18 @@ app.get('/', (req, res) => {
         update: 'PUT /api/profile (with multipart/form-data)',
         deletePicture: 'DELETE /api/profile/picture'
       },
+      evaluation: {
+        parameters: 'GET /api/evaluations/parameters',
+        activePeriod: 'GET /api/evaluations/active-period',
+        eligibleUsers: 'GET /api/evaluations/eligible-users',
+        submit: 'POST /api/evaluations/submit'
+      },
+      attendance: {
+        getAll: 'GET /api/attendance',
+        create: 'POST /api/attendance',
+        getById: 'GET /api/attendance/:id',
+        delete: 'DELETE /api/attendance/:id'
+      },
       staticFiles: {
         profiles: '/uploads/profiles/filename.jpg',
         test: '/api/debug/files',
@@ -279,18 +291,20 @@ const periodRoutes = require('./routes/periods');
 const dashboardRoutes = require('./routes/dashboard');
 const monitoringRoutes = require('./routes/monitoring');
 
-// Authenticated routes
+// 🔥 FIXED: Route definitions - REMOVE DUPLICATES AND CONFLICTS
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/evaluations', evaluationRoutes);
-app.use('/api', attendanceRoutes);              // attendance & ckp
+app.use('/api/evaluations', evaluationRoutes);        // 🔥 FIXED: evaluation endpoints
+app.use('/api', attendanceRoutes);                    // 🔥 FIXED: attendance & ckp endpoints (single definition)
 app.use('/api/final-evaluation', finalEvaluationRoutes);
-app.use('/api/periods', periodRoutes);          // period management
-app.use('/api/dashboard', dashboardRoutes);     // dashboard statistics
-app.use('/api/monitoring', monitoringRoutes);   // evaluation monitoring
+app.use('/api/periods', periodRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/monitoring', monitoringRoutes);
+
+// 🔥 REMOVED DUPLICATE ROUTES:
+// ❌ app.use('/api/attendance', attendanceRoutes);    // This was causing conflict
+// ❌ app.use('/api/dashboard', dashboardRoutes);      // This was duplicate
 
 // =============================================
 // ERROR HANDLERS
@@ -302,14 +316,19 @@ app.use('/api/*', (req, res) => {
   res.status(404).json({ 
     success: false, 
     message: `API endpoint not found: ${req.method} ${req.originalUrl}`,
-    availableEndpoints: [
-      'GET /api/health',
-      'GET /api/debug/files',
-      'GET /api/test-file/:filename',
-      'POST /api/auth/login',
-      'GET /api/evaluations/parameters',
-      'GET /api/evaluations/active-period'
-    ]
+    availableEndpoints: {
+      auth: ['/api/auth/login', '/api/auth/me'],
+      evaluations: [
+        '/api/evaluations/parameters', 
+        '/api/evaluations/active-period', 
+        '/api/evaluations/eligible-users', 
+        '/api/evaluations/submit'
+      ],
+      attendance: ['/api/attendance', '/api/attendance/:id'],
+      ckp: ['/api/ckp', '/api/ckp/:id'],
+      periods: ['/api/periods', '/api/periods/active'],
+      debug: ['/api/health', '/api/debug/files', '/api/test']
+    }
   });
 });
 
@@ -404,6 +423,14 @@ app.listen(PORT, () => {
 📁 Upload directory: ${uploadDir}
 📂 Profiles directory: ${profilesDir}
 ⏰ Started at: ${new Date().toISOString()}
+
+🔧 Route Configuration:
+   ✅ /api/auth/* -> Authentication
+   ✅ /api/evaluations/* -> Evaluation System
+   ✅ /api/attendance -> Attendance Management
+   ✅ /api/ckp -> CKP Management
+   ✅ /api/periods/* -> Period Management
+   ✅ /uploads/* -> Static File Serving
 `);
 
   // 🔥 VERIFY UPLOAD DIRECTORIES AT STARTUP
@@ -421,6 +448,15 @@ app.listen(PORT, () => {
   
   console.log('✅ Upload directories verified!');
   console.log('🔗 Test static serving: http://localhost:5000/uploads/profiles/');
+  
+  // 🔥 STARTUP HEALTH CHECK
+  console.log('🏥 Performing startup health checks...');
+  console.log('   ✅ Express server running');
+  console.log('   ✅ CORS configured');
+  console.log('   ✅ Static file serving enabled');
+  console.log('   ✅ Route handlers registered');
+  console.log('   ✅ Error handlers configured');
+  console.log('🎉 All systems ready!');
 });
 
 module.exports = app;

@@ -1,4 +1,4 @@
-// controllers/periodController.js - UPDATED WITH CASCADE DELETE
+// controllers/periodController.js - FIXED FOR SCHEMA COMPATIBILITY
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -6,9 +6,13 @@ const prisma = new PrismaClient();
 // GET ALL PERIODS
 const getAllPeriods = async (req, res) => {
   try {
+    console.log('🔄 Getting all periods...');
+    console.log('🔍 Query params:', req.query);
+    console.log('👤 User role:', req.user?.role);
+    
     const { 
       page = 1, 
-      limit = 10,
+      limit = 50,
       isActive,
       tahun
     } = req.query;
@@ -20,6 +24,8 @@ const getAllPeriods = async (req, res) => {
     const where = {};
     if (isActive !== undefined) where.isActive = isActive === 'true';
     if (tahun) where.tahun = parseInt(tahun);
+
+    console.log('🔍 Where clause:', where);
 
     const [periods, totalCount] = await Promise.all([
       prisma.period.findMany({
@@ -35,6 +41,8 @@ const getAllPeriods = async (req, res) => {
     ]);
 
     const totalPages = Math.ceil(totalCount / limitNum);
+
+    console.log(`✅ Found ${periods.length} periods (total: ${totalCount})`);
 
     res.json({
       success: true,
@@ -52,80 +60,135 @@ const getAllPeriods = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all periods error:', error);
+    console.error('❌ Get all periods error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// CREATE PERIOD
+// 🔥 FIXED: CREATE PERIOD - Removed noPeriode field
 const createPeriod = async (req, res) => {
   try {
+    console.log('📝 Creating new period...');
+    console.log('📥 Request body:', req.body);
+    
     const {
       tahun,
       bulan,
       namaPeriode,
-      noPeriode,
       startDate,
       endDate,
       isActive = false
     } = req.body;
 
-    // Validation
+    // Enhanced validation
     if (!tahun || !bulan || !namaPeriode) {
+      console.log('❌ Missing required fields');
       return res.status(400).json({
         success: false,
         message: 'Tahun, bulan, dan nama periode wajib diisi'
       });
     }
 
-    if (bulan < 1 || bulan > 12) {
+    const tahunInt = parseInt(tahun);
+    const bulanInt = parseInt(bulan);
+
+    if (isNaN(tahunInt) || isNaN(bulanInt)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tahun dan bulan harus berupa angka'
+      });
+    }
+
+    if (bulanInt < 1 || bulanInt > 12) {
       return res.status(400).json({
         success: false,
         message: 'Bulan harus antara 1-12'
       });
     }
 
+    if (tahunInt < 2020 || tahunInt > 2030) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tahun harus antara 2020-2030'
+      });
+    }
+
+    console.log('🔍 Checking existing period:', { tahun: tahunInt, bulan: bulanInt });
+
     // Check if period already exists
-    const existingPeriod = await prisma.period.findUnique({
+    const existingPeriod = await prisma.period.findFirst({
       where: {
-        tahun_bulan: {
-          tahun: parseInt(tahun),
-          bulan: parseInt(bulan)
-        }
+        AND: [
+          { tahun: tahunInt },
+          { bulan: bulanInt }
+        ]
       }
     });
 
     if (existingPeriod) {
+      console.log('❌ Period already exists:', existingPeriod.namaPeriode);
       return res.status(400).json({
         success: false,
-        message: `Periode ${namaPeriode} sudah ada`
+        message: `Periode ${existingPeriod.namaPeriode} sudah ada`
       });
     }
 
     // If setting as active, deactivate other periods
     if (isActive) {
+      console.log('🔄 Deactivating other periods...');
       await prisma.period.updateMany({
         where: { isActive: true },
         data: { isActive: false }
       });
     }
 
+    // 🔥 FIXED: Prepare data without noPeriode field
     const periodData = {
-      tahun: parseInt(tahun),
-      bulan: parseInt(bulan),
-      namaPeriode,
-      noPeriode: noPeriode ? parseInt(noPeriode) : null,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
+      tahun: tahunInt,
+      bulan: bulanInt,
+      namaPeriode: namaPeriode.trim(),
       isActive
     };
 
+    // Handle dates properly
+    if (startDate && startDate !== '') {
+      try {
+        periodData.startDate = new Date(startDate);
+        console.log('📅 Start date:', periodData.startDate);
+      } catch (dateError) {
+        console.log('❌ Invalid start date:', startDate);
+        return res.status(400).json({
+          success: false,
+          message: 'Format tanggal mulai tidak valid'
+        });
+      }
+    }
+
+    if (endDate && endDate !== '') {
+      try {
+        periodData.endDate = new Date(endDate);
+        console.log('📅 End date:', periodData.endDate);
+      } catch (dateError) {
+        console.log('❌ Invalid end date:', endDate);
+        return res.status(400).json({
+          success: false,
+          message: 'Format tanggal selesai tidak valid'
+        });
+      }
+    }
+
+    console.log('💾 Creating period with data:', periodData);
+
+    // Create period
     const period = await prisma.period.create({
       data: periodData
     });
+
+    console.log('✅ Period created successfully:', period.id);
 
     res.status(201).json({
       success: true,
@@ -134,25 +197,38 @@ const createPeriod = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Create period error:', error);
+    console.error('❌ Create period error:', error);
+    
+    // Handle specific Prisma errors
+    if (error.code === 'P2002') {
+      return res.status(400).json({
+        success: false,
+        message: 'Periode untuk bulan dan tahun tersebut sudah ada'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// UPDATE PERIOD
+// 🔥 FIXED: UPDATE PERIOD - Removed noPeriode field
 const updatePeriod = async (req, res) => {
   try {
+    console.log('🔄 Updating period...');
     const { id } = req.params;
     const {
       namaPeriode,
-      noPeriode,
       startDate,
       endDate,
       isActive
     } = req.body;
+
+    console.log('📝 Period ID:', id);
+    console.log('📥 Update data:', req.body);
 
     // Check if period exists
     const existingPeriod = await prisma.period.findUnique({
@@ -168,6 +244,7 @@ const updatePeriod = async (req, res) => {
 
     // If setting as active, deactivate other periods
     if (isActive && !existingPeriod.isActive) {
+      console.log('🔄 Deactivating other periods...');
       await prisma.period.updateMany({
         where: { 
           isActive: true,
@@ -178,16 +255,25 @@ const updatePeriod = async (req, res) => {
     }
 
     const updateData = {};
-    if (namaPeriode) updateData.namaPeriode = namaPeriode;
-    if (noPeriode !== undefined) updateData.noPeriode = noPeriode ? parseInt(noPeriode) : null;
-    if (startDate) updateData.startDate = new Date(startDate);
-    if (endDate) updateData.endDate = new Date(endDate);
+    if (namaPeriode !== undefined) updateData.namaPeriode = namaPeriode.trim();
     if (isActive !== undefined) updateData.isActive = isActive;
+
+    // Handle dates
+    if (startDate !== undefined) {
+      updateData.startDate = startDate ? new Date(startDate) : null;
+    }
+    if (endDate !== undefined) {
+      updateData.endDate = endDate ? new Date(endDate) : null;
+    }
+
+    console.log('💾 Updating with data:', updateData);
 
     const updatedPeriod = await prisma.period.update({
       where: { id },
       data: updateData
     });
+
+    console.log('✅ Period updated successfully');
 
     res.json({
       success: true,
@@ -196,20 +282,22 @@ const updatePeriod = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update period error:', error);
+    console.error('❌ Update period error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// DELETE PERIOD - UPDATED WITH CASCADE DELETE
+// DELETE PERIOD
 const deletePeriod = async (req, res) => {
   try {
+    console.log('🗑️ Deleting period...');
     const { id } = req.params;
 
-    // Check if period exists
+    // Check if period exists and has related data
     const existingPeriod = await prisma.period.findUnique({
       where: { id },
       include: {
@@ -231,105 +319,37 @@ const deletePeriod = async (req, res) => {
       });
     }
 
-    // Prevent deletion of active period
-    if (existingPeriod.isActive) {
+    // Check if period has related data
+    const hasRelatedData = 
+      existingPeriod._count.evaluations > 0 ||
+      existingPeriod._count.attendances > 0 ||
+      existingPeriod._count.ckpScores > 0 ||
+      existingPeriod._count.finalEvaluations > 0;
+
+    if (hasRelatedData) {
       return res.status(400).json({
         success: false,
-        message: 'Tidak dapat menghapus periode yang sedang aktif. Nonaktifkan terlebih dahulu.'
+        message: 'Tidak dapat menghapus periode yang sudah memiliki data evaluasi, presensi, atau CKP'
       });
     }
 
-    // Get data counts for confirmation message
-    const dataCounts = existingPeriod._count;
-    
-    // Delete all related data in transaction (CASCADE DELETE)
-    await prisma.$transaction(async (tx) => {
-      // 1. Delete evaluation scores first (has foreign key to evaluations)
-      if (dataCounts.evaluations > 0) {
-        const evaluationIds = await tx.evaluation.findMany({
-          where: { periodId: id },
-          select: { id: true }
-        });
-        
-        if (evaluationIds.length > 0) {
-          await tx.evaluationScore.deleteMany({
-            where: {
-              evaluationId: { in: evaluationIds.map(e => e.id) }
-            }
-          });
-        }
-      }
-
-      // 2. Delete evaluations
-      await tx.evaluation.deleteMany({
-        where: { periodId: id }
-      });
-
-      // 3. Delete final evaluations
-      await tx.finalEvaluation.deleteMany({
-        where: { periodId: id }
-      });
-
-      // 4. Delete attendances
-      await tx.attendance.deleteMany({
-        where: { periodId: id }
-      });
-
-      // 5. Delete CKP scores
-      await tx.ckpScore.deleteMany({
-        where: { periodId: id }
-      });
-
-      // 6. Finally delete the period
-      await tx.period.delete({
-        where: { id }
-      });
+    await prisma.period.delete({
+      where: { id }
     });
 
-    // Create summary message
-    let deleteMessage = `Periode ${existingPeriod.namaPeriode} berhasil dihapus`;
-    const deletedItems = [];
-    
-    if (dataCounts.evaluations > 0) deletedItems.push(`${dataCounts.evaluations} evaluasi`);
-    if (dataCounts.attendances > 0) deletedItems.push(`${dataCounts.attendances} data presensi`);
-    if (dataCounts.ckpScores > 0) deletedItems.push(`${dataCounts.ckpScores} data CKP`);
-    if (dataCounts.finalEvaluations > 0) deletedItems.push(`${dataCounts.finalEvaluations} evaluasi final`);
-
-    if (deletedItems.length > 0) {
-      deleteMessage += ` beserta ${deletedItems.join(', ')}`;
-    }
+    console.log('✅ Period deleted successfully');
 
     res.json({
       success: true,
-      message: deleteMessage,
-      data: {
-        deletedPeriod: {
-          id: existingPeriod.id,
-          namaPeriode: existingPeriod.namaPeriode,
-          deletedData: {
-            evaluations: dataCounts.evaluations,
-            attendances: dataCounts.attendances,
-            ckpScores: dataCounts.ckpScores,
-            finalEvaluations: dataCounts.finalEvaluations
-          }
-        }
-      }
+      message: `Periode ${existingPeriod.namaPeriode} berhasil dihapus`
     });
 
   } catch (error) {
-    console.error('Delete period error:', error);
-    
-    // Handle specific database errors
-    if (error.code === 'P2003') {
-      return res.status(400).json({
-        success: false,
-        message: 'Tidak dapat menghapus periode karena masih memiliki data terkait yang tidak dapat dihapus'
-      });
-    }
-
+    console.error('❌ Delete period error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan saat menghapus periode'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -337,6 +357,7 @@ const deletePeriod = async (req, res) => {
 // ACTIVATE PERIOD
 const activatePeriod = async (req, res) => {
   try {
+    console.log('🔄 Activating period...');
     const { id } = req.params;
 
     // Check if period exists
@@ -374,6 +395,8 @@ const activatePeriod = async (req, res) => {
       where: { id }
     });
 
+    console.log('✅ Period activated successfully:', activatedPeriod.namaPeriode);
+
     res.json({
       success: true,
       message: `Periode ${activatedPeriod.namaPeriode} berhasil diaktifkan`,
@@ -381,10 +404,11 @@ const activatePeriod = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Activate period error:', error);
+    console.error('❌ Activate period error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -392,6 +416,7 @@ const activatePeriod = async (req, res) => {
 // GET PERIOD BY ID
 const getPeriodById = async (req, res) => {
   try {
+    console.log('🔍 Getting period by ID...');
     const { id } = req.params;
 
     const period = await prisma.period.findUnique({
@@ -415,33 +440,41 @@ const getPeriodById = async (req, res) => {
       });
     }
 
+    console.log('✅ Period found:', period.namaPeriode);
+
     res.json({
       success: true,
       data: { period }
     });
 
   } catch (error) {
-    console.error('Get period by ID error:', error);
+    console.error('❌ Get period by ID error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// GET ACTIVE PERIOD (public endpoint - already exists in evaluationController)
+// GET ACTIVE PERIOD
 const getActivePeriod = async (req, res) => {
   try {
+    console.log('🔍 Getting active period...');
+    
     const activePeriod = await prisma.period.findFirst({
       where: { isActive: true }
     });
 
     if (!activePeriod) {
+      console.log('❌ No active period found');
       return res.status(404).json({
         success: false,
         message: 'Tidak ada periode aktif. Hubungi administrator.'
       });
     }
+
+    console.log('✅ Active period found:', activePeriod.namaPeriode);
 
     res.json({
       success: true,
@@ -449,10 +482,11 @@ const getActivePeriod = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get active period error:', error);
+    console.error('❌ Get active period error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

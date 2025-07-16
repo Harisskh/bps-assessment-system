@@ -1,12 +1,77 @@
+// controllers/attendanceController.js - UPDATED WITH NEW ATTENDANCE CALCULATION
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
 // =====================
-// ATTENDANCE MANAGEMENT (40% bobot)
+// 🔥 NEW ATTENDANCE CALCULATION RULES
 // =====================
 
-// GET ALL ATTENDANCE RECORDS
+const calculateAttendanceScore = (jumlahTK, jumlahPSW, jumlahTLT, jumlahAPEL, jumlahCT) => {
+  let totalPengurangan = 0;
+  
+  // 🔥 NEW: Cuti (CT) - Progressive calculation
+  if (jumlahCT > 0) {
+    if (jumlahCT < 3) {
+      totalPengurangan += 2.5; // Less than 3 = 2.5%
+    } else {
+      totalPengurangan += 5.0; // 3 or more = 5% (maximum)
+    }
+  }
+  
+  // 🔥 NEW: Tidak Kerja (TK) - Progressive calculation
+  if (jumlahTK > 0) {
+    if (jumlahTK === 1) {
+      totalPengurangan += 20.0; // Exactly 1 = 20%
+    } else {
+      totalPengurangan += 30.0; // More than 1 = 30% (maximum)
+    }
+  }
+  
+  // 🔥 NEW: Pulang Sebelum Waktunya (PSW) - Progressive calculation
+  if (jumlahPSW > 0) {
+    if (jumlahPSW === 1) {
+      totalPengurangan += 5.0; // Exactly 1 = 5%
+    } else {
+      totalPengurangan += 10.0; // More than 1 = 10% (maximum)
+    }
+  }
+  
+  // 🔥 NEW: Telat (TLT) - Progressive calculation
+  if (jumlahTLT > 0) {
+    if (jumlahTLT === 1) {
+      totalPengurangan += 5.0; // Exactly 1 = 5%
+    } else {
+      totalPengurangan += 10.0; // More than 1 = 10% (maximum)
+    }
+  }
+  
+  // 🔥 NEW: Absen APEL - Fixed 10% regardless of quantity
+  if (jumlahAPEL > 0) {
+    totalPengurangan += 10.0; // Any amount = 10%
+  }
+  
+  // Calculate final score
+  const nilaiPresensi = Math.max(0, 100 - totalPengurangan);
+  
+  return {
+    totalPengurangan,
+    nilaiPresensi,
+    breakdown: {
+      penguranganCT: jumlahCT > 0 ? (jumlahCT < 3 ? 2.5 : 5.0) : 0,
+      penguranganTK: jumlahTK > 0 ? (jumlahTK === 1 ? 20.0 : 30.0) : 0,
+      penguranganPSW: jumlahPSW > 0 ? (jumlahPSW === 1 ? 5.0 : 10.0) : 0,
+      penguranganTLT: jumlahTLT > 0 ? (jumlahTLT === 1 ? 5.0 : 10.0) : 0,
+      penguranganAPEL: jumlahAPEL > 0 ? 10.0 : 0
+    }
+  };
+};
+
+// =====================
+// ATTENDANCE MANAGEMENT
+// =====================
+
+// GET ALL ATTENDANCE RECORDS - UNCHANGED
 const getAllAttendance = async (req, res) => {
   try {
     const { 
@@ -15,6 +80,8 @@ const getAllAttendance = async (req, res) => {
       page = 1, 
       limit = 20 
     } = req.query;
+
+    console.log('🔍 Getting attendance records:', { periodId, userId, page, limit });
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -58,6 +125,8 @@ const getAllAttendance = async (req, res) => {
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
+    console.log('✅ Attendance records retrieved:', attendances.length);
+
     res.json({
       success: true,
       data: {
@@ -74,27 +143,22 @@ const getAllAttendance = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all attendance error:', error);
+    console.error('❌ Get all attendance error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// CREATE OR UPDATE ATTENDANCE - FIXED TO SUPPORT JUMLAH FIELDS
+// 🔥 UPDATED: CREATE OR UPDATE ATTENDANCE WITH NEW CALCULATION
 const upsertAttendance = async (req, res) => {
   try {
     const {
       userId,
       periodId,
-      // OLD boolean fields (keep for backward compatibility)
-      adaTidakKerja = false,
-      adaPulangAwal = false,
-      adaTelat = false,
-      adaAbsenApel = false,
-      adaCuti = false,
-      // NEW number fields (priority if provided)
+      // NEW number fields (priority)
       jumlahTidakKerja,
       jumlahPulangAwal,
       jumlahTelat,
@@ -103,7 +167,15 @@ const upsertAttendance = async (req, res) => {
       keterangan
     } = req.body;
 
-    console.log('📥 Received data:', req.body);
+    console.log('📥 Received attendance data:', {
+      userId,
+      periodId,
+      jumlahTidakKerja,
+      jumlahPulangAwal,
+      jumlahTelat,
+      jumlahAbsenApel,
+      jumlahCuti
+    });
 
     // Validation
     if (!userId || !periodId) {
@@ -133,101 +205,69 @@ const upsertAttendance = async (req, res) => {
       });
     }
 
-    // FIXED: Determine values - prioritize jumlah fields if provided
-    let finalJumlahTK, finalJumlahPSW, finalJumlahTLT, finalJumlahAPEL, finalJumlahCT;
-    let finalAdaTK, finalAdaPSW, finalAdaTLT, finalAdaAPEL, finalAdaCT;
+    // Parse and validate input values
+    const finalJumlahTK = Math.max(0, parseInt(jumlahTidakKerja) || 0);
+    const finalJumlahPSW = Math.max(0, parseInt(jumlahPulangAwal) || 0);
+    const finalJumlahTLT = Math.max(0, parseInt(jumlahTelat) || 0);
+    const finalJumlahAPEL = Math.max(0, parseInt(jumlahAbsenApel) || 0);
+    const finalJumlahCT = Math.max(0, parseInt(jumlahCuti) || 0);
 
-    // Handle jumlahTidakKerja
-    if (typeof jumlahTidakKerja === 'number' || jumlahTidakKerja !== undefined) {
-      finalJumlahTK = parseInt(jumlahTidakKerja) || 0;
-      finalAdaTK = finalJumlahTK > 0;
-    } else {
-      finalAdaTK = Boolean(adaTidakKerja);
-      finalJumlahTK = finalAdaTK ? 1 : 0;
-    }
-
-    // Handle jumlahPulangAwal
-    if (typeof jumlahPulangAwal === 'number' || jumlahPulangAwal !== undefined) {
-      finalJumlahPSW = parseInt(jumlahPulangAwal) || 0;
-      finalAdaPSW = finalJumlahPSW > 0;
-    } else {
-      finalAdaPSW = Boolean(adaPulangAwal);
-      finalJumlahPSW = finalAdaPSW ? 1 : 0;
-    }
-
-    // Handle jumlahTelat
-    if (typeof jumlahTelat === 'number' || jumlahTelat !== undefined) {
-      finalJumlahTLT = parseInt(jumlahTelat) || 0;
-      finalAdaTLT = finalJumlahTLT > 0;
-    } else {
-      finalAdaTLT = Boolean(adaTelat);
-      finalJumlahTLT = finalAdaTLT ? 1 : 0;
-    }
-
-    // Handle jumlahAbsenApel
-    if (typeof jumlahAbsenApel === 'number' || jumlahAbsenApel !== undefined) {
-      finalJumlahAPEL = parseInt(jumlahAbsenApel) || 0;
-      finalAdaAPEL = finalJumlahAPEL > 0;
-    } else {
-      finalAdaAPEL = Boolean(adaAbsenApel);
-      finalJumlahAPEL = finalAdaAPEL ? 1 : 0;
-    }
-
-    // Handle jumlahCuti
-    if (typeof jumlahCuti === 'number' || jumlahCuti !== undefined) {
-      finalJumlahCT = parseInt(jumlahCuti) || 0;
-      finalAdaCT = finalJumlahCT > 0;
-    } else {
-      finalAdaCT = Boolean(adaCuti);
-      finalJumlahCT = finalAdaCT ? 1 : 0;
-    }
-
-    console.log('🧮 Final values:', {
-      finalJumlahTK, finalJumlahPSW, finalJumlahTLT, finalJumlahAPEL, finalJumlahCT,
-      finalAdaTK, finalAdaPSW, finalAdaTLT, finalAdaAPEL, finalAdaCT
+    console.log('🧮 Processed values:', {
+      finalJumlahTK,
+      finalJumlahPSW,
+      finalJumlahTLT,
+      finalJumlahAPEL,
+      finalJumlahCT
     });
 
-    // Calculate pengurangan based on violations
-    const persentaseTotal = 100.0;
-    const penguranganTK = finalAdaTK ? 30.0 : 0.0;
-    const penguranganPSW = finalAdaPSW ? 10.0 : 0.0;
-    const penguranganTLT = finalAdaTLT ? 10.0 : 0.0;
-    const penguranganAPEL = finalAdaAPEL ? 10.0 : 0.0;
-    const penguranganCT = finalAdaCT ? 5.0 : 0.0;
+    // 🔥 NEW: Calculate attendance score with new rules
+    const calculationResult = calculateAttendanceScore(
+      finalJumlahTK,
+      finalJumlahPSW,
+      finalJumlahTLT,
+      finalJumlahAPEL,
+      finalJumlahCT
+    );
 
-    const totalMinus = penguranganTK + penguranganPSW + penguranganTLT + penguranganAPEL + penguranganCT;
-    const nilaiPresensi = Math.max(0, persentaseTotal - totalMinus); // Tidak boleh negatif
+    console.log('📊 Calculation result:', calculationResult);
 
-    // FIXED: Save BOTH boolean AND number values to database
+    // Determine boolean flags
+    const finalAdaTK = finalJumlahTK > 0;
+    const finalAdaPSW = finalJumlahPSW > 0;
+    const finalAdaTLT = finalJumlahTLT > 0;
+    const finalAdaAPEL = finalJumlahAPEL > 0;
+    const finalAdaCT = finalJumlahCT > 0;
+
+    // 🔥 NEW: Save attendance data with new calculation
     const attendanceData = {
       userId,
       periodId,
-      persentaseTotal,
-      // Boolean fields (for existing logic)
+      persentaseTotal: 100.0,
+      // Boolean fields (for existing logic compatibility)
       adaTidakKerja: finalAdaTK,
       adaPulangAwal: finalAdaPSW,
       adaTelat: finalAdaTLT,
       adaAbsenApel: finalAdaAPEL,
       adaCuti: finalAdaCT,
-      // FIXED: Number fields (new fields for detail)
+      // Number fields (detailed counts)
       jumlahTidakKerja: finalJumlahTK,
       jumlahPulangAwal: finalJumlahPSW,
       jumlahTelat: finalJumlahTLT,
       jumlahAbsenApel: finalJumlahAPEL,
       jumlahCuti: finalJumlahCT,
-      // Calculation fields
-      penguranganTK,
-      penguranganPSW,
-      penguranganTLT,
-      penguranganAPEL,
-      penguranganCT,
-      totalMinus,
-      nilaiPresensi,
+      // 🔥 NEW: Calculation fields with new breakdown
+      penguranganTK: calculationResult.breakdown.penguranganTK,
+      penguranganPSW: calculationResult.breakdown.penguranganPSW,
+      penguranganTLT: calculationResult.breakdown.penguranganTLT,
+      penguranganAPEL: calculationResult.breakdown.penguranganAPEL,
+      penguranganCT: calculationResult.breakdown.penguranganCT,
+      totalMinus: calculationResult.totalPengurangan,
+      nilaiPresensi: calculationResult.nilaiPresensi,
       keterangan,
       inputBy: req.user.id
     };
 
-    console.log('💾 Saving to database:', attendanceData);
+    console.log('💾 Saving attendance data:', attendanceData);
 
     // Upsert attendance record
     const attendance = await prisma.attendance.upsert({
@@ -259,27 +299,51 @@ const upsertAttendance = async (req, res) => {
       }
     });
 
-    console.log('✅ Saved successfully:', attendance.id);
+    console.log('✅ Attendance saved successfully:', attendance.id);
 
     res.json({
       success: true,
-      message: 'Data presensi berhasil disimpan',
-      data: { attendance }
+      message: 'Data presensi berhasil disimpan dengan sistem perhitungan baru',
+      data: { 
+        attendance,
+        calculationDetails: {
+          inputValues: {
+            jumlahTidakKerja: finalJumlahTK,
+            jumlahPulangAwal: finalJumlahPSW,
+            jumlahTelat: finalJumlahTLT,
+            jumlahAbsenApel: finalJumlahAPEL,
+            jumlahCuti: finalJumlahCT
+          },
+          breakdown: calculationResult.breakdown,
+          totalPengurangan: calculationResult.totalPengurangan,
+          nilaiAkhir: calculationResult.nilaiPresensi,
+          rulesApplied: {
+            cuti: finalJumlahCT > 0 ? (finalJumlahCT < 3 ? '< 3 hari: -2.5%' : '≥ 3 hari: -5%') : 'Tidak ada',
+            tidakKerja: finalJumlahTK > 0 ? (finalJumlahTK === 1 ? '1 kali: -20%' : '> 1 kali: -30%') : 'Tidak ada',
+            pulangAwal: finalJumlahPSW > 0 ? (finalJumlahPSW === 1 ? '1 kali: -5%' : '> 1 kali: -10%') : 'Tidak ada',
+            telat: finalJumlahTLT > 0 ? (finalJumlahTLT === 1 ? '1 kali: -5%' : '> 1 kali: -10%') : 'Tidak ada',
+            absenApel: finalJumlahAPEL > 0 ? 'Berapa pun: -10%' : 'Tidak ada'
+          }
+        }
+      }
     });
 
   } catch (error) {
     console.error('❌ Upsert attendance error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// GET ATTENDANCE BY ID
+// GET ATTENDANCE BY ID - UNCHANGED
 const getAttendanceById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    console.log('🔍 Getting attendance by ID:', id);
 
     const attendance = await prisma.attendance.findUnique({
       where: { id },
@@ -310,24 +374,29 @@ const getAttendanceById = async (req, res) => {
       });
     }
 
+    console.log('✅ Attendance retrieved:', attendance.user.nama);
+
     res.json({
       success: true,
       data: { attendance }
     });
 
   } catch (error) {
-    console.error('Get attendance by ID error:', error);
+    console.error('❌ Get attendance by ID error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// DELETE ATTENDANCE
+// DELETE ATTENDANCE - UNCHANGED
 const deleteAttendance = async (req, res) => {
   try {
     const { id } = req.params;
+
+    console.log('🗑️ Deleting attendance:', id);
 
     const attendance = await prisma.attendance.findUnique({
       where: { id },
@@ -347,22 +416,25 @@ const deleteAttendance = async (req, res) => {
       where: { id }
     });
 
+    console.log('✅ Attendance deleted:', attendance.user.nama);
+
     res.json({
       success: true,
       message: `Data presensi ${attendance.user.nama} berhasil dihapus`
     });
 
   } catch (error) {
-    console.error('Delete attendance error:', error);
+    console.error('❌ Delete attendance error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
 // =====================
-// CKP MANAGEMENT (30% bobot) - UNCHANGED
+// CKP MANAGEMENT - UNCHANGED
 // =====================
 
 // GET ALL CKP SCORES
@@ -374,6 +446,8 @@ const getAllCkpScores = async (req, res) => {
       page = 1, 
       limit = 20 
     } = req.query;
+
+    console.log('🔍 Getting CKP scores:', { periodId, userId, page, limit });
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -417,6 +491,8 @@ const getAllCkpScores = async (req, res) => {
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
+    console.log('✅ CKP scores retrieved:', ckpScores.length);
+
     res.json({
       success: true,
       data: {
@@ -433,15 +509,16 @@ const getAllCkpScores = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all CKP scores error:', error);
+    console.error('❌ Get all CKP scores error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// CREATE OR UPDATE CKP SCORE
+// CREATE OR UPDATE CKP SCORE - UNCHANGED
 const upsertCkpScore = async (req, res) => {
   try {
     const {
@@ -450,6 +527,8 @@ const upsertCkpScore = async (req, res) => {
       score,
       keterangan
     } = req.body;
+
+    console.log('📥 Received CKP data:', { userId, periodId, score });
 
     // Validation
     if (!userId || !periodId || typeof score !== 'number') {
@@ -524,6 +603,8 @@ const upsertCkpScore = async (req, res) => {
       }
     });
 
+    console.log('✅ CKP score saved:', ckpScore.user.nama);
+
     res.json({
       success: true,
       message: 'Data CKP berhasil disimpan',
@@ -531,18 +612,21 @@ const upsertCkpScore = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upsert CKP score error:', error);
+    console.error('❌ Upsert CKP score error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// GET CKP SCORE BY ID
+// GET CKP SCORE BY ID - UNCHANGED
 const getCkpScoreById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    console.log('🔍 Getting CKP score by ID:', id);
 
     const ckpScore = await prisma.ckpScore.findUnique({
       where: { id },
@@ -573,24 +657,29 @@ const getCkpScoreById = async (req, res) => {
       });
     }
 
+    console.log('✅ CKP score retrieved:', ckpScore.user.nama);
+
     res.json({
       success: true,
       data: { ckpScore }
     });
 
   } catch (error) {
-    console.error('Get CKP score by ID error:', error);
+    console.error('❌ Get CKP score by ID error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
 
-// DELETE CKP SCORE
+// DELETE CKP SCORE - UNCHANGED
 const deleteCkpScore = async (req, res) => {
   try {
     const { id } = req.params;
+
+    console.log('🗑️ Deleting CKP score:', id);
 
     const ckpScore = await prisma.ckpScore.findUnique({
       where: { id },
@@ -610,16 +699,19 @@ const deleteCkpScore = async (req, res) => {
       where: { id }
     });
 
+    console.log('✅ CKP score deleted:', ckpScore.user.nama);
+
     res.json({
       success: true,
       message: `Data CKP ${ckpScore.user.nama} berhasil dihapus`
     });
 
   } catch (error) {
-    console.error('Delete CKP score error:', error);
+    console.error('❌ Delete CKP score error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
@@ -632,6 +724,8 @@ const deleteCkpScore = async (req, res) => {
 const getAttendanceCkpStats = async (req, res) => {
   try {
     const { periodId } = req.query;
+
+    console.log('📊 Getting attendance & CKP stats:', { periodId });
 
     const where = periodId ? { periodId } : {};
 
@@ -676,6 +770,8 @@ const getAttendanceCkpStats = async (req, res) => {
       })
     ]);
 
+    console.log('✅ Stats retrieved successfully');
+
     res.json({
       success: true,
       data: {
@@ -704,13 +800,17 @@ const getAttendanceCkpStats = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get attendance CKP stats error:', error);
+    console.error('❌ Get attendance CKP stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: error.message
     });
   }
 };
+
+// 🔥 NEW: Export function untuk menghitung skor presensi dari luar
+const calculateAttendanceScoreHelper = calculateAttendanceScore;
 
 module.exports = {
   // Attendance
@@ -724,5 +824,7 @@ module.exports = {
   getCkpScoreById,
   deleteCkpScore,
   // Statistics
-  getAttendanceCkpStats
+  getAttendanceCkpStats,
+  // Helper
+  calculateAttendanceScoreHelper
 };

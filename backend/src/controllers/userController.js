@@ -97,6 +97,169 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const createUser = async (req, res) => {
+  try {
+    const {
+      nip,
+      nama,
+      email,
+      jenisKelamin,
+      tanggalLahir,
+      alamat,
+      mobilePhone,
+      pendidikanTerakhir,
+      status,
+      instansi,
+      kantor,
+      jabatan,
+      golongan,
+      username,
+      password,
+      role
+    } = req.body;
+
+    console.log('📝 Create user attempt:', { nip, nama, email, username, role });
+
+    // Validasi input wajib
+    if (!nip || !nama || !email || !username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'NIP, nama, email, username, dan password wajib diisi'
+      });
+    }
+
+    // Validasi email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format email tidak valid'
+      });
+    }
+
+    // Cek duplikasi
+    const [existingNip, existingUsername, existingEmail] = await Promise.all([
+      prisma.user.findFirst({ where: { nip: nip } }),
+      prisma.user.findFirst({ where: { username: username } }),
+      prisma.user.findFirst({ where: { email: email } })
+    ]);
+
+    if (existingNip) {
+      return res.status(400).json({
+        success: false,
+        message: 'NIP sudah terdaftar'
+      });
+    }
+
+    if (existingUsername) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username sudah digunakan'
+      });
+    }
+
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email sudah terdaftar'
+      });
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Parse tanggal lahir
+    let parsedDate = null;
+    if (tanggalLahir) {
+      try {
+        parsedDate = new Date(tanggalLahir);
+        if (isNaN(parsedDate.getTime())) {
+          parsedDate = null;
+        }
+      } catch (e) {
+        console.warn('Invalid date format:', tanggalLahir);
+        parsedDate = null;
+      }
+    }
+
+    // Create user
+    const newUser = await prisma.user.create({
+      data: {
+        nip: nip.toString(),
+        nama: nama.trim(),
+        email: email.toLowerCase().trim(),
+        jenisKelamin: jenisKelamin || 'LK',
+        tanggalLahir: parsedDate,
+        alamat: alamat?.trim() || null,
+        mobilePhone: mobilePhone?.trim() || null,
+        pendidikanTerakhir: pendidikanTerakhir?.trim() || null,
+        status: status || 'PNS',
+        instansi: instansi?.trim() || 'BPS Kabupaten Pringsewu',
+        kantor: kantor?.trim() || 'BPS Kabupaten Pringsewu',
+        jabatan: jabatan?.trim() || null,
+        golongan: golongan?.trim() || null,
+        username: username.trim(),
+        password: hashedPassword,
+        role: role || 'STAFF',
+        profilePicture: null,
+        isActive: true
+      },
+      select: {
+        id: true,
+        nip: true,
+        nama: true,
+        email: true,
+        role: true,
+        jenisKelamin: true,
+        tanggalLahir: true,
+        alamat: true,
+        mobilePhone: true,
+        pendidikanTerakhir: true,
+        status: true,
+        instansi: true,
+        kantor: true,
+        jabatan: true,
+        golongan: true,
+        username: true,
+        profilePicture: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    console.log('✅ User created successfully:', {
+      id: newUser.id,
+      nama: newUser.nama,
+      username: newUser.username
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'User berhasil dibuat',
+      data: { user: newUser }
+    });
+
+  } catch (error) {
+    console.error('❌ Error in createUser:', error);
+    
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0] || 'data';
+      return res.status(400).json({
+        success: false,
+        message: `${field} sudah terdaftar dalam sistem`
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan saat membuat user',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // GET USER BY ID
 const getUserById = async (req, res) => {
   try {
@@ -579,13 +742,16 @@ const getUserStats = async (req, res) => {
   }
 };
 
+
+// UPDATE exports di bagian akhir file userController.js:
 module.exports = {
   getAllUsers,
   getUserById,
+  createUser,        // 🔥 ADD THIS LINE
   updateUser,
   deleteUser,
-  permanentDeleteUser, // FIXED: Export permanent delete function
+  permanentDeleteUser,
   activateUser,
   resetUserPassword,
   getUserStats
-};
+}

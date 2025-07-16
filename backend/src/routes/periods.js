@@ -1,8 +1,4 @@
-// =====================
-// BACKEND FIX - Allow STAFF to get Active Period
-// File: backend/routes/periods.js
-// =====================
-
+// routes/periods.js - FINAL FIXED VERSION
 const express = require('express');
 const router = express.Router();
 
@@ -24,33 +20,65 @@ const {
   requirePimpinan
 } = require('../middleware/auth');
 
-// All routes require authentication
+// =====================
+// 🔥 PUBLIC ENDPOINTS (NO AUTH REQUIRED) - MUST BE FIRST
+// =====================
+
+// Health check endpoint - NO AUTH REQUIRED
+router.get('/health/check', (req, res) => {
+  console.log('🏥 Health check endpoint called');
+  res.json({
+    success: true,
+    message: 'Periods routes are working perfectly',
+    timestamp: new Date().toISOString(),
+    authRequired: false,
+    version: '1.0.0',
+    endpoints: {
+      'GET /api/periods/health/check': 'Health check - NO AUTH',
+      'GET /api/periods/active': 'Get active period - AUTH REQUIRED',
+      'GET /api/periods': 'Get all periods - ADMIN/PIMPINAN ONLY',
+      'POST /api/periods': 'Create period - ADMIN ONLY',
+      'PUT /api/periods/:id': 'Update period - ADMIN ONLY',
+      'DELETE /api/periods/:id': 'Delete period - ADMIN ONLY'
+    },
+    middleware: {
+      authentication: 'JWT Bearer Token',
+      authorization: 'Role-based (ADMIN, PIMPINAN, STAFF)'
+    }
+  });
+});
+
+// Test endpoint - NO AUTH REQUIRED
+router.get('/test', (req, res) => {
+  console.log('🧪 Test endpoint called');
+  res.json({
+    success: true,
+    message: 'Periods test endpoint working',
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method
+  });
+});
+
+// =====================
+// 🔥 AUTHENTICATED ENDPOINTS - AUTH REQUIRED
+// =====================
+
+// Apply authentication to all routes below this line
 router.use(authenticateToken);
 
-// GET routes
-router.get('/', requirePimpinan, getAllPeriods);           // Get all periods (Admin/Pimpinan)
-router.get('/active', getActivePeriod);                    // 🔥 FIXED: Get active period (ALL USERS)
-router.get('/:id', requirePimpinan, getPeriodById);        // Get period by ID
+// Public authenticated endpoints (all roles)
+router.get('/active', getActivePeriod);                    // Get active period - ALL AUTHENTICATED USERS
 
-// POST routes
-router.post('/', requireAdmin, createPeriod);              // Create new period (Admin only)
-
-// PUT routes
-router.put('/:id', requireAdmin, updatePeriod);            // Update period (Admin only)
-router.put('/:id/activate', requireAdmin, activatePeriod); // Activate period (Admin only)
-
-// DELETE routes
-router.delete('/:id', requireAdmin, deletePeriod);         // Delete period (Admin only)
-
-module.exports = router;
-
-// =====================
-// ALTERNATIVE: Add new route for STAFF to get limited periods
-// =====================
-
-// 🔥 NEW: Add route for STAFF to get basic period info
+// Staff endpoints  
 router.get('/staff/available', async (req, res) => {
   try {
+    console.log('👥 Staff available periods endpoint');
+    console.log('🔍 User:', req.user?.nama, '| Role:', req.user?.role);
+    
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
     const periods = await prisma.period.findMany({
       where: { isActive: true },
       select: {
@@ -58,22 +86,43 @@ router.get('/staff/available', async (req, res) => {
         namaPeriode: true,
         tahun: true,
         bulan: true,
-        isActive: true
+        isActive: true,
+        startDate: true,
+        endDate: true
       },
       orderBy: {
         createdAt: 'desc'
       }
     });
 
+    console.log(`✅ Found ${periods.length} available periods for staff`);
+
     res.json({
       success: true,
-      data: { periods }
+      data: { periods },
+      user: {
+        name: req.user?.nama,
+        role: req.user?.role
+      }
     });
   } catch (error) {
-    console.error('Get available periods for staff error:', error);
+    console.error('❌ Staff available periods error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
+
+// Admin/Pimpinan endpoints
+router.get('/', requirePimpinan, getAllPeriods);           // Get all periods
+router.get('/:id', requirePimpinan, getPeriodById);        // Get period by ID
+
+// Admin only endpoints  
+router.post('/', requireAdmin, createPeriod);              // Create period
+router.put('/:id', requireAdmin, updatePeriod);            // Update period
+router.put('/:id/activate', requireAdmin, activatePeriod); // Activate period
+router.delete('/:id', requireAdmin, deletePeriod);         // Delete period
+
+module.exports = router;

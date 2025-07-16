@@ -129,77 +129,73 @@ const UsersPage = () => {
   };
 
   const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
+  e.preventDefault();
+  setSubmitting(true);
+  setError('');
+  setSuccess('');
 
-    try {
-      if (modalMode === 'create') {
-        // Create new user
-        const createData = {
-          nip: formData.nip,
-          nama: formData.nama,
-          email: formData.email,
-          jenisKelamin: formData.jenisKelamin,
-          tanggalLahir: formData.tanggalLahir,
-          alamat: formData.alamat,
-          mobilePhone: formData.mobilePhone,
-          pendidikanTerakhir: formData.pendidikanTerakhir,
-          jabatan: formData.jabatan,
-          golongan: formData.golongan,
-          status: formData.status,
-          username: formData.username,
-          password: formData.password || 'bps1810',
-          role: formData.role
-        };
-        
-        console.log('Creating user with data:', createData);
-        await authAPI.register(createData);
-        setSuccess('User berhasil dibuat');
-        
-      } else if (modalMode === 'edit') {
-        // FIXED: Update user dengan semua field termasuk alamat & mobilePhone
-        const updateData = {
-          nip: formData.nip,
-          nama: formData.nama,
-          email: formData.email,
-          jenisKelamin: formData.jenisKelamin,
-          tanggalLahir: formData.tanggalLahir,
-          alamat: formData.alamat, // FIXED: Include alamat
-          mobilePhone: formData.mobilePhone, // FIXED: Include mobilePhone
-          pendidikanTerakhir: formData.pendidikanTerakhir,
-          jabatan: formData.jabatan,
-          golongan: formData.golongan,
-          status: formData.status,
-          username: formData.username,
-          role: formData.role,
-          isActive: formData.isActive
-        };
-        
-        console.log('Updating user with data:', updateData);
-        console.log('User ID:', selectedUser.id);
-        
-        const response = await userAPI.update(selectedUser.id, updateData);
-        console.log('Update response:', response.data);
-        
-        setSuccess('User berhasil diperbarui');
-      }
+  try {
+    if (modalMode === 'create') {
+      // 🔥 FIXED: Use userAPI.create instead of authAPI.register
+      const createData = {
+        nip: formData.nip,
+        nama: formData.nama,
+        email: formData.email,
+        jenisKelamin: formData.jenisKelamin,
+        tanggalLahir: formData.tanggalLahir,
+        alamat: formData.alamat,
+        mobilePhone: formData.mobilePhone,
+        pendidikanTerakhir: formData.pendidikanTerakhir,
+        jabatan: formData.jabatan,
+        golongan: formData.golongan,
+        status: formData.status,
+        username: formData.username,
+        password: formData.password || 'bps1810',
+        role: formData.role
+      };
       
-      setShowModal(false);
+      console.log('Creating user with data:', createData);
+      await userAPI.create(createData);  // 🔥 FIXED: Use userAPI.create
+      setSuccess('User berhasil dibuat');
       
-      // Force reload users data
-      setTimeout(() => {
-        loadUsers();
-      }, 1000);
+    } else if (modalMode === 'edit') {
+      // Update user logic remains the same
+      const updateData = {
+        nip: formData.nip,
+        nama: formData.nama,
+        email: formData.email,
+        jenisKelamin: formData.jenisKelamin,
+        tanggalLahir: formData.tanggalLahir,
+        alamat: formData.alamat,
+        mobilePhone: formData.mobilePhone,
+        pendidikanTerakhir: formData.pendidikanTerakhir,
+        jabatan: formData.jabatan,
+        golongan: formData.golongan,
+        status: formData.status,
+        username: formData.username,
+        role: formData.role,
+        isActive: formData.isActive
+      };
       
-    } catch (error) {
-      console.error('Submit user error:', error);
-      setError(error.response?.data?.message || 'Gagal menyimpan user');
-    } finally {
-      setSubmitting(false);
+      console.log('Updating user with data:', updateData);
+      await userAPI.update(selectedUser.id, updateData);
+      setSuccess('User berhasil diperbarui');
     }
-  };
+    
+    setShowModal(false);
+    
+    // Force reload users data
+    setTimeout(() => {
+      loadUsers();
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Submit user error:', error);
+    setError(error.response?.data?.message || 'Gagal menyimpan user');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // FIXED: Separate deactivate from permanent delete
   const handleDeactivateUser = async () => {

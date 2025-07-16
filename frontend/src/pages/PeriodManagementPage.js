@@ -82,66 +82,80 @@ const PeriodManagementPage = () => {
   };
 
   const handleCreatePeriod = () => {
-    const currentYear = 2025;
-    const currentMonth = new Date().getMonth() + 1;
-    setModalMode('create');
-    setFormData({
-      tahun: currentYear, 
-      bulan: currentMonth,
-      namaPeriode: `${getMonthName(currentMonth)} ${currentYear}`, 
-      startDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
-      endDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${getLastDayOfMonth(currentYear, currentMonth)}`,
-      isActive: false
-    });
-    setShowModal(true);
-  };
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  setModalMode('create');
+  
+  // 🔥 FIXED: Removed noPeriode field
+  setFormData({
+    tahun: currentYear, 
+    bulan: currentMonth,
+    namaPeriode: `${getMonthName(currentMonth)} ${currentYear}`,
+    startDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
+    endDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${getLastDayOfMonth(currentYear, currentMonth)}`,
+    isActive: false
+  });
+  
+  setShowModal(true);
+};
 
-  const handleEditPeriod = (period) => {
-    setModalMode('edit');
-    setSelectedPeriod(period);
-    setFormData({
-      tahun: period.tahun, 
-      bulan: period.bulan, 
-      namaPeriode: period.namaPeriode,
-      startDate: period.startDate ? period.startDate.split('T')[0] : '',
-      endDate: period.endDate ? period.endDate.split('T')[0] : '',
-      isActive: period.isActive
-    });
-    setShowModal(true);
-  };
+// Untuk handleEditPeriod function:
+const handleEditPeriod = (period) => {
+  setModalMode('edit');
+  setSelectedPeriod(period);
+  
+  // 🔥 FIXED: Removed noPeriode field
+  setFormData({
+    tahun: period.tahun, 
+    bulan: period.bulan, 
+    namaPeriode: period.namaPeriode,
+    startDate: period.startDate ? period.startDate.split('T')[0] : '',
+    endDate: period.endDate ? period.endDate.split('T')[0] : '',
+    isActive: period.isActive
+  });
+  
+  setShowModal(true);
+};
 
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true); 
-    setError(''); 
-    setSuccess('');
-    try {
-      const submitData = {
-        tahun: parseInt(formData.tahun), 
-        bulan: parseInt(formData.bulan),
-        namaPeriode: formData.namaPeriode, 
-        startDate: formData.startDate, 
-        endDate: formData.endDate, 
-        isActive: formData.isActive
-      };
-      if (modalMode === 'create') {
-        await periodAPI.create(submitData);
-        setSuccess('Periode berhasil dibuat');
-      } else {
-        await periodAPI.update(selectedPeriod.id, submitData);
-        setSuccess('Periode berhasil diperbarui');
-      }
-      setShowModal(false);
-      loadPeriods();
-      const response = await periodAPI.getAll({ limit: 1000 });
-      setAllPeriods(response.data.data.periods);
-    } catch (error) {
-      console.error('Submit period error:', error);
-      setError(error.response?.data?.message || 'Gagal menyimpan periode');
-    } finally {
-      setSubmitting(false);
+// Untuk handleFormSubmit function:
+const handleFormSubmit = async (e) => {
+  e.preventDefault();
+  setSubmitting(true); 
+  setError(''); 
+  setSuccess('');
+  
+  try {
+    // 🔥 FIXED: Removed noPeriode field from submitData
+    const submitData = {
+      tahun: parseInt(formData.tahun), 
+      bulan: parseInt(formData.bulan),
+      namaPeriode: formData.namaPeriode,
+      startDate: formData.startDate, 
+      endDate: formData.endDate, 
+      isActive: formData.isActive
+    };
+    
+    console.log('📤 Submitting period data:', submitData);
+    
+    if (modalMode === 'create') {
+      await periodAPI.create(submitData);
+      setSuccess('Periode berhasil dibuat');
+    } else {
+      await periodAPI.update(selectedPeriod.id, submitData);
+      setSuccess('Periode berhasil diperbarui');
     }
-  };
+    
+    setShowModal(false);
+    loadPeriods();
+    
+  } catch (error) {
+    console.error('Submit period error:', error);
+    setError(error.response?.data?.message || 'Gagal menyimpan periode');
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   const handleActivatePeriod = async (periodId) => {
     try {

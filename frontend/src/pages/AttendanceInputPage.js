@@ -1,4 +1,4 @@
-// src/pages/AttendanceInputPage.js - FIXED VERSION
+// src/pages/AttendanceInputPage.js - UPDATED WITH NEW CALCULATION SYSTEM
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import { attendanceAPI, periodAPI, userAPI } from '../services/api';
@@ -17,10 +17,10 @@ const AttendanceInputPage = () => {
   const [users, setUsers] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   
-  // Filters - FIXED: Using react-select for user search
+  // Filters
   const [selectedPeriod, setSelectedPeriod] = useState('');
   const [violationFilter, setViolationFilter] = useState('');
-  const [selectedUserFilter, setSelectedUserFilter] = useState(null); // react-select value
+  const [selectedUserFilter, setSelectedUserFilter] = useState(null);
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -42,8 +42,6 @@ const AttendanceInputPage = () => {
     keterangan: ''
   });
 
-  // FIXED: Remove debounce functions - not needed with react-select
-
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -52,7 +50,45 @@ const AttendanceInputPage = () => {
     if (selectedPeriod) {
       loadAttendanceRecords();
     }
-  }, [selectedPeriod, violationFilter]); // FIXED: Remove selectedUserFilter from dependency
+  }, [selectedPeriod, violationFilter]);
+
+  // 🔥 NEW: Calculate preview score with new rules
+  const calculatePreviewScore = (tk, psw, tlt, apel, ct) => {
+    const jumlahTK = parseInt(tk) || 0;
+    const jumlahPSW = parseInt(psw) || 0;
+    const jumlahTLT = parseInt(tlt) || 0;
+    const jumlahAPEL = parseInt(apel) || 0;
+    const jumlahCT = parseInt(ct) || 0;
+    
+    let totalPengurangan = 0;
+    
+    // Cuti calculation
+    if (jumlahCT > 0) {
+      totalPengurangan += jumlahCT < 3 ? 2.5 : 5.0;
+    }
+    
+    // Tidak Kerja calculation
+    if (jumlahTK > 0) {
+      totalPengurangan += jumlahTK === 1 ? 20.0 : 30.0;
+    }
+    
+    // Pulang Sebelum Waktunya calculation
+    if (jumlahPSW > 0) {
+      totalPengurangan += jumlahPSW === 1 ? 5.0 : 10.0;
+    }
+    
+    // Telat calculation
+    if (jumlahTLT > 0) {
+      totalPengurangan += jumlahTLT === 1 ? 5.0 : 10.0;
+    }
+    
+    // Absen APEL calculation
+    if (jumlahAPEL > 0) {
+      totalPengurangan += 10.0;
+    }
+    
+    return Math.max(0, 100 - totalPengurangan);
+  };
 
   const loadInitialData = async () => {
     try {
@@ -71,7 +107,6 @@ const AttendanceInputPage = () => {
 
       setPeriods(periodsRes.data.data.periods || []);
       
-      // FIXED: Filter active users dan pastikan data lengkap
       const activeUsers = (usersRes.data.data.users || []).filter(u => u.isActive && u.nama && u.nip);
       setUsers(activeUsers);
       
@@ -107,8 +142,7 @@ const AttendanceInputPage = () => {
 
       console.log('📥 Attendance records received:', records.length);
 
-      // FIXED: Remove user filter from here - will be done in render
-      // Apply violation filter only
+      // Apply violation filter
       if (violationFilter === 'clean') {
         records = records.filter(record => 
           !record.adaTidakKerja && !record.adaPulangAwal && 
@@ -190,20 +224,18 @@ const AttendanceInputPage = () => {
         jumlahTelat: jumlahTLT,
         jumlahAbsenApel: jumlahAPEL,
         jumlahCuti: jumlahCT,
-        adaTidakKerja: jumlahTK > 0,
-        adaPulangAwal: jumlahPSW > 0,
-        adaTelat: jumlahTLT > 0,
-        adaAbsenApel: jumlahAPEL > 0,
-        adaCuti: jumlahCT > 0,
         keterangan: formData.keterangan
       };
 
       console.log('💾 Submitting data:', submitData);
 
-      await attendanceAPI.upsert(submitData);
+      const response = await attendanceAPI.upsert(submitData);
+      
+      console.log('✅ Response:', response.data);
+      
       setSuccess(modalMode === 'create' ? 
-        'Data presensi berhasil ditambahkan' : 
-        'Data presensi berhasil diperbarui');
+        'Data presensi berhasil ditambahkan dengan sistem perhitungan baru' : 
+        'Data presensi berhasil diperbarui dengan sistem perhitungan baru');
       
       setShowModal(false);
       setFormData({
@@ -276,18 +308,13 @@ const AttendanceInputPage = () => {
         jumlahTelat: 0,
         jumlahAbsenApel: 0,
         jumlahCuti: 0,
-        adaTidakKerja: false,
-        adaPulangAwal: false,
-        adaTelat: false,
-        adaAbsenApel: false,
-        adaCuti: false,
         keterangan: 'Tidak Ada Keterangan'
       }));
 
       const createPromises = bulkData.map(data => attendanceAPI.upsert(data));
       await Promise.all(createPromises);
       
-      setSuccess(`Berhasil membuat ${eligibleUsers.length} data presensi.`);
+      setSuccess(`Berhasil membuat ${eligibleUsers.length} data presensi dengan sistem perhitungan baru.`);
       loadAttendanceRecords();
       
     } catch (error) {
@@ -331,16 +358,14 @@ const AttendanceInputPage = () => {
     if (attendance.adaPulangAwal) violations.push(`PSW: ${attendance.jumlahPulangAwal || 1}`);
     if (attendance.adaTelat) violations.push(`TLT: ${attendance.jumlahTelat || 1}`);
     if (attendance.adaAbsenApel) violations.push(`APEL: ${attendance.jumlahAbsenApel || 1}`);
-    if (attendance.adaCuti) violations.push(`Cuti: ${attendance.jumlahCuti || 1}`);
+    if (attendance.adaCuti) violations.push(`CT: ${attendance.jumlahCuti || 1}`);
     
     return violations.length > 0 ? violations.join(', ') : 'Tidak ada pelanggaran';
   };
 
-  // FIXED: Client-side filter for user search (no API call)
   const getFilteredRecords = () => {
     if (!attendanceRecords) return [];
     
-    // Apply user filter on the client side
     if (selectedUserFilter && selectedUserFilter.value) {
       return attendanceRecords.filter(record => record.userId === selectedUserFilter.value);
     }
@@ -367,7 +392,7 @@ const AttendanceInputPage = () => {
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div>
               <h2>Input Data Presensi</h2>
-              <p className="text-muted">Kelola data presensi pegawai per periode (Bobot: 40%)</p>
+              <p className="text-muted">Kelola data presensi pegawai per periode (Bobot: 40%) - Sistem Perhitungan Baru</p>
             </div>
             <div className="d-flex gap-2">
               {selectedPeriod && filteredRecords && filteredRecords.length > 0 && (
@@ -380,7 +405,7 @@ const AttendanceInputPage = () => {
                 </button>
               )}
               <button className="btn btn-primary" onClick={handleCreateAttendance}>
-                <i className="fas fa-plus me-2"></i>Input Presensi
+                <i className="fas fa-plus me-2"></i>Rekap Ketidakhadiran
               </button>
             </div>
           </div>
@@ -400,25 +425,53 @@ const AttendanceInputPage = () => {
             </div>
           )}
 
-          {/* Info Card */}
+          {/* 🔥 NEW: Updated Info Card with New Calculation Rules */}
           <div className="card border-info mb-4">
             <div className="card-body">
               <h6 className="card-title text-info">
                 <i className="fas fa-info-circle me-2"></i>
-                Sistem Penilaian Presensi
+                Sistem Penilaian Presensi - Perhitungan Baru
               </h6>
               <div className="row">
                 <div className="col-md-12">
                   <p className="card-text text-muted mb-4">
-                    Penilaian presensi menggunakan sistem pengurangan dari 100% berdasarkan jenis pelanggaran.
-                    Input berupa angka jumlah pelanggaran, namun pengurangan tetap maksimal per kategori.
+                    Penilaian presensi menggunakan sistem pengurangan progresif dari 100% berdasarkan jumlah dan jenis pelanggaran.
                   </p>
                   <div className="row text-sm">
-                    <div className="col-md-2 mb-2 fw-bold"><span className="badge bg-danger fs-6">TK: -30%</span> Tidak Kerja</div>
-                    <div className="col-md-3 mb-2 fw-bold"><span className="badge bg-warning text-dark fs-6">PSW: -10%</span> Pulang Sebelum Waktunya</div>
-                    <div className="col-md-2 mb-2 fw-bold"><span className="badge bg-warning text-dark fs-6">TLT: -10%</span> Telat</div>
-                    <div className="col-md-2 mb-2 fw-bold"><span className="badge bg-info fs-6">APEL: -10%</span> Absen APEL</div>
-                    <div className="col-md-2 mb-2 fw-bold"><span className="badge bg-secondary fs-6">CT: -5%</span> Cuti</div>
+                    <div className="col-md-6 mb-3">
+                      <h6 className="text-danger">Tidak Kerja (TK)</h6>
+                      <div className="ms-3">
+                        <div><span className="badge bg-warning text-dark">1 kali = -20%</span></div>
+                        <div><span className="badge bg-danger">lebih dari 1 kali = -30%</span></div>
+                      </div>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <h6 className="text-warning">Cuti (CT)</h6>
+                      <div className="ms-3">
+                        <div><span className="badge bg-secondary">kurang dari 3 hari = -2.5%</span></div>
+                        <div><span className="badge bg-secondary">lebih dari 3 hari = -5%</span></div>
+                      </div>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <h6 className="text-warning">Pulang Sebelum Waktunya (PSW)</h6>
+                      <div className="ms-3">
+                        <div><span className="badge bg-warning text-dark">1 kali = -5%</span></div>
+                        <div><span className="badge bg-warning text-dark">lebih dari 1 kali = -10%</span></div>
+                      </div>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <h6 className="text-warning">Telat (TLT)</h6>
+                      <div className="ms-3">
+                        <div><span className="badge bg-warning text-dark">1 kali = -5%</span></div>
+                        <div><span className="badge bg-warning text-dark">lebih dari 1 kali = -10%</span></div>
+                      </div>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <h6 className="text-info">Absen APEL</h6>
+                      <div className="ms-3">
+                        <div><span className="badge bg-info">Berapapun = -10%</span></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -462,7 +515,6 @@ const AttendanceInputPage = () => {
                   </select>
                 </div>
                 
-                {/* FIXED: React-Select for user search filter */}
                 <div className="col-md-4">
                   <label className="form-label">Cari Pegawai</label>
                   <Select
@@ -492,19 +544,14 @@ const AttendanceInputPage = () => {
                       }),
                       menu: (provided) => ({
                         ...provided,
-                        zIndex: 9999 // Even higher z-index
+                        zIndex: 9999
                       }),
                       menuPortal: (provided) => ({
                         ...provided,
                         zIndex: 9999
-                      }),
-                      option: (provided, state) => ({
-                        ...provided,
-                        fontSize: '0.9rem',
-                        padding: '0.5rem 0.75rem'
                       })
                     }}
-                    menuPortalTarget={document.body} // Portal to body to avoid z-index issues
+                    menuPortalTarget={document.body}
                     components={{
                       Option: ({ innerProps, label, data }) => (
                         <div {...innerProps} style={{ padding: '0.5rem 0.75rem', cursor: 'pointer' }}>
@@ -531,7 +578,7 @@ const AttendanceInputPage = () => {
             </div>
           </div>
 
-          {/* Data Table - FIXED: Remove card wrapper and make sticky header */}
+          {/* Data Table */}
           {!selectedPeriod ? (
             <div className="text-center py-5">
               <i className="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
@@ -549,7 +596,6 @@ const AttendanceInputPage = () => {
             </div>
           ) : (
             <>
-              {/* Table Header - Fixed position */}
               <div className="bg-white border-bottom mb-3 pb-2">
                 <h5 className="mb-0">
                   <i className="fas fa-table me-2 text-primary"></i>
@@ -558,7 +604,6 @@ const AttendanceInputPage = () => {
                 </h5>
               </div>
 
-              {/* Table without card wrapper - Full height table */}
               <div className="table-responsive">
                 <table className="table table-hover table-striped">
                   <thead className="table-dark">
@@ -621,14 +666,15 @@ const AttendanceInputPage = () => {
         </div>
       </div>
 
-      {/* Input Modal - FIXED VERSION */}
+      {/* 🔥 UPDATED: Input Modal with New Calculation System */}
       {showModal && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-xl">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
                   {modalMode === 'create' ? 'Input Data Presensi' : 'Edit Data Presensi'}
+                  <small className="text-muted d-block">Sistem Perhitungan Baru</small>
                 </h5>
                 <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
               </div>
@@ -637,13 +683,6 @@ const AttendanceInputPage = () => {
                   <div className="row g-3">
                     <div className="col-12">
                       <label className="form-label">Pegawai *</label>
-                      {/* FIXED: Debug info dan better error handling */}
-                      {users.length === 0 && (
-                        <div className="alert alert-warning">
-                          <i className="fas fa-exclamation-triangle me-2"></i>
-                          Data pegawai belum dimuat. Silakan refresh halaman.
-                        </div>
-                      )}
                       <SearchableUserSelect
                         users={users}
                         value={formData.userId}
@@ -662,22 +701,33 @@ const AttendanceInputPage = () => {
                           Pegawai tidak dapat diubah saat edit data
                         </small>
                       )}
-                      
-                      {/* DEBUG INFO - Remove in production */}
-                      <small className="text-muted d-block mt-1">
-                        Debug: {users.length} pegawai tersedia, Selected: {formData.userId || 'none'}
-                      </small>
                     </div>
 
                     <div className="col-12">
-                      <h6 className="text-muted">Jenis Pelanggaran Presensi</h6>
-                      <p><small className="text-muted">Masukkan jumlah pelanggaran. Pengurangan nilai tetap maksimal per kategori.</small></p>
+                      <h6 className="text-primary">Sistem Perhitungan Presensi Baru</h6>
+                      <div className="alert alert-info">
+                        <p className="mb-2"><small>Masukkan jumlah pelanggaran. Sistem akan menghitung pengurangan secara progresif:</small></p>
+                        <div className="row">
+                          <div className="col-md-6">
+                            <ul className="list-unstyled mb-0">
+                              <li><strong>Tidak Kerja:</strong> 1x = -20%, lebih dari 1x = -30%</li>
+                              <li><strong>Cuti:</strong> kurang dari 3 hari = -2.5%, {'\u22653'} hari = -5%</li>
+                            </ul>
+                          </div>
+                          <div className="col-md-6">
+                            <ul className="list-unstyled mb-0">
+                              <li><strong>Pulang Awal/Telat:</strong> 1x = -5%, lebih dari 1x = -10%</li>
+                              <li><strong>Absen APEL:</strong> Berapapun = -10%</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Number inputs dengan improved handling */}
+                    {/* Updated input fields with new labels */}
                     <div className="col-md-6">
                       <label className="form-label text-danger">
-                        <span className="badge bg-danger me-2">-30%</span>
+                        <span className="badge bg-danger me-2">TK</span>
                         Jumlah Tidak Kerja
                       </label>
                       <input
@@ -697,12 +747,37 @@ const AttendanceInputPage = () => {
                         maxLength="2"
                         onWheel={(e) => e.target.blur()}
                       />
-                      <small className="text-muted">Tidak masuk kerja tanpa keterangan</small>
+                      <small className="text-muted">1 kali = -20%, lebih dari 1 kali = -30%</small>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label text-secondary">
+                        <span className="badge bg-secondary me-2">CT</span>
+                        Jumlah Cuti (hari)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        className="form-control"
+                        value={formData.jumlahCuti}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          const numValue = parseInt(value) || 0;
+                          if (numValue <= 31) {
+                            setFormData({...formData, jumlahCuti: value});
+                          }
+                        }}
+                        placeholder="0"
+                        maxLength="2"
+                        onWheel={(e) => e.target.blur()}
+                      />
+                      <small className="text-muted">Kurang dari 3 hari = -2.5%, 3 hari atau lebih = -5%</small>
                     </div>
 
                     <div className="col-md-6">
                       <label className="form-label text-warning">
-                        <span className="badge bg-warning text-dark me-2">-10%</span>
+                        <span className="badge bg-warning text-dark me-2">PSW</span>
                         Jumlah Pulang Sebelum Waktunya
                       </label>
                       <input
@@ -722,12 +797,12 @@ const AttendanceInputPage = () => {
                         maxLength="2"
                         onWheel={(e) => e.target.blur()}
                       />
-                      <small className="text-muted">Pulang sebelum jam kerja selesai</small>
+                      <small className="text-muted">1 kali = -5%, lebih dari 1 kali = -10%</small>
                     </div>
 
                     <div className="col-md-6">
                       <label className="form-label text-warning">
-                        <span className="badge bg-warning text-dark me-2">-10%</span>
+                        <span className="badge bg-warning text-dark me-2">TLT</span>
                         Jumlah Telat
                       </label>
                       <input
@@ -747,12 +822,12 @@ const AttendanceInputPage = () => {
                         maxLength="2"
                         onWheel={(e) => e.target.blur()}
                       />
-                      <small className="text-muted">Terlambat datang kerja</small>
+                      <small className="text-muted">1 kali = -5%, lebih dari 1 kali = -10%</small>
                     </div>
 
                     <div className="col-md-6">
                       <label className="form-label text-info">
-                        <span className="badge bg-info me-2">-10%</span>
+                        <span className="badge bg-info me-2">APEL</span>
                         Jumlah Absen APEL
                       </label>
                       <input
@@ -772,32 +847,7 @@ const AttendanceInputPage = () => {
                         maxLength="2"
                         onWheel={(e) => e.target.blur()}
                       />
-                      <small className="text-muted">Tidak mengikuti apel pagi</small>
-                    </div>
-
-                    <div className="col-md-6">
-                      <label className="form-label text-secondary">
-                        <span className="badge bg-secondary me-2">-5%</span>
-                        Jumlah Cuti
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="form-control"
-                        value={formData.jumlahCuti}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          const numValue = parseInt(value) || 0;
-                          if (numValue <= 31) {
-                            setFormData({...formData, jumlahCuti: value});
-                          }
-                        }}
-                        placeholder="0"
-                        maxLength="2"
-                        onWheel={(e) => e.target.blur()}
-                      />
-                      <small className="text-muted">Mengambil cuti dalam periode ini</small>
+                      <small className="text-muted">Berapapun jumlahnya = -10%</small>
                     </div>
 
                     <div className="col-12">
@@ -811,48 +861,64 @@ const AttendanceInputPage = () => {
                       />
                     </div>
 
-                    {/* Preview Nilai */}
+                    {/* 🔥 NEW: Preview with New Calculation */}
                     <div className="col-12">
-                      <div className="alert alert-info">
-                        <h6><i className="fas fa-calculator me-2"></i>Preview Nilai Presensi</h6>
+                      <div className="alert alert-success">
+                        <h6><i className="fas fa-calculator me-2"></i>Preview Nilai Presensi (Sistem Baru)</h6>
                         <div className="d-flex align-items-center flex-wrap">
-                          <span className="me-3">100%</span>
+                          <span className="me-3 fw-bold">100%</span>
+                          
                           {parseInt(formData.jumlahTidakKerja) > 0 && (
                             <span className="me-2 mb-1">
-                              <span className="badge bg-danger me-1">-30%</span>
+                              <span className="badge bg-danger me-1">
+                                -{parseInt(formData.jumlahTidakKerja) === 1 ? '20%' : '30%'}
+                              </span>
                               TK ({parseInt(formData.jumlahTidakKerja)}x)
                             </span>
                           )}
+                          
+                          {parseInt(formData.jumlahCuti) > 0 && (
+                            <span className="me-2 mb-1">
+                              <span className="badge bg-secondary me-1">
+                                -{parseInt(formData.jumlahCuti) < 3 ? '2.5%' : '5%'}
+                              </span>
+                              CT ({parseInt(formData.jumlahCuti)} hari)
+                            </span>
+                          )}
+                          
                           {parseInt(formData.jumlahPulangAwal) > 0 && (
                             <span className="me-2 mb-1">
-                              <span className="badge bg-warning text-dark me-1">-10%</span>
+                              <span className="badge bg-warning text-dark me-1">
+                                -{parseInt(formData.jumlahPulangAwal) === 1 ? '5%' : '10%'}
+                              </span>
                               PSW ({parseInt(formData.jumlahPulangAwal)}x)
                             </span>
                           )}
+                          
                           {parseInt(formData.jumlahTelat) > 0 && (
                             <span className="me-2 mb-1">
-                              <span className="badge bg-warning text-dark me-1">-10%</span>
+                              <span className="badge bg-warning text-dark me-1">
+                                -{parseInt(formData.jumlahTelat) === 1 ? '5%' : '10%'}
+                              </span>
                               TLT ({parseInt(formData.jumlahTelat)}x)
                             </span>
                           )}
+                          
                           {parseInt(formData.jumlahAbsenApel) > 0 && (
                             <span className="me-2 mb-1">
                               <span className="badge bg-info me-1">-10%</span>
                               APEL ({parseInt(formData.jumlahAbsenApel)}x)
                             </span>
                           )}
-                          {parseInt(formData.jumlahCuti) > 0 && (
-                            <span className="me-2 mb-1">
-                              <span className="badge bg-secondary me-1">-5%</span>
-                              CT ({parseInt(formData.jumlahCuti)}x)
-                            </span>
-                          )}
-                          <span className="fw-bold text-primary ms-auto">
-                            = {100 - ((parseInt(formData.jumlahTidakKerja) > 0 ? 30 : 0) + 
-                                     (parseInt(formData.jumlahPulangAwal) > 0 ? 10 : 0) + 
-                                     (parseInt(formData.jumlahTelat) > 0 ? 10 : 0) + 
-                                     (parseInt(formData.jumlahAbsenApel) > 0 ? 10 : 0) + 
-                                     (parseInt(formData.jumlahCuti) > 0 ? 5 : 0))}%
+                          
+                          <span className="fw-bold text-success ms-auto fs-5">
+                            = {calculatePreviewScore(
+                              formData.jumlahTidakKerja,
+                              formData.jumlahPulangAwal,
+                              formData.jumlahTelat,
+                              formData.jumlahAbsenApel,
+                              formData.jumlahCuti
+                            )}%
                           </span>
                         </div>
                       </div>
@@ -880,7 +946,7 @@ const AttendanceInputPage = () => {
         </div>
       )}
 
-      {/* Delete All Confirmation Modal */}
+      {/* Delete Modals - Same as before */}
       {showDeleteAllModal && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">
@@ -907,27 +973,6 @@ const AttendanceInputPage = () => {
                   <strong>Total Record:</strong> {filteredRecords ? filteredRecords.length : 0} data presensi<br/>
                   <strong>Pegawai Terdampak:</strong> {filteredRecords ? filteredRecords.length : 0} pegawai
                 </div>
-                
-                <div className="mt-3">
-                  <h6 className="text-danger">Data yang akan dihapus:</h6>
-                  <div className="border rounded p-2" style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                    {filteredRecords && filteredRecords.slice(0, 10).map((attendance, index) => (
-                      <div key={attendance.id} className="d-flex justify-content-between py-1">
-                        <small>{attendance.user.nama}</small>
-                        <small className="text-muted">{attendance.user.nip}</small>
-                      </div>
-                    ))}
-                    {filteredRecords && filteredRecords.length > 10 && (
-                      <div className="text-center py-1">
-                        <small className="text-muted">... dan {filteredRecords.length - 10} pegawai lainnya</small>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <p className="text-danger mt-3 mb-0">
-                  <strong>Data yang dihapus tidak dapat dikembalikan. Pastikan Anda telah membuat backup jika diperlukan.</strong>
-                </p>
               </div>
               <div className="modal-footer">
                 <button 
@@ -947,12 +992,12 @@ const AttendanceInputPage = () => {
                   {submitting ? (
                     <>
                       <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                      Menghapus {filteredRecords ? filteredRecords.length : 0} Data...
+                      Menghapus...
                     </>
                   ) : (
                     <>
                       <i className="fas fa-trash-alt me-2"></i>
-                      Ya, Hapus Semua {filteredRecords ? filteredRecords.length : 0} Data
+                      Ya, Hapus Semua
                     </>
                   )}
                 </button>
@@ -962,7 +1007,7 @@ const AttendanceInputPage = () => {
         </div>
       )}
 
-      {/* Delete Single Confirmation Modal */}
+      {/* Delete Single Modal - Same as before */}
       {showDeleteModal && attendanceToDelete && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">

@@ -132,47 +132,183 @@ export const profileAPI = {
 export const userAPI = {
   getAll: (params) => api.get('/users', { params }),
   getById: (id) => api.get(`/users/${id}`),
-  update: (id, data) => api.put(`/users/${id}`, data),
-  delete: (id) => api.delete(`/users/${id}`), // Soft delete (deactivate)
-  permanentDelete: (id) => api.delete(`/users/${id}/permanent`), // Permanent delete
+  create: (userData) => {
+    console.log('📤 Creating user via /users endpoint:', userData);
+    return api.post('/users', userData);  // 🔥 FIXED: Use /users endpoint instead of auth/register
+  },
+  update: (id, userData) => api.put(`/users/${id}`, userData),
+  delete: (id) => api.delete(`/users/${id}`),
+  permanentDelete: (id) => api.delete(`/users/${id}/permanent`),
   activate: (id) => api.put(`/users/${id}/activate`),
   resetPassword: (id, data) => api.put(`/users/${id}/reset-password`, data),
   getStats: () => api.get('/users/stats'),
 };
 
 // =====================
-// EVALUATION API
+// 🔥 FIXED: EVALUATION API
 // =====================
 export const evaluationAPI = {
-  getParameters: () => api.get('/evaluations/parameters'),
-  getScoreRanges: () => api.get('/evaluations/score-ranges'),
-  getActivePeriod: () => api.get('/evaluations/active-period'),
-  getEligibleUsers: () => api.get('/evaluations/eligible-users'),
-  submit: (data) => api.post('/evaluations/submit', data),
-  getMyEvaluations: (params) => api.get('/evaluations/my-evaluations', { params }),
-  getAll: (params) => api.get('/evaluations/all', { params }),
-  getSummary: (periodId) => api.get(`/evaluations/summary/${periodId}`),
+  // GET evaluation parameters (8 BerAKHLAK parameters)
+  getParameters: () => {
+    console.log('🔄 Getting evaluation parameters...');
+    return api.get('/evaluations/parameters');
+  },
+  
+  // GET score ranges (80-100 for single category)
+  getScoreRanges: () => {
+    console.log('🔄 Getting score ranges...');
+    return api.get('/evaluations/score-ranges');
+  },
+  
+  // GET active period
+  getActivePeriod: () => {
+    console.log('🔄 Getting active period...');
+    return api.get('/evaluations/active-period');
+  },
+  
+  // GET eligible users for evaluation
+  getEligibleUsers: () => {
+    console.log('🔄 Getting eligible users...');
+    return api.get('/evaluations/eligible-users');
+  },
+  
+  // 🔥 FIXED: Submit evaluation with proper data structure
+  submit: (data) => {
+    console.log('📤 Submitting evaluation:', data);
+    
+    // Validate data structure
+    if (!data.periodId || !data.evaluations || !Array.isArray(data.evaluations)) {
+      console.error('❌ Invalid evaluation data structure');
+      return Promise.reject(new Error('Invalid evaluation data structure'));
+    }
+    
+    // Transform data for backend compatibility
+    const evaluation = data.evaluations[0]; // Single evaluation now
+    const transformedData = {
+      periodId: data.periodId,
+      targetUserId: evaluation.targetUserId,
+      scores: evaluation.scores.map(score => ({
+        parameterId: score.parameterId,
+        value: score.value
+      }))
+    };
+    
+    console.log('📤 Transformed data for backend:', transformedData);
+    return api.post('/evaluations/submit', transformedData);
+  },
+  
+  // GET user's own evaluations
+  getMyEvaluations: (params = {}) => {
+    console.log('🔄 Getting my evaluations:', params);
+    return api.get('/evaluations/my-evaluations', { params });
+  },
+  
+  // GET all evaluations (admin/pimpinan only)
+  getAll: (params = {}) => {
+    console.log('🔄 Getting all evaluations:', params);
+    return api.get('/evaluations/all', { params });
+  },
+  
+  // GET evaluation summary for period
+  getSummary: (periodId) => {
+    console.log('🔄 Getting evaluation summary for period:', periodId);
+    return api.get(`/evaluations/summary/${periodId}`);
+  },
 };
 
 // =====================
-// ATTENDANCE API
+// 🔥 FIXED: ATTENDANCE API
 // =====================
 export const attendanceAPI = {
-  getAll: (params) => api.get('/attendance', { params }),
-  getById: (id) => api.get(`/attendance/${id}`),
-  upsert: (data) => api.post('/attendance', data),
-  delete: (id) => api.delete(`/attendance/${id}`),
-  getStats: (params) => api.get('/attendance/stats', { params }),
+  // GET all attendance records
+  getAll: (params = {}) => {
+    console.log('🔄 Getting attendance records:', params);
+    return api.get('/attendance', { params });
+  },
+  
+  // GET attendance by ID
+  getById: (id) => {
+    console.log('🔄 Getting attendance by ID:', id);
+    return api.get(`/attendance/${id}`);
+  },
+  
+  // 🔥 FIXED: Create/Update attendance (upsert)
+  upsert: (data) => {
+    console.log('💾 Upserting attendance:', data);
+    
+    // Validate required fields
+    if (!data.userId || !data.periodId) {
+      console.error('❌ Missing required fields: userId, periodId');
+      return Promise.reject(new Error('Missing required fields: userId, periodId'));
+    }
+    
+    // Ensure numeric fields are numbers
+    const cleanData = {
+      ...data,
+      jumlahTidakKerja: parseInt(data.jumlahTidakKerja) || 0,
+      jumlahPulangAwal: parseInt(data.jumlahPulangAwal) || 0,
+      jumlahTelat: parseInt(data.jumlahTelat) || 0,
+      jumlahAbsenApel: parseInt(data.jumlahAbsenApel) || 0,
+      jumlahCuti: parseInt(data.jumlahCuti) || 0
+    };
+    
+    console.log('💾 Clean attendance data:', cleanData);
+    return api.post('/attendance', cleanData);
+  },
+  
+  // DELETE attendance
+  delete: (id) => {
+    console.log('🗑️ Deleting attendance:', id);
+    return api.delete(`/attendance/${id}`);
+  },
+  
+  // GET attendance statistics
+  getStats: (params = {}) => {
+    console.log('📊 Getting attendance stats:', params);
+    return api.get('/attendance/stats', { params });
+  },
 };
 
 // =====================
-// CKP API
+// 🔥 FIXED: CKP API
 // =====================
 export const ckpAPI = {
-  getAll: (params) => api.get('/ckp', { params }),
-  getById: (id) => api.get(`/ckp/${id}`),
-  upsert: (data) => api.post('/ckp', data),
-  delete: (id) => api.delete(`/ckp/${id}`),
+  // GET all CKP scores
+  getAll: (params = {}) => {
+    console.log('🔄 Getting CKP scores:', params);
+    return api.get('/ckp', { params });
+  },
+  
+  // GET CKP by ID
+  getById: (id) => {
+    console.log('🔄 Getting CKP by ID:', id);
+    return api.get(`/ckp/${id}`);
+  },
+  
+  // Create/Update CKP score
+  upsert: (data) => {
+    console.log('💾 Upserting CKP:', data);
+    
+    // Validate required fields
+    if (!data.userId || !data.periodId || typeof data.score !== 'number') {
+      console.error('❌ Missing required fields: userId, periodId, score');
+      return Promise.reject(new Error('Missing required fields: userId, periodId, score'));
+    }
+    
+    // Validate score range
+    if (data.score < 0 || data.score > 100) {
+      console.error('❌ Score must be between 0-100');
+      return Promise.reject(new Error('Score must be between 0-100'));
+    }
+    
+    return api.post('/ckp', data);
+  },
+  
+  // DELETE CKP score
+  delete: (id) => {
+    console.log('🗑️ Deleting CKP:', id);
+    return api.delete(`/ckp/${id}`);
+  },
 };
 
 // =====================

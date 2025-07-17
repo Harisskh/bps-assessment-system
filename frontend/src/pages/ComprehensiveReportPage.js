@@ -41,7 +41,7 @@ const ComprehensiveReportPage = () => {
   const getKepalaBpsName = (usersData) => {
     // Cari berdasarkan jabatan terlebih dahulu
     let kepalaBps = usersData.find(user => 
-      user.jabatan && user.jabatan.toLowerCase().includes('kepala bps kabupaten')
+      user.jabatan && user.jabatan.toLowerCase().includes('Kepala BPS Kabupaten/Kota')
     );
     
     // Jika tidak ada, cari berdasarkan role
@@ -197,19 +197,64 @@ const ComprehensiveReportPage = () => {
         console.log('- Users data:', usersData.length);
         console.log('- Evaluations data:', evaluationsData.length);
 
-        // 🔥 FIXED: Debug attendance structure with more detail
+        // 🔥 ENHANCED: Debug attendance structure with field verification
         if (attendanceData.length > 0) {
           console.log('🔍 Sample attendance record:', attendanceData[0]);
           console.log('🔍 Attendance fields available:', Object.keys(attendanceData[0]));
-          // Check if the number fields exist
-          console.log('🔍 Number fields check:', {
-            jumlahTidakKerja: attendanceData[0].jumlahTidakKerja,
-            jumlahPulangAwal: attendanceData[0].jumlahPulangAwal,
-            jumlahTelat: attendanceData[0].jumlahTelat,
-            jumlahAbsenApel: attendanceData[0].jumlahAbsenApel,
-            jumlahCuti: attendanceData[0].jumlahCuti,
-            nilaiPresensi: attendanceData[0].nilaiPresensi
+          
+          // Check specific fields that we need
+          const firstRecord = attendanceData[0];
+          console.log('🔍 Critical attendance fields check:', {
+            jumlahTidakKerja: firstRecord.jumlahTidakKerja,
+            jumlahPulangAwal: firstRecord.jumlahPulangAwal,
+            jumlahTelat: firstRecord.jumlahTelat,
+            jumlahAbsenApel: firstRecord.jumlahAbsenApel,
+            jumlahCuti: firstRecord.jumlahCuti,
+            nilaiPresensi: firstRecord.nilaiPresensi,
+            user: firstRecord.user?.nama || 'No user data'
           });
+          
+          // 🔥 NEW: Check if ALL records have the required fields
+          const recordsWithMissingFields = attendanceData.filter(record => 
+            record.jumlahTidakKerja === undefined || 
+            record.jumlahPulangAwal === undefined || 
+            record.jumlahTelat === undefined ||
+            record.jumlahAbsenApel === undefined ||
+            record.jumlahCuti === undefined
+          );
+          
+          if (recordsWithMissingFields.length > 0) {
+            console.warn('⚠️ Found attendance records with missing fields:', recordsWithMissingFields.length);
+            console.warn('⚠️ Sample missing fields record:', recordsWithMissingFields[0]);
+            
+            // 🔥 FALLBACK: Try to get data through direct backend call if fields missing
+            console.log('🔧 Trying direct backend call for missing fields...');
+            try {
+              const directResponse = await fetch(`/api/attendance?periodId=${selectedPeriod}&limit=1000`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (directResponse.ok) {
+                const directData = await directResponse.json();
+                console.log('📥 Direct backend response:', directData);
+                
+                if (directData.success && directData.data?.attendances) {
+                  attendanceData = directData.data.attendances;
+                  console.log('✅ Updated attendance data from direct call');
+                }
+              }
+            } catch (directError) {
+              console.log('❌ Direct backend call failed:', directError);
+            }
+          } else {
+            console.log('✅ All attendance records have required fields!');
+          }
+        } else {
+          console.warn('⚠️ No attendance data found!');
         }
 
         // Process BerAKHLAK data to get voter counts
@@ -229,19 +274,29 @@ const ComprehensiveReportPage = () => {
           const ckp = ckpData.find(c => c.userId === user.id);
           const voterCount = berakhlakVoters[user.id] || 0;
 
-          // 🔥 FIXED: Attendance data extraction with correct field mapping
+          // 🔥 FIXED: Extract attendance data with correct field mapping
           const attendanceInfo = {
-            // Try multiple possible field names for percentage
-            percentage: attendance ? (attendance.nilaiPresensi || attendance.totalNilaiPresensi || 100) : 100,
-            // 🔥 FIXED: Extract individual violation counts from new structure
+            // 🔥 CRITICAL: Use correct field name from database schema
+            percentage: attendance ? (attendance.nilaiPresensi || 100) : 100,
+            // 🔥 FIXED: Extract individual violation counts from correct fields
             tidakKerja: attendance?.jumlahTidakKerja || 0,
             pulangAwal: attendance?.jumlahPulangAwal || 0,
             telat: attendance?.jumlahTelat || 0,
             absenApel: attendance?.jumlahAbsenApel || 0,
             cuti: attendance?.jumlahCuti || 0,
-            // Calculate weighted score
-            weightedScore: attendance ? ((attendance.nilaiPresensi || attendance.totalNilaiPresensi || 100) * 0.4) : 40
+            // Calculate weighted score using correct field
+            weightedScore: attendance ? ((attendance.nilaiPresensi || 100) * 0.4) : 40
           };
+
+          // 🔥 DEBUG: Log specific user attendance data
+          if (user.nama.includes('Dewi') || user.nama.includes('Sela')) {
+            console.log(`🔍 DETAILED ATTENDANCE DEBUG for ${user.nama}:`, {
+              rawAttendance: attendance,
+              extractedInfo: attendanceInfo,
+              hasJumlahTidakKerja: attendance?.jumlahTidakKerja !== undefined,
+              hasNilaiPresensi: attendance?.nilaiPresensi !== undefined
+            });
+          }
 
           return {
             user: {
@@ -706,12 +761,12 @@ const ComprehensiveReportPage = () => {
             <table>
                 <thead>
                     <tr>
-                        <th rowSpan="2">No</th>
-                        <th rowSpan="2">Nama</th>
-                        <th rowSpan="2">Persentase Awal</th>
-                        <th colSpan="5">Detail Pelanggaran</th>
-                        <th rowSpan="2">Total Minus (%)</th>
-                        <th rowSpan="2">Total Nilai Presensi (%)</th>
+                        <th rowspan="2">No</th>
+                        <th rowspan="2">Nama</th>
+                        <th rowspan="2">Persentase Awal</th>
+                        <th colspan="5">Detail Pelanggaran</th>
+                        <th rowspan="2">Total Minus (%)</th>
+                        <th rowspan="2">Total Nilai Presensi (%)</th>
                     </tr>
                     <tr>
                         <th>TK</th>
@@ -1047,12 +1102,12 @@ const ComprehensiveReportPage = () => {
               <table className="table table-striped">
                 <thead className="table-light">
                   <tr>
-                    <th rowSpan="2">No</th>
-                    <th rowSpan="2">Nama</th>
-                    <th rowSpan="2">Persentase Awal</th>
-                    <th colSpan="5">Detail Pelanggaran</th>
-                    <th rowSpan="2">Total Minus (%)</th>
-                    <th rowSpan="2">Total Nilai Presensi (%)</th>
+                    <th rowspan="2">No</th>
+                    <th rowspan="2">Nama</th>
+                    <th rowspan="2">Persentase Awal</th>
+                    <th colspan="5">Detail Pelanggaran</th>
+                    <th rowspan="2">Total Minus (%)</th>
+                    <th rowspan="2">Total Nilai Presensi (%)</th>
                   </tr>
                   <tr>
                     <th>TK</th>
@@ -1143,6 +1198,7 @@ const ComprehensiveReportPage = () => {
               <li>✅ <strong>Rekap Presensi (TK, PSW, TLT, APEL, CT dengan jumlah detail)</strong></li>
               <li>✅ Rekap CKP (nama, skor, dan keterangan)</li>
               <li>✅ Format PDF resmi dengan logo BPS</li>
+              <li>✅ <strong>Nama Kepala BPS otomatis dari database</strong></li>
             </ul>
           </div>
         </div>

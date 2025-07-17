@@ -91,7 +91,7 @@ const getComprehensiveReportData = async (req, res) => {
           jumlahTelat: true,
           jumlahAbsenApel: true,
           jumlahCuti: true,
-          totalNilaiPresensi: true,
+          nilaiPresensi: true,
           nilaiPresensi: true // Alternative field name
         }
       });
@@ -109,7 +109,7 @@ const getComprehensiveReportData = async (req, res) => {
         jumlahTelat: att.jumlahTelat || 0,
         jumlahAbsenApel: att.jumlahAbsenApel || 0,
         jumlahCuti: att.jumlahCuti || 0,
-        totalNilaiPresensi: att.totalNilaiPresensi || att.nilaiPresensi || 100
+        nilaiPresensi: att.nilaiPresensi || att.nilaiPresensi || 100
       };
     });
 
@@ -184,7 +184,7 @@ const getComprehensiveReportData = async (req, res) => {
 
       // Calculate weighted scores (use final evaluation if available, otherwise calculate)
       const berakhlakWeighted = finalEval ? (finalEval.berakhlakScore * 0.3) : (berakhlakScore * 0.3);
-      const attendanceScore = finalEval ? finalEval.presensiScore : (attendance ? attendance.totalNilaiPresensi : 100);
+      const attendanceScore = finalEval ? finalEval.presensiScore : (attendance ? attendance.nilaiPresensi : 100);
       const attendanceWeighted = attendanceScore * 0.4;
       const ckpScore = finalEval ? finalEval.ckpScore : (ckp ? ckp.score : 0);
       const ckpWeighted = ckpScore * 0.3;
@@ -442,10 +442,10 @@ const getAttendanceReport = async (req, res) => {
     const summary = {
       totalRecords: attendanceData.length,
       averageAttendance: attendanceData.length > 0 
-        ? (attendanceData.reduce((sum, att) => sum + att.totalNilaiPresensi, 0) / attendanceData.length).toFixed(2)
+        ? (attendanceData.reduce((sum, att) => sum + att.nilaiPresensi, 0) / attendanceData.length).toFixed(2)
         : 0,
-      perfectAttendance: attendanceData.filter(att => att.totalNilaiPresensi === 100).length,
-      belowThreshold: attendanceData.filter(att => att.totalNilaiPresensi < 90).length
+      perfectAttendance: attendanceData.filter(att => att.nilaiPresensi === 100).length,
+      belowThreshold: attendanceData.filter(att => att.nilaiPresensi < 90).length
     };
 
     res.json({

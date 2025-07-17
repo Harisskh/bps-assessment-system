@@ -17,6 +17,9 @@ const UsersPage = () => {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  // 🔥 NEW STATE: Untuk menyimpan semua user setelah difilter dan diurutkan, sebelum paginasi frontend
+  const [allFilteredAndSortedUsers, setAllFilteredAndSortedUsers] = useState([]);
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -47,7 +50,26 @@ const UsersPage = () => {
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage, search, roleFilter, statusFilter]);
+  }, [search, roleFilter, statusFilter]); // 🔥 MODIFIKASI: currentPage tidak lagi trigger loadUsers, karena paginasi di frontend
+
+  // 🔥 NEW useEffect untuk paginasi frontend setelah allFilteredAndSortedUsers berubah atau currentPage berubah
+  useEffect(() => {
+    const applyFrontendPagination = () => {
+      const usersPerPage = 10; // Jumlah user per halaman (sesuai limit asli Anda)
+      const totalCount = allFilteredAndSortedUsers.length;
+      const calculatedTotalPages = Math.ceil(totalCount / usersPerPage);
+      setTotalPages(calculatedTotalPages);
+
+      const startIndex = (currentPage - 1) * usersPerPage;
+      const endIndex = startIndex + usersPerPage;
+      const usersForCurrentPage = allFilteredAndSortedUsers.slice(startIndex, endIndex);
+      
+      setUsers(usersForCurrentPage);
+    };
+
+    applyFrontendPagination();
+  }, [currentPage, allFilteredAndSortedUsers]);
+
 
   const loadUsers = async () => {
     try {
@@ -55,16 +77,34 @@ const UsersPage = () => {
       setError('');
       
       const params = {
-        page: currentPage,
-        limit: 10,
+        // 🔥 MODIFIKASI: Hapus page: currentPage dan berikan limit yang besar untuk mengambil semua data
+        limit: 9999, // Ambil semua user yang cocok dengan filter lain
         search: search.trim(),
         role: roleFilter,
         status: statusFilter
       };
 
       const response = await userAPI.getAll(params);
-      setUsers(response.data.data.users);
-      setTotalPages(response.data.data.pagination.totalPages);
+      let fetchedUsers = response.data.data.users; // Ambil data user yang sudah difetch
+      
+      // 🔥 MODIFIKASI: Implementasi sorting kustom berdasarkan role dan nama
+      const roleOrder = { 'ADMIN': 1, 'PIMPINAN': 2, 'STAFF': 3 }; // Prioritas: ADMIN (1) > PIMPINAN (2) > STAFF (3)
+
+      fetchedUsers.sort((a, b) => {
+        const orderA = roleOrder[a.role] || 99; // Beri nilai tinggi jika role tidak dikenal
+        const orderB = roleOrder[b.role] || 99;
+
+        // Urutkan berdasarkan role terlebih dahulu
+        if (orderA < orderB) return -1; // ADMIN akan lebih kecil dari PIMPINAN, PIMPINAN lebih kecil dari STAFF
+        if (orderA > orderB) return 1;
+
+        // Jika role sama, urutkan berdasarkan nama (abjad)
+        return a.nama.localeCompare(b.nama);
+      });
+
+      // 🔥 SIMPAN HASIL SORTING GLOBAL KE STATE BARU
+      setAllFilteredAndSortedUsers(fetchedUsers); 
+      setCurrentPage(1); // Reset ke halaman 1 setiap kali filter/pencarian berubah
       
     } catch (error) {
       console.error('Load users error:', error);
@@ -76,8 +116,8 @@ const UsersPage = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    setCurrentPage(1);
-    loadUsers();
+    setCurrentPage(1); // Ini akan ditangani oleh useEffect `allFilteredAndSortedUsers`
+    // loadUsers(); // Tidak perlu panggil langsung, useEffect `search` akan memicu `loadUsers`
   };
 
   const handleCreateUser = () => {
@@ -136,7 +176,6 @@ const UsersPage = () => {
 
   try {
     if (modalMode === 'create') {
-      // 🔥 FIXED: Use userAPI.create instead of authAPI.register
       const createData = {
         nip: formData.nip,
         nama: formData.nama,
@@ -155,11 +194,10 @@ const UsersPage = () => {
       };
       
       console.log('Creating user with data:', createData);
-      await userAPI.create(createData);  // 🔥 FIXED: Use userAPI.create
+      await userAPI.create(createData); 
       setSuccess('User berhasil dibuat');
       
     } else if (modalMode === 'edit') {
-      // Update user logic remains the same
       const updateData = {
         nip: formData.nip,
         nama: formData.nama,
@@ -184,9 +222,8 @@ const UsersPage = () => {
     
     setShowModal(false);
     
-    // Force reload users data
     setTimeout(() => {
-      loadUsers();
+      loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
     }, 1000);
     
   } catch (error) {
@@ -197,7 +234,6 @@ const UsersPage = () => {
   }
 };
 
-  // FIXED: Separate deactivate from permanent delete
   const handleDeactivateUser = async () => {
     if (!userToDeactivate) return;
     
@@ -209,7 +245,7 @@ const UsersPage = () => {
       setUserToDeactivate(null);
       
       setTimeout(() => {
-        loadUsers();
+        loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
       }, 500);
     } catch (error) {
       console.error('Deactivate user error:', error);
@@ -219,7 +255,6 @@ const UsersPage = () => {
     }
   };
 
-  // FIXED: Permanent delete function
   const handlePermanentDelete = async () => {
     if (!userToDelete) return;
     
@@ -231,7 +266,7 @@ const UsersPage = () => {
       setUserToDelete(null);
       
       setTimeout(() => {
-        loadUsers();
+        loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
       }, 500);
     } catch (error) {
       console.error('Permanent delete user error:', error);
@@ -248,7 +283,7 @@ const UsersPage = () => {
       setSuccess(`User ${userData.nama} berhasil diaktifkan`);
       
       setTimeout(() => {
-        loadUsers();
+        loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
       }, 500);
     } catch (error) {
       console.error('Activate user error:', error);
@@ -333,7 +368,13 @@ const UsersPage = () => {
       {/* Filter & Search */}
       <div className="card mb-4">
         <div className="card-body">
-          <form onSubmit={handleSearch}>
+          <form
+            onSubmit={(e) => {
+            e.preventDefault();
+            // setCurrentPage(1); // Tidak perlu karena loadUsers akan me-resetnya
+            loadUsers(); // Panggil loadUsers untuk memicu pencarian/filter
+            }}
+            >
             <div className="row g-3">
               <div className="col-md-4">
                 <label className="form-label">Cari</label>
@@ -342,7 +383,10 @@ const UsersPage = () => {
                   className="form-control"
                   placeholder="Nama, NIP, atau username..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    // setCurrentPage(1); // Tidak perlu, karena useEffect 'search' akan memicu loadUsers dan mereset currentPage
+                  }}
                 />
               </div>
               <div className="col-md-2">
@@ -350,7 +394,10 @@ const UsersPage = () => {
                 <select
                   className="form-select"
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value);
+                    // setCurrentPage(1); // Tidak perlu
+                  }}
                 >
                   <option value="">Semua Role</option>
                   <option value="ADMIN">Admin</option>
@@ -363,7 +410,10 @@ const UsersPage = () => {
                 <select
                   className="form-select"
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    // setCurrentPage(1); // Tidak perlu
+                  }}
                 >
                   <option value="">Semua Status</option>
                   <option value="PNS">PNS</option>
@@ -373,23 +423,24 @@ const UsersPage = () => {
               </div>
               <div className="col-md-2">
                 <label className="form-label">&nbsp;</label>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-outline-secondary w-100"
                   onClick={() => {
                     setSearch('');
                     setRoleFilter('');
                     setStatusFilter('');
-                    setCurrentPage(1);
+                    // setCurrentPage(1); // Tidak perlu
+                    // loadUsers(); // Tidak perlu, useEffect akan memicu ini
                   }}
                 >
                   Reset
                 </button>
               </div>
             </div>
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
 
       {/* Users Table - ENHANCED dengan Icons */}
       <div className="card">
@@ -478,9 +529,7 @@ const UsersPage = () => {
                             </span>
                           </td>
                           <td>
-                            {/* FIXED: Action buttons dengan icons yang jelas */}
                             <div className="btn-group btn-group-sm">
-                              {/* View/Edit Button */}
                               <button 
                                 className={`btn ${isPimpinan ? 'btn-outline-info' : 'btn-outline-primary'}`}
                                 onClick={() => handleEditUser(userData)}
@@ -491,7 +540,6 @@ const UsersPage = () => {
                               
                               {isAdmin && (
                                 <>
-                                  {/* Activate/Deactivate Button */}
                                   {userData.isActive ? (
                                     <button 
                                       className="btn btn-outline-warning"
@@ -514,7 +562,6 @@ const UsersPage = () => {
                                     </button>
                                   )}
                                   
-                                  {/* Reset Password Button */}
                                   <button 
                                     className="btn btn-outline-info"
                                     onClick={() => handleResetPassword(userData)}
@@ -523,7 +570,6 @@ const UsersPage = () => {
                                     <i className="fas fa-key"></i>
                                   </button>
                                   
-                                  {/* FIXED: Permanent Delete Button */}
                                   <button 
                                     className="btn btn-outline-danger"
                                     onClick={() => {
@@ -596,8 +642,8 @@ const UsersPage = () => {
               <div className="modal-header">
                 <h5 className="modal-title">
                   {modalMode === 'create' ? 'Tambah User Baru' : 
-                   modalMode === 'edit' ? 'Edit User' : 
-                   'Detail Pegawai'}
+                    modalMode === 'edit' ? 'Edit User' : 
+                    'Detail Pegawai'}
                 </h5>
                 <button 
                   type="button" 
@@ -607,7 +653,6 @@ const UsersPage = () => {
               </div>
               
               {modalMode === 'view' ? (
-                // ENHANCED View Only Mode untuk Pimpinan
                 <div className="modal-body">
                   <div className="row g-3">
                     <div className="col-md-6">
@@ -689,7 +734,6 @@ const UsersPage = () => {
                   </div>
                 </div>
               ) : (
-                // Edit/Create Form
                 <form onSubmit={handleFormSubmit}>
                   <div className="modal-body">
                     <div className="row g-3">
@@ -858,7 +902,7 @@ const UsersPage = () => {
                     className="btn btn-secondary"
                     onClick={() => setShowModal(false)}
                   >
-                    Tutup
+                    Tuturp
                   </button>
                 </div>
               )}

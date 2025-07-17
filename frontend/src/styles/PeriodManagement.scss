@@ -185,11 +185,49 @@ html {
     .page-header, .table-controls {
       flex-direction: column;
       align-items: stretch;
-      gap: 1rem;
+      gap: .8rem;
     }
     .period-table {
-        th, td { font-size: 0.85rem; padding: 0.75rem; }
-        .action-buttons { flex-wrap: wrap; }
+
+        // Hapus aturan lebar tetap, biarkan tabel menyesuaikan dengan kontennya
+        // table-layout: auto; 
+        // width: auto;
+
+        // Aturan untuk header dan sel agar tidak turun baris
+        th, td {
+          white-space: nowrap;
+          font-size: 0.75rem; // Ukuran font bisa sedikit lebih normal
+        }
+        
+        // Hapus semua aturan td:nth-child karena lebar kolom tidak lagi dipaksa
+
+        // Tombol aksi tetap vertikal agar rapi
+        .action-buttons {
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+
+            .btn {
+                width: 24px;
+                height: 24px;
+                .fas { font-size: 0.8rem; }
+            }
+        }
+        
+        // Aturan untuk badge status (mode ikon)
+        .status-badge {
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+    }
+    
+    .modal-body {
+        padding: 1.5rem; 
     }
   }
 }

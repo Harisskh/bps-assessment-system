@@ -311,7 +311,7 @@ const CkpInputPage = () => {
         <div>
           <h1 className="h3 mb-1">
             <i className="fas fa-chart-line me-2"></i>
-            Input Data CKP
+            Rekap Data Capaian Kinerja Pegawai
           </h1>
           <p className="text-muted">Kelola Capaian Kinerja Pegawai per periode (Bobot: 30%)</p>
         </div>

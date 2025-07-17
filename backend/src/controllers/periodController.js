@@ -6,43 +6,55 @@ const prisma = new PrismaClient();
 // GET ALL PERIODS
 const getAllPeriods = async (req, res) => {
   try {
-    console.log('🔄 Getting all periods...');
-    console.log('🔍 Query params:', req.query);
-    console.log('👤 User role:', req.user?.role);
-    
     const { 
       page = 1, 
-      limit = 50,
-      isActive,
-      tahun
+      limit = 10, 
+      search = '', 
+      tahun = '', 
+      bulan = '',
+      isActive = ''
     } = req.query;
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
+    // Build where clause
     const where = {};
-    if (isActive !== undefined) where.isActive = isActive === 'true';
-    if (tahun) where.tahun = parseInt(tahun);
-
-    console.log('🔍 Where clause:', where);
+    
+    if (search) {
+      where.namaPeriode = {
+        contains: search,
+        mode: 'insensitive'
+      };
+    }
+    
+    if (tahun) {
+      where.tahun = parseInt(tahun);
+    }
+    
+    if (bulan) {
+      where.bulan = parseInt(bulan);
+    }
+    
+    if (isActive !== '') {
+      where.isActive = isActive === 'true';
+    }
 
     const [periods, totalCount] = await Promise.all([
       prisma.period.findMany({
         where,
+        skip,
+        take: limitNum,
         orderBy: [
           { tahun: 'desc' },
           { bulan: 'desc' }
-        ],
-        skip,
-        take: limitNum
+        ]
       }),
       prisma.period.count({ where })
     ]);
 
     const totalPages = Math.ceil(totalCount / limitNum);
-
-    console.log(`✅ Found ${periods.length} periods (total: ${totalCount})`);
 
     res.json({
       success: true,
@@ -60,14 +72,14 @@ const getAllPeriods = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Get all periods error:', error);
+    console.error('Get all periods error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Terjadi kesalahan server'
     });
   }
 };
+
 
 // 🔥 FIXED: CREATE PERIOD - Removed noPeriode field
 const createPeriod = async (req, res) => {
@@ -460,33 +472,125 @@ const getPeriodById = async (req, res) => {
 // GET ACTIVE PERIOD
 const getActivePeriod = async (req, res) => {
   try {
-    console.log('🔍 Getting active period...');
-    
-    const activePeriod = await prisma.period.findFirst({
-      where: { isActive: true }
+    const period = await prisma.period.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' }
     });
 
-    if (!activePeriod) {
-      console.log('❌ No active period found');
+    if (!period) {
       return res.status(404).json({
         success: false,
-        message: 'Tidak ada periode aktif. Hubungi administrator.'
+        message: 'Tidak ada periode aktif'
       });
     }
 
-    console.log('✅ Active period found:', activePeriod.namaPeriode);
-
     res.json({
       success: true,
-      data: { period: activePeriod }
+      data: { period }
     });
 
   } catch (error) {
-    console.error('❌ Get active period error:', error);
+    console.error('Get active period error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
+
+// 🔥 NEW: GET period by year and month
+const getPeriodByYearMonth = async (req, res) => {
+  try {
+    const { tahun, bulan } = req.query;
+
+    if (!tahun || !bulan) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tahun dan bulan harus diisi'
+      });
+    }
+
+    const period = await prisma.period.findFirst({
+      where: {
+        tahun: parseInt(tahun),
+        bulan: parseInt(bulan)
+      }
+    });
+
+    if (!period) {
+      return res.status(404).json({
+        success: false,
+        message: `Periode ${bulan}/${tahun} tidak ditemukan`
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { period }
+    });
+
+  } catch (error) {
+    console.error('Get period by year month error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
+
+// 🔥 NEW: GET previous period from active period
+const getPreviousPeriod = async (req, res) => {
+  try {
+    // Get active period first
+    const activePeriod = await prisma.period.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!activePeriod) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tidak ada periode aktif'
+      });
+    }
+
+    // Calculate previous month
+    let previousYear = activePeriod.tahun;
+    let previousMonth = activePeriod.bulan - 1;
+
+    if (previousMonth < 1) {
+      previousMonth = 12;
+      previousYear = activePeriod.tahun - 1;
+    }
+
+    // Find previous period in database
+    const previousPeriod = await prisma.period.findFirst({
+      where: {
+        tahun: previousYear,
+        bulan: previousMonth
+      }
+    });
+
+    if (!previousPeriod) {
+      return res.status(404).json({
+        success: false,
+        message: `Periode sebelumnya (${previousMonth}/${previousYear}) tidak ditemukan`
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { 
+        activePeriod,
+        previousPeriod
+      }
+    });
+
+  } catch (error) {
+    console.error('Get previous period error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
     });
   }
 };
@@ -498,5 +602,7 @@ module.exports = {
   deletePeriod,
   activatePeriod,
   getPeriodById,
+  getPreviousPeriod,
+  getPeriodByYearMonth,
   getActivePeriod
 };

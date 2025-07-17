@@ -300,14 +300,13 @@ const handleFormSubmit = async (e) => {
 
       <div className="period-table-wrapper">
         <div className="table-responsive">
-          <table className="table period-table">
+        <table className="table period-table">
             <thead>
               <tr>
-                <th style={{width: '60px'}}>No.</th>
+                <th className="d-none d-md-table-cell">No.</th>
                 <th>Periode</th>
-                <th>Tahun/Bulan</th>
-                <th>Tanggal Mulai</th>
-                <th>Tanggal Selesai</th>
+                <th className="d-none d-md-table-cell">Tanggal Mulai</th>
+                <th className="d-none d-md-table-cell">Tanggal Selesai</th>
                 <th>Status</th>
                 <th>Aksi</th>
               </tr>
@@ -322,14 +321,13 @@ const handleFormSubmit = async (e) => {
               ) : periods.length > 0 ? (
                 periods.map((period, index) => (
                   <tr key={period.id}>
-                    <td className="text-center fw-bold text-muted">
+                    <td className="d-none d-md-table-cell text-center fw-bold text-muted">
                       {((currentPage - 1) * 10) + index + 1}
                     </td>
                     <td>
-                      <strong>{period.namaPeriode}</strong><br/>
+                      <strong>{period.namaPeriode}</strong>
                     </td>
-                    <td>{period.tahun}/{String(period.bulan).padStart(2, '0')}</td>
-                    <td>
+                    <td className="d-none d-md-table-cell">
                       {period.startDate ? 
                         new Date(period.startDate).toLocaleDateString('id-ID', { 
                           day: '2-digit', 
@@ -338,7 +336,7 @@ const handleFormSubmit = async (e) => {
                         }) : '-'
                       }
                     </td>
-                    <td>
+                    <td className="d-none d-md-table-cell">
                       {period.endDate ? 
                         new Date(period.endDate).toLocaleDateString('id-ID', { 
                           day: '2-digit', 
@@ -349,8 +347,13 @@ const handleFormSubmit = async (e) => {
                     </td>
                     <td>
                       <span className={`status-badge ${period.isActive ? 'status-active' : 'status-inactive'}`}>
-                        <i className={`fas ${period.isActive ? 'fa-check-circle' : 'fa-pause-circle'} me-1`}></i>
-                        {period.isActive ? 'Aktif' : 'Nonaktif'}
+                        {/* Ikon tetap terlihat */}
+                        <i className={`fas ${period.isActive ? 'fa-check-circle' : 'fa-pause-circle'}`}></i>
+                        
+                        {/* FIXED: Teks ini hanya akan muncul di layar desktop (md ke atas) */}
+                        <span className="d-none d-md-inline ms-md-1">
+                          {period.isActive ? 'Aktif' : 'Nonaktif'}
+                        </span>
                       </span>
                     </td>
                     <td>
@@ -389,14 +392,18 @@ const handleFormSubmit = async (e) => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center p-5 text-muted">
+                  {/* Sesuaikan colSpan karena beberapa kolom disembunyikan di mobile */}
+                  <td colSpan="4" className="d-md-none text-center p-5 text-muted">
+                    Tidak ada data untuk filter yang dipilih.
+                  </td>
+                  <td colSpan="7" className="d-none d-md-table-cell text-center p-5 text-muted">
                     Tidak ada data untuk filter yang dipilih.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
+          </div>
       </div>
 
       {totalPages > 1 && (
@@ -439,6 +446,7 @@ const handleFormSubmit = async (e) => {
       {/* Modal Tambah/Edit Periode */}
       {showModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            {/* 櫨 FIXED: Kelas 'modal-lg' dikembalikan agar modal lebar di desktop. */}
             <div className="modal-dialog modal-lg modal-dialog-centered">
                 <div className="modal-content">
                     <form onSubmit={handleFormSubmit}>
@@ -454,7 +462,8 @@ const handleFormSubmit = async (e) => {
                         </div>
                         <div className="modal-body">
                             <div className="row g-3">
-                                <div className="col-md-6">
+                                {/* Tahun dan Bulan dibuat berdampingan di semua ukuran layar */}
+                                <div className="col-6">
                                     <label className="form-label">Tahun *</label>
                                     <Select 
                                         options={modalYearOptions} 
@@ -466,7 +475,7 @@ const handleFormSubmit = async (e) => {
                                         placeholder="Pilih Tahun"
                                     />
                                 </div>
-                                <div className="col-md-6">
+                                <div className="col-6">
                                     <label className="form-label">Bulan *</label>
                                     <select 
                                       className="form-select" 
@@ -483,7 +492,8 @@ const handleFormSubmit = async (e) => {
                                         ))}
                                     </select>
                                 </div>
-                                <div className="col-md-8">
+                                {/* Nama Periode dibuat lebar penuh */}
+                                <div className="col-12">
                                     <label className="form-label">Nama Periode *</label>
                                     <input 
                                       type="text" 
@@ -494,7 +504,8 @@ const handleFormSubmit = async (e) => {
                                       required 
                                     />
                                 </div>
-                                <div className="col-md-6">
+                                {/* Tanggal Mulai dan Selesai dibuat berdampingan */}
+                                <div className="col-6">
                                     <label className="form-label">Tanggal Mulai</label>
                                     <input 
                                       type="date" 
@@ -504,7 +515,7 @@ const handleFormSubmit = async (e) => {
                                       onChange={handleFormChange} 
                                     />
                                 </div>
-                                <div className="col-md-6">
+                                <div className="col-6">
                                     <label className="form-label">Tanggal Selesai</label>
                                     <input 
                                       type="date" 
@@ -537,9 +548,6 @@ const handleFormSubmit = async (e) => {
                                         <div className="col-md-6">
                                           <p className="mb-1">
                                             <strong>Nama:</strong> {formData.namaPeriode}
-                                          </p>
-                                          <p className="mb-1">
-                                            <strong>Tahun/Bulan:</strong> {formData.tahun}/{formData.bulan.toString().padStart(2, '0')}
                                           </p>
                                         </div>
                                         <div className="col-md-6">

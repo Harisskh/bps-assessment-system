@@ -24,11 +24,25 @@ const FinalCalculationPage = () => {
 
   // EXCLUDED POSITIONS - Frontend reference
   const EXCLUDED_POSITIONS = [
-    'Statistisi Ahli Madya BPS Kabupaten/Kota',
-    'Kepala BPS Kabupaten/Kota',
-    'Kasubbag Umum',
-    'Kepala Sub Bagian Umum'
-  ];
+  'Statistisi Ahli Madya BPS Kabupaten/Kota',
+  'Statistisi Ahli Madya',
+  'Statistisi Ahli Madya Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala BPS',
+  'Kepala Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala BPS Kabupaten/Kota',
+  'Kasubbag Umum',
+  'Kasubbag Umum Badan Pusat Statistik Kabupaten/Kota',
+  'Kasubbag Umum BPS Kabupaten/Kota',
+  'Kepala Subbagian Umum Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala Subbagian Umum BPS Kabupaten/Kota',
+  'Kepala Subbagian Umum',
+  'kepala',
+  'madya',
+  'Madya',
+  'Kepala',
+  'KEPALA',
+  'MADYA'
+];
 
   useEffect(() => {
     loadInitialData();
@@ -137,7 +151,7 @@ const FinalCalculationPage = () => {
       console.log('✅ Calculation response:', response.data);
       
       setCalculationResult(response.data.data);
-      setSuccess('Perhitungan final berhasil diselesaikan dengan formula BerAKHLAK baru');
+      setSuccess('Perhitungan final berhasil diselesaikan');
       setShowCalculationModal(true);
       
       // Reload data
@@ -186,7 +200,10 @@ const FinalCalculationPage = () => {
       jabatan.toLowerCase().includes(excludedPos.toLowerCase()) ||
       (excludedPos.includes('Kepala BPS') && jabatan.toLowerCase().includes('kepala bps')) ||
       (excludedPos.includes('Kasubbag') && jabatan.toLowerCase().includes('kasubbag')) ||
-      (excludedPos.includes('Kepala Sub Bagian') && jabatan.toLowerCase().includes('kepala sub bagian'))
+      (excludedPos.includes('Kepala Subbagian') && jabatan.toLowerCase().includes('kepala subbagian')) ||
+      (excludedPos.includes('Kepala') && jabatan.toLowerCase().includes('kepala')) ||
+      (excludedPos.includes('madya') && jabatan.toLowerCase().includes('madya'))
+
     );
   };
 
@@ -212,7 +229,7 @@ const FinalCalculationPage = () => {
             <i className="fas fa-calculator me-2"></i>
             Perhitungan Final & Best Employee
           </h1>
-          <p className="text-muted">Hitung nilai akhir dan tentukan Best Employee of the Month - Formula BerAKHLAK Baru</p>
+          <p className="text-muted">Hitung nilai akhir dan tentukan Best Employee of the Month</p>
         </div>
         <button 
           className="btn btn-success btn-lg"
@@ -397,7 +414,6 @@ const FinalCalculationPage = () => {
                 <h5 className="mb-0">
                   <i className="fas fa-crown me-2"></i>
                   Best Employee of the Month - {bestEmployee.period.namaPeriode}
-                  <span className="badge bg-success ms-2">Formula Baru</span>
                 </h5>
               </div>
               <div className="card-body">
@@ -455,7 +471,6 @@ const FinalCalculationPage = () => {
                 <h5 className="mb-0">
                   <i className="fas fa-list me-2"></i>
                   Hasil Perhitungan Final - {periods.find(p => p.id === selectedPeriod)?.namaPeriode}
-                  <span className="badge bg-success ms-2">Formula Baru</span>
                 </h5>
                 <span className="badge bg-primary fs-6">
                   {finalEvaluations.length} pegawai
@@ -474,7 +489,7 @@ const FinalCalculationPage = () => {
                 <div className="text-center py-5">
                   <i className="fas fa-calculator fa-3x text-muted mb-3"></i>
                   <h5 className="text-muted">Belum ada hasil perhitungan untuk periode ini</h5>
-                  <p className="text-muted">Klik tombol "Jalankan Perhitungan" untuk memulai proses perhitungan final dengan formula baru</p>
+                  <p className="text-muted">Klik tombol "Jalankan Perhitungan" untuk memulai proses perhitungan finalu</p>
                   <button 
                     className="btn btn-primary mt-3"
                     onClick={handleCalculateFinal}
@@ -529,7 +544,7 @@ const FinalCalculationPage = () => {
                                 {isExcluded && (
                                   <small className="d-block text-danger">
                                     <i className="fas fa-exclamation-triangle me-1"></i>
-                                    Dikecualikan dari kandidat
+                                    Tidak diikutsertakan (Jabatan Tinggi)
                                   </small>
                                 )}
                               </div>
@@ -540,7 +555,7 @@ const FinalCalculationPage = () => {
                             <td>
                               <div className="text-center">
                                 <span className="h6 mb-0">{evaluation.totalEvaluators}</span>
-                                <small className="d-block text-muted">evaluator</small>
+                                <small className="d-block text-muted">Pemilih</small>
                               </div>
                             </td>
                             <td>
@@ -558,7 +573,7 @@ const FinalCalculationPage = () => {
                                 <span className={`fw-bold ${getScoreColor(evaluation.berakhlakScore)}`}>
                                   {evaluation.berakhlakScore.toFixed(1)}
                                   {evaluation.berakhlakScore > 100 && (
-                                    <i className="fas fa-star text-warning ms-1" title="Nilai > 100 (Formula Baru)"></i>
+                                    <i className="fas fa-star text-warning ms-1" title="Nilai > 100"></i>
                                   )}
                                 </span>
                                 <small className="d-block text-muted">
@@ -612,7 +627,7 @@ const FinalCalculationPage = () => {
                                 {isExcluded && (
                                   <span className="badge bg-secondary">
                                     <i className="fas fa-ban me-1"></i>
-                                    Dikecualikan
+                                    Jabatan TInggi
                                   </span>
                                 )}
                               </div>
@@ -675,7 +690,7 @@ const FinalCalculationPage = () => {
           <div className="card-body text-center py-5">
             <i className="fas fa-calculator fa-3x text-muted mb-3"></i>
             <h5 className="text-muted">Pilih Periode untuk Perhitungan</h5>
-            <p className="text-muted">Silakan pilih periode penilaian untuk melihat dan menjalankan perhitungan final dengan formula BerAKHLAK baru</p>
+            <p className="text-muted">Silakan pilih periode penilaian untuk melihat dan menjalankan perhitungan final</p>
           </div>
         </div>
       )}
@@ -699,10 +714,7 @@ const FinalCalculationPage = () => {
               <div className="modal-body">
                 <div className="text-center mb-4">
                   <i className="fas fa-trophy text-warning" style={{ fontSize: '4rem' }}></i>
-                  <h4 className="mt-3 text-primary">Perhitungan Final Berhasil dengan Formula Baru!</h4>
-                  <div className="alert alert-warning mt-3">
-                    <strong>Perubahan:</strong> Sistem BerAKHLAK baru menggunakan 1 tokoh dengan penjumlahan langsung (no averaging)
-                  </div>
+                  <h4 className="mt-3 text-primary">Perhitungan Final Berhasil!</h4>
                 </div>
 
                 <div className="row text-center mb-4">
@@ -737,7 +749,7 @@ const FinalCalculationPage = () => {
                     <div className="card-header bg-warning text-dark">
                       <h6 className="mb-0">
                         <i className="fas fa-crown me-2"></i>
-                        Best Employee of the Month - Formula Baru
+                        Best Employee of the Month
                       </h6>
                     </div>
                     <div className="card-body">
@@ -783,14 +795,14 @@ const FinalCalculationPage = () => {
                 )}
 
                 <div className="mt-4">
-                  <h6 className="text-secondary">Detail Perhitungan dengan Formula Baru:</h6>
+                  <h6 className="text-secondary">Detail Perhitungan:</h6>
                   <div className="row">
                     <div className="col-md-6">
                       <div className="alert alert-success">
                         <h6 className="text-success">✅ Yang Sudah Dihitung:</h6>
                         <ul className="mb-0">
                           <li>Evaluasi BerAKHLAK dengan <strong>penjumlahan langsung</strong></li>
-                          <li>Data Presensi dengan sistem progresif baru</li>
+                          <li>Data Presensi dengan sistem progresif</li>
                           <li>Data CKP dengan bobot 30%</li>
                           <li>Kandidat berdasarkan 2 peringkat teratas pemilih</li>
                           <li>Best Employee dari nilai akhir tertinggi</li>
@@ -799,11 +811,12 @@ const FinalCalculationPage = () => {
                     </div>
                     <div className="col-md-6">
                       <div className="alert alert-info">
-                        <h6 className="text-info">📊 Perubahan Sistem:</h6>
+                        <h6 className="text-info">📊 Proses Perhitungan:</h6>
                         <ul className="mb-0">
-                          <li><strong>BerAKHLAK:</strong> 1 tokoh, penjumlahan langsung</li>
-                          <li><strong>Rentang:</strong> 80-100 (bisa lebih tinggi)</li>
+                          <li><strong>BerAKHLAK:</strong> Total skor rata-rata dari seluruh penilai</li>
+                          <li><strong>Rentang penilaian BerAKHLAK:</strong> 80-100</li>
                           <li><strong>Presensi:</strong> Sistem pengurangan progresif</li>
+                          <li><strong>Capaian Kinerja Pegawai:</strong> Sistem pengurangan progresif</li>
                           <li><strong>Hasil:</strong> Nilai bisa lebih dari 100</li>
                         </ul>
                       </div>
@@ -827,100 +840,6 @@ const FinalCalculationPage = () => {
                     </div>
                   )}
 
-                  {/* Formula comparison */}
-                  <div className="mt-4">
-                    <h6 className="text-primary">Perbandingan Formula:</h6>
-                    <div className="row">
-                      <div className="col-md-6">
-                        <div className="card border-danger">
-                          <div className="card-header bg-danger text-white">
-                            <strong>Formula Lama</strong>
-                          </div>
-                          <div className="card-body">
-                            <ul className="list-unstyled mb-0">
-                              <li>• 3 Tokoh BerAKHLAK</li>
-                              <li>• Rata-rata per parameter</li>
-                              <li>• Rata-rata per kategori</li>
-                              <li>• Final = (T1 + T2 + T3) ÷ 3</li>
-                              <li>• Nilai maksimal ≈ 100</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="col-md-6">
-                        <div className="card border-success">
-                          <div className="card-header bg-success text-white">
-                            <strong>Formula Baru</strong>
-                          </div>
-                          <div className="card-body">
-                            <ul className="list-unstyled mb-0">
-                              <li>• 1 Tokoh BerAKHLAK saja</li>
-                              <li>• Penjumlahan langsung</li>
-                              <li>• Tidak ada averaging</li>
-                              <li>• Final = Total semua evaluasi</li>
-                              <li>• Nilai bisa lebih dari 100</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Additional insights */}
-                  <div className="mt-4">
-                    <h6 className="text-primary">Keuntungan Sistem Baru:</h6>
-                    <div className="row">
-                      <div className="col-md-4">
-                        <div className="text-center p-3 bg-light rounded">
-                          <i className="fas fa-clock text-success fa-2x mb-2"></i>
-                          <h6>Lebih Cepat</h6>
-                          <small className="text-muted">Pegawai hanya perlu mengisi 1 evaluasi</small>
-                        </div>
-                      </div>
-                      <div className="col-md-4">
-                        <div className="text-center p-3 bg-light rounded">
-                          <i className="fas fa-chart-line text-info fa-2x mb-2"></i>
-                          <h6>Fokus Kualitas</h6>
-                          <small className="text-muted">Nilai tinggi untuk pegawai terbaik</small>
-                        </div>
-                      </div>
-                      <div className="col-md-4">
-                        <div className="text-center p-3 bg-light rounded">
-                          <i className="fas fa-star text-warning fa-2x mb-2"></i>
-                          <h6>Nilai Tinggi</h6>
-                          <small className="text-muted">Skor BerAKHLAK bisa lebih dari 100</small>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Implementation notes */}
-                  <div className="mt-4">
-                    <div className="alert alert-secondary">
-                      <h6 className="text-secondary">
-                        <i className="fas fa-cogs me-2"></i>
-                        Catatan Implementasi
-                      </h6>
-                      <div className="row">
-                        <div className="col-md-6">
-                          <strong>Backend Changes:</strong>
-                          <ul className="mb-0 mt-1">
-                            <li>Updated final calculation logic</li>
-                            <li>New BerAKHLAK scoring method</li>
-                            <li>Progressive attendance system</li>
-                          </ul>
-                        </div>
-                        <div className="col-md-6">
-                          <strong>Frontend Updates:</strong>
-                          <ul className="mb-0 mt-1">
-                            <li>Real-time score preview</li>
-                            <li>Updated UI indicators</li>
-                            <li>Enhanced monitoring views</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
               <div className="modal-footer">

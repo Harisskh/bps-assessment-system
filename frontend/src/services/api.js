@@ -362,6 +362,18 @@ export const periodAPI = {
       throw error;
     }
   },
+
+  // 🔥 NEW: Search period by year and month
+getByYearMonth: (tahun, bulan) => {
+  console.log('🔄 Getting period by year month:', tahun, bulan);
+  return api.get('/periods/search', { params: { tahun, bulan, limit: 1 } });
+},
+
+// 🔥 NEW: Get previous period from active period
+getPrevious: () => {
+  console.log('🔄 Getting previous period from active...');
+  return api.get('/periods/previous');
+},
   
   // Get comprehensive periods from multiple sources
   getComprehensivePeriods: async () => {
@@ -527,6 +539,44 @@ export const finalEvaluationAPIAlternative = {
   getFinal: (params) => api.get('/final-evaluations', { params }),
   getBestEmployee: (periodId) => api.get(`/final-evaluations/best-employee/${periodId}`),
   getLeaderboard: (params) => api.get('/final-evaluations/leaderboard', { params }),
+};
+
+// =====================
+// 🔥 NEW: REPORTS API
+// =====================
+export const reportsAPI = {
+  // Get comprehensive report data (all-in-one)
+  getComprehensive: (params = {}) => {
+    console.log('📊 Getting comprehensive report data:', params);
+    return api.get('/reports/comprehensive', { params });
+  },
+  
+  // Get BerAKHLAK report only
+  getBerakhlak: (params = {}) => {
+    console.log('📊 Getting BerAKHLAK report:', params);
+    return api.get('/reports/berakhlak', { params });
+  },
+  
+  // Get attendance report only
+  getAttendance: (params = {}) => {
+    console.log('📊 Getting attendance report:', params);
+    return api.get('/reports/attendance', { params });
+  },
+  
+  // Get CKP report only
+  getCkp: (params = {}) => {
+    console.log('📊 Getting CKP report:', params);
+    return api.get('/reports/ckp', { params });
+  },
+  
+  // Export report to PDF
+  exportToPDF: (data) => {
+    console.log('📄 Exporting report to PDF:', data);
+    return api.post('/reports/export/pdf', data, {
+      responseType: 'blob', // Important for file downloads
+      timeout: 120000 // 2 minutes for PDF generation
+    });
+  }
 };
 
 export default api;

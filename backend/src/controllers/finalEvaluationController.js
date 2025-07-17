@@ -14,9 +14,15 @@ const EXCLUDED_POSITIONS = [
   'Kasubbag Umum',
   'Kasubbag Umum Badan Pusat Statistik Kabupaten/Kota',
   'Kasubbag Umum BPS Kabupaten/Kota',
-  'Kepala Sub Bagian Umum Badan Pusat Statistik Kabupaten/Kota',
-  'Kepala Sub Bagian Umum BPS Kabupaten/Kota',  
-  'Kepala Sub Bagian Umum'
+  'Kepala Subbagian Umum Badan Pusat Statistik Kabupaten/Kota',
+  'Kepala Subbagian Umum BPS Kabupaten/Kota',
+  'Kepala Subbagian Umum',
+  'kepala',
+  'madya',
+  'Madya',
+  'Kepala',
+  'KEPALA',
+  'MADYA'
 ];
 
 // Helper function to check if a position is excluded
@@ -106,31 +112,31 @@ const calculateFinalEvaluations = async (req, res) => {
 
     // 🔥 NEW FORMULA: Calculate BERAKHLAK scores with SUMMATION instead of AVERAGING
     const berakhlakScores = {};
-    const evaluatorCounts = {};
 
     // Group evaluations by target user
     for (const evaluation of evaluations) {
       const targetUserId = evaluation.targetUserId;
-      
-      // 🔥 NEW: Since we only have 1 tokoh berakhlak now, no need for ranking separation
+
       if (!berakhlakScores[targetUserId]) {
-        berakhlakScores[targetUserId] = {
-          totalScore: 0,  // 🔥 NEW: Direct sum instead of averaging
-          evaluatorCount: 0,
-          evaluations: []
-        };
+      berakhlakScores[targetUserId] = {
+        totalScore: 0, // Sum of normalized scores
+        evaluatorCount: 0,
+        evaluations: []
+      };
       }
 
-      // Calculate total score for this evaluation (8 parameters)
-      const totalScore = evaluation.scores.reduce((sum, score) => sum + score.score, 0);
+      // Hitung rata-rata dari 8 parameter untuk evaluator ini
+      const avgScore = evaluation.scores.length > 0
+      ? evaluation.scores.reduce((sum, score) => sum + score.score, 0) / 8
+      : 0;
 
-      // 🔥 NEW FORMULA: Add to total score directly (no averaging)
-      berakhlakScores[targetUserId].totalScore += totalScore;
+      // Tambahkan ke totalScore (sum of averages dari semua evaluator)
+      berakhlakScores[targetUserId].totalScore += avgScore;
       berakhlakScores[targetUserId].evaluatorCount++;
       berakhlakScores[targetUserId].evaluations.push({
-        evaluatorId: evaluation.evaluatorId,
-        totalScore: totalScore,
-        submitDate: evaluation.submitDate
+      evaluatorId: evaluation.evaluatorId,
+      avgScore: avgScore,
+      submitDate: evaluation.submitDate
       });
     }
 

@@ -295,13 +295,10 @@ const EvaluationManagementPage = () => {
                     </td>
                     <td>
                       <div className="evaluation-details">
-                        <span className={`badge ${getRankingBadge(evaluation.ranking)}`}>
-                          Tokoh {evaluation.ranking}
-                        </span>
                         <div className="mt-1">
-                          <small className="text-muted">Rata-rata Skor: </small>
+                          <strong className="text-muted">Rata-rata Skor: </strong>
                           <span className="score">
-                            {calculateAverageScore(evaluation.scores)}
+                           {calculateAverageScore(evaluation.scores)}
                           </span>
                         </div>
                       </div>
@@ -469,39 +466,38 @@ const EvaluationManagementPage = () => {
                   </div>
                 </div>
 
-                {/* Ranking & Summary */}
-                <div className="card mb-4">
-                  <div className="card-body">
-                    <div className="row text-center">
-                      <div className="col-md-4">
-                        <div className="p-3">
-                          <span className={`badge fs-6 ${getRankingBadge(selectedEvaluation.ranking)}`}>
-                            Tokoh BerAKHLAK {selectedEvaluation.ranking}
-                          </span>
-                          <div className="mt-2 text-muted">Kategori Penilaian</div>
-                        </div>
-                      </div>
-                      <div className="col-md-4">
-                        <div className="p-3">
-                          <div className="h4 text-primary mb-0">
-                            {calculateAverageScore(selectedEvaluation.scores)}
+                        <div className="card mb-4">
+                          <div className="card-body">
+                          <div className="row text-center">
+                            <div className="col-md-4">
+                            <div className="p-3">
+                              <span className="badge fs-6 bg-success">
+                              Tokoh BerAKHLAK {selectedEvaluation.ranking}
+                              </span>
+                              <div className="mt-2 text-muted">Kategori Penilaian</div>
+                            </div>
+                            </div>
+                            <div className="col-md-4">
+                            <div className="p-3">
+                              <div className="h4 text-primary mb-0">
+                              {calculateAverageScore(selectedEvaluation.scores)}
+                              </div>
+                              <div className="text-muted">Rata-rata Skor</div>
+                            </div>
+                            </div>
+                            <div className="col-md-4">
+                            <div className="p-3">
+                              <div className="h4 text-info mb-0">
+                              {selectedEvaluation.scores?.length || 8}
+                              </div>
+                              <div className="text-muted">Total Parameter</div>
+                            </div>
+                            </div>
                           </div>
-                          <div className="text-muted">Rata-rata Skor</div>
-                        </div>
-                      </div>
-                      <div className="col-md-4">
-                        <div className="p-3">
-                          <div className="h4 text-info mb-0">
-                            {selectedEvaluation.scores?.length || 8}
                           </div>
-                          <div className="text-muted">Total Parameter</div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Detail Skor per Parameter */}
+                        {/* Detail Skor per Parameter */}
                 <div className="card">
                   <div className="card-header bg-primary text-white">
                     <h6 className="mb-0">

@@ -1,12 +1,170 @@
-// controllers/monitoringController.js
+// controllers/monitoringController.js - FIXED FOR NEW SYSTEM (1 EVALUATION)
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// GET EVALUATION STATUS (siapa sudah/belum isi)
+// GET EVALUATION STATUS (updated for new system - 1 evaluation only)
 const getEvaluationStatus = async (req, res) => {
   try {
     const { periodId } = req.query;
+
+    console.log('🔄 Getting evaluation status for period:', periodId);
+
+    // Get active period if not specified
+    let targetPeriod;
+    if (periodId) {
+      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+    } else {
+      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+    }
+
+    if (!targetPeriod) {
+      return res.status(404).json({
+        success: false,
+        message: 'Periode tidak ditemukan'
+      });
+    }
+
+    console.log('📅 Target period:', targetPeriod.namaPeriode);
+
+    // Get all eligible users (STAFF and PIMPINAN only)
+    const allUsers = await prisma.user.findMany({
+      where: { 
+        isActive: true, 
+        role: { in: ['STAFF', 'PIMPINAN'] } 
+      },
+      select: {
+        id: true,
+        nip: true,
+        nama: true,
+        jabatan: true,
+        role: true,
+        mobilePhone: true,
+        email: true
+      },
+      orderBy: { nama: 'asc' }
+    });
+
+    console.log('👥 Found users:', allUsers.length);
+
+    // 🔥 FIXED: Get evaluations for this period (NEW SYSTEM - no ranking needed)
+    const evaluations = await prisma.evaluation.findMany({
+      where: { periodId: targetPeriod.id },
+      select: {
+        id: true,
+        evaluatorId: true,
+        targetUserId: true,
+        submitDate: true,
+        target: {
+          select: {
+            id: true,
+            nama: true,
+            jabatan: true
+          }
+        }
+      },
+      orderBy: { submitDate: 'desc' }
+    });
+
+    console.log('📝 Found evaluations:', evaluations.length);
+
+    // 🔥 FIXED: Group evaluations by evaluator (new system)
+    const evaluationsByUser = {};
+    evaluations.forEach(evaluation => {
+      if (!evaluationsByUser[evaluation.evaluatorId]) {
+        evaluationsByUser[evaluation.evaluatorId] = [];
+      }
+      evaluationsByUser[evaluation.evaluatorId].push(evaluation);
+    });
+
+    // 🔥 FIXED: Map status for each user (NEW SYSTEM - only need 1 evaluation)
+    const userStatuses = allUsers.map(user => {
+      const userEvaluations = evaluationsByUser[user.id] || [];
+      
+      // 🔥 NEW SYSTEM: Complete if user has at least 1 evaluation
+      const isComplete = userEvaluations.length >= 1;
+      const completedCount = userEvaluations.length;
+
+      let status = 'NOT_STARTED';
+      if (isComplete) {
+        status = 'COMPLETE';
+      }
+
+      const lastSubmission = userEvaluations.length > 0 
+        ? Math.max(...userEvaluations.map(e => new Date(e.submitDate).getTime()))
+        : null;
+
+      return {
+        user: {
+          id: user.id,
+          nip: user.nip,
+          nama: user.nama,
+          jabatan: user.jabatan,
+          role: user.role,
+          mobilePhone: user.mobilePhone,
+          email: user.email
+        },
+        status,
+        completedCount,
+        requiredCount: 1, // NEW SYSTEM: only need 1 evaluation
+        missingCount: Math.max(0, 1 - completedCount),
+        lastSubmission: lastSubmission ? new Date(lastSubmission) : null,
+        evaluations: userEvaluations.map(e => ({
+          id: e.id,
+          targetId: e.targetUserId,
+          targetName: e.target.nama,
+          targetJabatan: e.target.jabatan,
+          submitDate: e.submitDate
+        }))
+      };
+    });
+
+    // 🔥 FIXED: Summary statistics (new system)
+    const summary = {
+      total: allUsers.length,
+      completed: userStatuses.filter(u => u.status === 'COMPLETE').length,
+      notStarted: userStatuses.filter(u => u.status === 'NOT_STARTED').length,
+      completionRate: allUsers.length > 0 
+        ? Math.round((userStatuses.filter(u => u.status === 'COMPLETE').length / allUsers.length) * 100)
+        : 0
+    };
+
+    console.log('📊 Summary:', summary);
+
+    res.json({
+      success: true,
+      data: {
+        period: {
+          id: targetPeriod.id,
+          name: targetPeriod.namaPeriode,
+          isActive: targetPeriod.isActive
+        },
+        summary,
+        userStatuses,
+        systemInfo: {
+          type: 'NEW_SYSTEM',
+          requiredEvaluations: 1,
+          description: 'Sistem baru: hanya perlu 1 evaluasi untuk dianggap selesai'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get evaluation status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// GET INCOMPLETE USERS (updated for new system)
+const getIncompleteUsers = async (req, res) => {
+  try {
+    const { periodId } = req.query;
+
+    console.log('🔄 Getting incomplete users for period:', periodId);
 
     // Get active period if not specified
     let targetPeriod;
@@ -31,142 +189,7 @@ const getEvaluationStatus = async (req, res) => {
       },
       select: {
         id: true,
-        nama: true,
-        jabatan: true,
-        role: true,
-        mobilePhone: true,
-        email: true
-      },
-      orderBy: { nama: 'asc' }
-    });
-
-    // Get evaluations for this period
-    const evaluations = await prisma.evaluation.findMany({
-      where: { periodId: targetPeriod.id },
-      select: {
-        evaluatorId: true,
-        ranking: true,
-        submitDate: true,
-        target: {
-          select: {
-            nama: true
-          }
-        }
-      }
-    });
-
-    // Group evaluations by evaluator
-    const evaluationsByUser = {};
-    evaluations.forEach(evaluation => {
-      if (!evaluationsByUser[evaluation.evaluatorId]) {
-        evaluationsByUser[evaluation.evaluatorId] = [];
-      }
-      evaluationsByUser[evaluation.evaluatorId].push(evaluation);
-    });
-
-    // Map status for each user
-    const userStatuses = allUsers.map(user => {
-      const userEvaluations = evaluationsByUser[user.id] || [];
-      const completedRankings = userEvaluations.map(e => e.ranking).sort();
-      const isComplete = completedRankings.length === 3 && 
-                        completedRankings.includes(1) && 
-                        completedRankings.includes(2) && 
-                        completedRankings.includes(3);
-
-      let status = 'NOT_STARTED';
-      if (isComplete) {
-        status = 'COMPLETE';
-      } else if (userEvaluations.length > 0) {
-        status = 'PARTIAL';
-      }
-
-      const lastSubmission = userEvaluations.length > 0 
-        ? Math.max(...userEvaluations.map(e => new Date(e.submitDate).getTime()))
-        : null;
-
-      return {
-        user: {
-          id: user.id,
-          nama: user.nama,
-          jabatan: user.jabatan,
-          role: user.role,
-          mobilePhone: user.mobilePhone,
-          email: user.email
-        },
-        status,
-        completedCount: userEvaluations.length,
-        completedRankings,
-        missingRankings: [1, 2, 3].filter(rank => !completedRankings.includes(rank)),
-        lastSubmission: lastSubmission ? new Date(lastSubmission) : null,
-        evaluations: userEvaluations.map(e => ({
-          ranking: e.ranking,
-          targetName: e.target.nama,
-          submitDate: e.submitDate
-        }))
-      };
-    });
-
-    // Summary statistics
-    const summary = {
-      total: allUsers.length,
-      completed: userStatuses.filter(u => u.status === 'COMPLETE').length,
-      partial: userStatuses.filter(u => u.status === 'PARTIAL').length,
-      notStarted: userStatuses.filter(u => u.status === 'NOT_STARTED').length,
-      completionRate: allUsers.length > 0 
-        ? ((userStatuses.filter(u => u.status === 'COMPLETE').length / allUsers.length) * 100).toFixed(1)
-        : 0
-    };
-
-    res.json({
-      success: true,
-      data: {
-        period: {
-          id: targetPeriod.id,
-          name: targetPeriod.namaPeriode,
-          isActive: targetPeriod.isActive
-        },
-        summary,
-        userStatuses
-      }
-    });
-
-  } catch (error) {
-    console.error('Get evaluation status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server'
-    });
-  }
-};
-
-// GET INCOMPLETE USERS (yang belum lengkap)
-const getIncompleteUsers = async (req, res) => {
-  try {
-    const { periodId } = req.query;
-
-    // Get active period if not specified
-    let targetPeriod;
-    if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
-    } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
-    }
-
-    if (!targetPeriod) {
-      return res.status(404).json({
-        success: false,
-        message: 'Periode tidak ditemukan'
-      });
-    }
-
-    // Get users who haven't completed all 3 evaluations
-    const allUsers = await prisma.user.findMany({
-      where: { 
-        isActive: true, 
-        role: { in: ['STAFF', 'PIMPINAN'] } 
-      },
-      select: {
-        id: true,
+        nip: true,
         nama: true,
         jabatan: true,
         role: true,
@@ -175,18 +198,18 @@ const getIncompleteUsers = async (req, res) => {
       }
     });
 
-    // Get evaluation counts per user
+    // 🔥 FIXED: Get evaluation counts per user (new system)
     const evaluationCounts = await prisma.evaluation.groupBy({
       by: ['evaluatorId'],
       where: { periodId: targetPeriod.id },
       _count: { evaluatorId: true }
     });
 
-    // Filter incomplete users
+    // 🔥 FIXED: Filter incomplete users (new system - need at least 1 evaluation)
     const incompleteUsers = allUsers.filter(user => {
       const userEvaluations = evaluationCounts.find(e => e.evaluatorId === user.id);
       const count = userEvaluations ? userEvaluations._count.evaluatorId : 0;
-      return count < 3;
+      return count < 1; // NEW SYSTEM: incomplete if less than 1 evaluation
     });
 
     // Get detailed status for incomplete users
@@ -198,23 +221,31 @@ const getIncompleteUsers = async (req, res) => {
             periodId: targetPeriod.id
           },
           select: {
-            ranking: true,
-            submitDate: true
+            id: true,
+            targetUserId: true,
+            submitDate: true,
+            target: {
+              select: {
+                nama: true,
+                jabatan: true
+              }
+            }
           }
         });
 
-        const completedRankings = userEvaluations.map(e => e.ranking);
-        const missingRankings = [1, 2, 3].filter(rank => !completedRankings.includes(rank));
+        const completedCount = userEvaluations.length;
+        const requiredCount = 1; // NEW SYSTEM
+        const missingCount = Math.max(0, requiredCount - completedCount);
 
         return {
           user,
-          completedCount: userEvaluations.length,
-          missingCount: 3 - userEvaluations.length,
-          completedRankings,
-          missingRankings,
+          completedCount,
+          requiredCount,
+          missingCount,
           lastActivity: userEvaluations.length > 0 
             ? Math.max(...userEvaluations.map(e => new Date(e.submitDate).getTime()))
-            : null
+            : null,
+          evaluations: userEvaluations
         };
       })
     );
@@ -226,6 +257,8 @@ const getIncompleteUsers = async (req, res) => {
       return b.completedCount - a.completedCount;
     });
 
+    console.log('❌ Incomplete users:', detailedStatuses.length);
+
     res.json({
       success: true,
       data: {
@@ -236,26 +269,30 @@ const getIncompleteUsers = async (req, res) => {
         summary: {
           totalIncomplete: incompleteUsers.length,
           notStarted: detailedStatuses.filter(u => u.completedCount === 0).length,
-          partial: detailedStatuses.filter(u => u.completedCount > 0 && u.completedCount < 3).length
+          systemType: 'NEW_SYSTEM',
+          requiredEvaluations: 1
         },
         incompleteUsers: detailedStatuses
       }
     });
 
   } catch (error) {
-    console.error('Get incomplete users error:', error);
+    console.error('❌ Get incomplete users error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// GET DETAILED USER EVALUATION STATUS
+// GET DETAILED USER EVALUATION STATUS (updated for new system)
 const getUserEvaluationDetail = async (req, res) => {
   try {
     const { userId } = req.params;
     const { periodId } = req.query;
+
+    console.log('👤 Getting user detail:', userId, 'for period:', periodId);
 
     // Get active period if not specified
     let targetPeriod;
@@ -277,6 +314,7 @@ const getUserEvaluationDetail = async (req, res) => {
       where: { id: userId },
       select: {
         id: true,
+        nip: true,
         nama: true,
         jabatan: true,
         role: true,
@@ -292,7 +330,7 @@ const getUserEvaluationDetail = async (req, res) => {
       });
     }
 
-    // Get user's evaluations for this period
+    // 🔥 FIXED: Get user's evaluations for this period (new system)
     const evaluations = await prisma.evaluation.findMany({
       where: {
         evaluatorId: userId,
@@ -301,6 +339,7 @@ const getUserEvaluationDetail = async (req, res) => {
       include: {
         target: {
           select: {
+            id: true,
             nama: true,
             jabatan: true
           }
@@ -321,11 +360,13 @@ const getUserEvaluationDetail = async (req, res) => {
           }
         }
       },
-      orderBy: { ranking: 'asc' }
+      orderBy: { submitDate: 'desc' }
     });
 
-    const completedRankings = evaluations.map(e => e.ranking);
-    const missingRankings = [1, 2, 3].filter(rank => !completedRankings.includes(rank));
+    const completedCount = evaluations.length;
+    const requiredCount = 1; // NEW SYSTEM
+    const missingCount = Math.max(0, requiredCount - completedCount);
+    const isComplete = completedCount >= requiredCount;
 
     const detailData = {
       user,
@@ -334,15 +375,14 @@ const getUserEvaluationDetail = async (req, res) => {
         name: targetPeriod.namaPeriode
       },
       summary: {
-        completedCount: evaluations.length,
-        missingCount: 3 - evaluations.length,
-        completedRankings,
-        missingRankings,
-        isComplete: evaluations.length === 3
+        completedCount,
+        requiredCount,
+        missingCount,
+        isComplete,
+        systemType: 'NEW_SYSTEM'
       },
       evaluations: evaluations.map(evaluation => ({
         id: evaluation.id,
-        ranking: evaluation.ranking,
         target: evaluation.target,
         submitDate: evaluation.submitDate,
         scores: evaluation.scores.map(score => ({
@@ -356,16 +396,19 @@ const getUserEvaluationDetail = async (req, res) => {
       }))
     };
 
+    console.log('✅ User detail prepared for:', user.nama);
+
     res.json({
       success: true,
       data: detailData
     });
 
   } catch (error) {
-    console.error('Get user evaluation detail error:', error);
+    console.error('❌ Get user evaluation detail error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

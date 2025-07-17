@@ -167,14 +167,6 @@ const EnhancedMonitoringPage = () => {
           </h1>
           <p className="text-muted">Monitor progress pengisian evaluasi Tokoh BerAKHLAK - Sistem Baru (1 Evaluasi)</p>
         </div>
-        <button 
-          className="btn btn-outline-primary"
-          onClick={loadMonitoringData}
-          disabled={loading}
-        >
-          <i className="fas fa-sync-alt me-2"></i>
-          Refresh Data
-        </button>
       </div>
 
       {/* Alerts */}
@@ -425,7 +417,6 @@ const EnhancedMonitoringPage = () => {
                       <th>Progress</th>
                       <th>Status</th>
                       <th>Terakhir Update</th>
-                      <th width="120">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>

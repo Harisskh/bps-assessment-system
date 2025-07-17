@@ -7,95 +7,83 @@ const prisma = new PrismaClient();
 // GET ALL USERS (with pagination and search)
 const getAllUsers = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
-      role = '', 
-      status = '',
-      isActive 
-    } = req.query;
-
+    const { page = 1, limit = 10, search, role, status } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build where clause
-    const where = {
-      AND: [
-        // Search by name, nip, or username
-        search ? {
-          OR: [
-            { nama: { contains: search } },
-            { nip: { contains: search } },
-            { username: { contains: search } }
-          ]
-        } : {},
-        // Filter by role
-        role ? { role } : {},
-        // Filter by status (PNS/PPPK)
-        status ? { status } : {},
-        // Filter by active status
-        isActive !== undefined ? { isActive: isActive === 'true' } : {}
-      ]
-    };
+    let where = {};
 
-    // Get users with pagination
-    const [users, totalCount] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          nip: true,
-          nama: true,
-          email: true,
-          role: true,
-          jenisKelamin: true,
-          jabatan: true,
-          golongan: true,
-          status: true,
-          username: true,
-          isActive: true,
-          mobilePhone: true, // FIXED: Include mobilePhone
-          alamat: true, // FIXED: Include alamat
-          createdAt: true,
-          updatedAt: true
-        },
-        orderBy: [
-          { role: 'asc' },
-          { nama: 'asc' }
-        ],
-        skip,
-        take: limitNum
-      }),
-      prisma.user.count({ where })
-    ]);
+    if (search) {
+      // 🔥 MODIFIKASI INI: Tambahkan kondisi OR untuk mencari di nama, nip, atau username
+      where.OR = [
+        { nama: { contains: search, mode: 'insensitive' } }, // Cari berdasarkan nama
+        { nip: { contains: search, mode: 'insensitive' } },  // Cari berdasarkan NIP
+        { username: { contains: search, mode: 'insensitive' } } // Cari berdasarkan username
+      ];
+    }
 
-    const totalPages = Math.ceil(totalCount / limitNum);
+    if (role) {
+      where.role = role;
+    }
 
-    res.json({
+    if (status) {
+      where.status = status;
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      skip,
+      take: limitNum,
+      orderBy: {
+        nama: 'asc', // Urutkan berdasarkan nama secara default
+      },
+      select: { // Pilih kolom yang ingin ditampilkan
+        id: true,
+        nip: true,
+        nama: true,
+        email: true,
+        jenisKelamin: true,
+        tanggalLahir: true,
+        alamat: true,
+        mobilePhone: true,
+        pendidikanTerakhir: true,
+        jabatan: true,
+        golongan: true,
+        status: true,
+        username: true,
+        role: true,
+        isActive: true,
+        profilePicture: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    });
+
+    const totalUsers = await prisma.user.count({ where });
+
+    res.status(200).json({
       success: true,
       data: {
         users,
         pagination: {
+          totalCount: totalUsers,
+          totalPages: Math.ceil(totalUsers / limitNum),
           currentPage: pageNum,
-          totalPages,
-          totalCount,
           limit: limitNum,
-          hasNext: pageNum < totalPages,
-          hasPrev: pageNum > 1
-        }
-      }
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Get all users error:', error);
+    console.error('Error getting all users:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Gagal mendapatkan daftar user',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
+
 
 const createUser = async (req, res) => {
   try {

@@ -10,6 +10,8 @@ const {
   deletePeriod,
   activatePeriod,
   getPeriodById,
+  getPeriodByYearMonth,
+  getPreviousPeriod,
   getActivePeriod
 } = require('../controllers/periodController');
 
@@ -68,7 +70,9 @@ router.get('/test', (req, res) => {
 router.use(authenticateToken);
 
 // Public authenticated endpoints (all roles)
-router.get('/active', getActivePeriod);                    // Get active period - ALL AUTHENTICATED USERS
+router.get('/active', getActivePeriod);  
+router.get('/search', getPeriodByYearMonth);
+router.get('/previous', getPreviousPeriod); 
 
 // Staff endpoints  
 router.get('/staff/available', async (req, res) => {

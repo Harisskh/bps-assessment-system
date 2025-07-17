@@ -260,6 +260,17 @@ app.get('/', (req, res) => {
         eligibleUsers: 'GET /api/evaluations/eligible-users',
         submit: 'POST /api/evaluations/submit'
       },
+      monitoring: {
+        evaluationStatus: 'GET /api/monitoring/evaluation-status',
+        incompleteUsers: 'GET /api/monitoring/incomplete-users',
+      },
+      reports: {
+        comprehensive: 'GET /api/reports/comprehensive',
+        berakhlak: 'GET /api/reports/berakhlak',
+        attendance: 'GET /api/reports/attendance',
+        ckp: 'GET /api/reports/ckp',
+        exportPDF: 'POST /api/reports/export/pdf'
+      },
       attendance: {
         getAll: 'GET /api/attendance',
         create: 'POST /api/attendance',
@@ -290,6 +301,7 @@ const finalEvaluationRoutes = require('./routes/finalEvaluation');
 const periodRoutes = require('./routes/periods');
 const dashboardRoutes = require('./routes/dashboard');
 const monitoringRoutes = require('./routes/monitoring');
+const reportsRoutes = require('./routes/reports'); 
 
 // 🔥 FIXED: Route definitions - REMOVE DUPLICATES AND CONFLICTS
 app.use('/api/auth', authRoutes);
@@ -323,6 +335,18 @@ app.use('/api/*', (req, res) => {
         '/api/evaluations/active-period', 
         '/api/evaluations/eligible-users', 
         '/api/evaluations/submit'
+      ],
+      monitoring: [
+        '/api/monitoring/evaluation-status',
+        '/api/monitoring/incomplete-users',
+        '/api/monitoring/user/:userId/detail'
+      ],
+      reports: [
+        '/api/reports/comprehensive',
+        '/api/reports/berakhlak',
+        '/api/reports/attendance',
+        '/api/reports/ckp',
+        '/api/reports/export/pdf'
       ],
       attendance: ['/api/attendance', '/api/attendance/:id'],
       ckp: ['/api/ckp', '/api/ckp/:id'],

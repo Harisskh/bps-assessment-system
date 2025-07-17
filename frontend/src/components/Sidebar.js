@@ -76,6 +76,7 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
     ckp: "M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.09-4-4L2 17.08z",
     calculation: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4 14h-2v-4h2v4zm0-6h-2v-2h2v2zm-4 6H9v-4h2v4zm0-6H9v-2h2v2zm-4 6H5v-4h2v4zm0-6H5v-2h2v2z",
     monitoring: "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z",
+    report: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z M16 18H8v-2h8v2z M16 14H8v-2h8v2z M10 10H8V8h2v2z M12 6V2l6 6h-4a2 2 0 0 1-2-2z",
     logout: "M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"
   };
 
@@ -89,13 +90,19 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
     { path: '/period-management', icon: menuIcons.period, label: 'Kelola Periode', roles: ['ADMIN'] },
     { path: '/evaluation-management', icon: menuIcons.evaluation_management, label: 'Kelola Penilaian', roles: ['ADMIN'] },
     { path: '/users', icon: menuIcons.users, label: 'Kelola User', roles: ['ADMIN'] },
+    
     { type: 'title', label: 'Input Data', roles: ['ADMIN'] },
-    { path: '/attendance-input', icon: menuIcons.attendance, label: 'Input Presensi', roles: ['ADMIN'] },
-    { path: '/ckp-input', icon: menuIcons.ckp, label: 'Input CKP', roles: ['ADMIN'] },
+    { path: '/attendance-input', icon: menuIcons.attendance, label: 'Rekap Ketidakhadiran', roles: ['ADMIN'] },
+    { path: '/ckp-input', icon: menuIcons.ckp, label: 'Rekap CKP', roles: ['ADMIN'] },
+    
     { type: 'divider', roles: ['ADMIN', 'PIMPINAN'] },
     { type: 'title', label: 'Analisis', roles: ['ADMIN', 'PIMPINAN'] },
     { path: '/final-calculation', icon: menuIcons.calculation, label: 'Perhitungan Final', roles: ['ADMIN'] },
     { path: '/monitoring', icon: menuIcons.monitoring, label: 'Monitoring', roles: ['ADMIN', 'PIMPINAN'] },
+    
+    // 🔥 NEW: Report Menu
+    { path: '/reports', icon: menuIcons.report, label: 'Laporan Evaluasi', roles: ['ADMIN', 'PIMPINAN'] },
+    
     { path: '/users', icon: menuIcons.users, label: 'Data Pegawai', roles: ['PIMPINAN'] },
   ];
   

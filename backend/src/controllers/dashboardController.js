@@ -1,4 +1,4 @@
-// controllers/dashboardController.js - FIXED VERSION WITH PROFILE PICTURE
+// controllers/dashboardController.js - COMPLETE FIXED VERSION
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -8,15 +8,20 @@ const getDashboardStats = async (req, res) => {
   try {
     const { periodId } = req.query;
 
+    console.log('📊 Dashboard stats request - periodId:', periodId);
+
     // Get active period if not specified
     let targetPeriod;
     if (periodId) {
       targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      console.log('📅 Found specific period:', targetPeriod?.namaPeriode);
     } else {
       targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      console.log('📅 Found active period:', targetPeriod?.namaPeriode);
     }
 
     if (!targetPeriod) {
+      console.log('❌ No period found');
       return res.status(404).json({
         success: false,
         message: 'Periode tidak ditemukan'
@@ -24,132 +29,235 @@ const getDashboardStats = async (req, res) => {
     }
 
     const where = { periodId: targetPeriod.id };
+    console.log('🔍 Query where clause:', where);
 
-    // Get comprehensive statistics
-    const [
-      totalUsers,
-      activeUsers,
-      totalEvaluations,
-      completedEvaluations,
-      attendanceData,
-      ckpData,
-      finalEvaluationData,
-      bestEmployee
-    ] = await Promise.all([
-      // Total users
-      prisma.user.count({ where: { isActive: true, role: { in: ['STAFF', 'PIMPINAN'] } } }),
-      
-      // Active users (yang sudah pernah submit evaluation)
-      prisma.evaluation.findMany({
-        where,
-        select: { evaluatorId: true },
-        distinct: ['evaluatorId']
-      }),
-      
-      // Total evaluations in period
-      prisma.evaluation.count({ where }),
-      
-      // Completed evaluations (users who submitted 3 evaluations)
-      prisma.evaluation.groupBy({
-        by: ['evaluatorId'],
-        where,
-        _count: { evaluatorId: true },
-        having: { evaluatorId: { _count: { gte: 3 } } }
-      }),
-      
-      // Attendance statistics
-      prisma.attendance.aggregate({
-        where,
-        _avg: { nilaiPresensi: true },
-        _count: { id: true }
-      }),
-      
-      // CKP statistics
-      prisma.ckpScore.aggregate({
-        where,
-        _avg: { score: true },
-        _count: { id: true }
-      }),
-      
-      // Final evaluation statistics
-      prisma.finalEvaluation.aggregate({
-        where,
-        _avg: { finalScore: true },
-        _count: { id: true }
-      }),
-      
-      // 🔥 FIXED: Best employee WITH PROFILE PICTURE
-      prisma.finalEvaluation.findFirst({
-        where: { ...where, isBestEmployee: true },
-        include: {
-          user: {
-            select: {
-              id: true,
-              nama: true,
-              jabatan: true,
-              nip: true,
-              profilePicture: true  // 🔥 TAMBAHKAN INI
-            }
-          }
-        }
-      })
-    ]);
-
-    const stats = {
-      period: {
-        id: targetPeriod.id,
-        name: targetPeriod.namaPeriode,
-        isActive: targetPeriod.isActive
-      },
-      overview: {
+    try {
+      // Get comprehensive statistics with better error handling
+      const [
         totalUsers,
-        activeUsers: activeUsers.length,
-        participationRate: totalUsers > 0 ? ((activeUsers.length / totalUsers) * 100).toFixed(1) : 0,
+        activeUsers,
         totalEvaluations,
-        completedEvaluations: completedEvaluations.length,
-        completionRate: totalUsers > 0 ? ((completedEvaluations.length / totalUsers) * 100).toFixed(1) : 0
-      },
-      scores: {
-        attendance: {
-          average: attendanceData._avg.nilaiPresensi || 0,
-          count: attendanceData._count.id || 0
-        },
-        ckp: {
-          average: ckpData._avg.score || 0,
-          count: ckpData._count.id || 0
-        },
-        final: {
-          average: finalEvaluationData._avg.finalScore || 0,
-          count: finalEvaluationData._count.id || 0
-        }
-      },
-      bestEmployee: bestEmployee ? {
-        user: bestEmployee.user,
-        finalScore: bestEmployee.finalScore,
-        berakhlakScore: bestEmployee.berakhlakScore,
-        presensiScore: bestEmployee.presensiScore,
-        ckpScore: bestEmployee.ckpScore
-      } : null
-    };
+        completedEvaluations,
+        attendanceData,
+        ckpData,
+        finalEvaluationData,
+        bestEmployee
+      ] = await Promise.all([
+        // Total users eligible for evaluation
+        prisma.user.count({ 
+          where: { 
+            isActive: true, 
+            role: { in: ['STAFF', 'PIMPINAN'] } 
+          } 
+        }).catch(e => {
+          console.error('Error counting users:', e);
+          return 0;
+        }),
+        
+        // Active users (yang sudah pernah submit evaluation)
+        prisma.evaluation.findMany({
+          where,
+          select: { evaluatorId: true },
+          distinct: ['evaluatorId']
+        }).catch(e => {
+          console.error('Error finding active users:', e);
+          return [];
+        }),
+        
+        // Total evaluations in period
+        prisma.evaluation.count({ where }).catch(e => {
+          console.error('Error counting evaluations:', e);
+          return 0;
+        }),
+        
+        // Completed evaluations (users who submitted 3 evaluations)
+        prisma.evaluation.groupBy({
+          by: ['evaluatorId'],
+          where,
+          _count: { evaluatorId: true },
+          having: { evaluatorId: { _count: { gte: 3 } } }
+        }).catch(e => {
+          console.error('Error grouping completed evaluations:', e);
+          return [];
+        }),
+        
+        // Attendance statistics
+        prisma.attendance.aggregate({
+          where,
+          _avg: { nilaiPresensi: true },
+          _count: { id: true }
+        }).catch(e => {
+          console.error('Error aggregating attendance:', e);
+          return { _avg: { nilaiPresensi: null }, _count: { id: 0 } };
+        }),
+        
+        // CKP statistics
+        prisma.ckpScore.aggregate({
+          where,
+          _avg: { score: true },
+          _count: { id: true }
+        }).catch(e => {
+          console.error('Error aggregating CKP:', e);
+          return { _avg: { score: null }, _count: { id: 0 } };
+        }),
+        
+        // Final evaluation statistics
+        prisma.finalEvaluation.aggregate({
+          where,
+          _avg: { finalScore: true },
+          _count: { id: true }
+        }).catch(e => {
+          console.error('Error aggregating final evaluations:', e);
+          return { _avg: { finalScore: null }, _count: { id: 0 } };
+        }),
+        
+        // 🔥 FIXED: Best employee WITH PROFILE PICTURE from PREVIOUS period
+        getBestEmployeeForPrevious(targetPeriod).catch(e => {
+          console.error('Error getting best employee:', e);
+          return null;
+        })
+      ]);
 
-    res.json({
-      success: true,
-      data: stats
-    });
+      console.log('📊 Stats collected:', {
+        totalUsers,
+        activeUsersCount: activeUsers.length,
+        totalEvaluations,
+        completedEvaluationsCount: completedEvaluations.length
+      });
+
+      const stats = {
+        period: {
+          id: targetPeriod.id,
+          name: targetPeriod.namaPeriode,
+          isActive: targetPeriod.isActive
+        },
+        overview: {
+          totalUsers,
+          activeUsers: activeUsers.length,
+          participationRate: totalUsers > 0 ? 
+            ((activeUsers.length / totalUsers) * 100).toFixed(1) : 0,
+          totalEvaluations,
+          completedEvaluations: completedEvaluations.length,
+          completionRate: totalUsers > 0 ? 
+            ((completedEvaluations.length / totalUsers) * 100).toFixed(1) : 0
+        },
+        scores: {
+          attendance: {
+            average: attendanceData._avg?.nilaiPresensi || 0,
+            count: attendanceData._count?.id || 0
+          },
+          ckp: {
+            average: ckpData._avg?.score || 0,
+            count: ckpData._count?.id || 0
+          },
+          final: {
+            average: finalEvaluationData._avg?.finalScore || 0,
+            count: finalEvaluationData._count?.id || 0
+          }
+        },
+        bestEmployee
+      };
+
+      console.log('✅ Dashboard stats completed successfully');
+
+      res.json({
+        success: true,
+        data: stats
+      });
+
+    } catch (innerError) {
+      console.error('Inner dashboard stats error:', innerError);
+      throw innerError;
+    }
 
   } catch (error) {
     console.error('Get dashboard stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// GET EVALUATION PROGRESS (monitoring pengisian)
+// 🔥 FIXED: Helper function to get best employee from previous period
+const getBestEmployeeForPrevious = async (currentPeriod) => {
+  try {
+    console.log('🏆 Getting best employee for previous period from:', currentPeriod.namaPeriode);
+
+    // Calculate previous period
+    let previousYear = currentPeriod.tahun;
+    let previousMonth = currentPeriod.bulan - 1;
+    
+    if (previousMonth < 1) {
+      previousMonth = 12;
+      previousYear = currentPeriod.tahun - 1;
+    }
+    
+    console.log('📅 Looking for previous period:', previousYear, previousMonth);
+
+    // Find previous period in database
+    const previousPeriod = await prisma.period.findFirst({
+      where: {
+        tahun: previousYear,
+        bulan: previousMonth
+      }
+    });
+
+    if (!previousPeriod) {
+      console.log('⚠️ Previous period not found in database');
+      return null;
+    }
+
+    console.log('📅 Found previous period:', previousPeriod.namaPeriode);
+
+    // Get best employee from previous period
+    const bestEmployee = await prisma.finalEvaluation.findFirst({
+      where: { 
+        periodId: previousPeriod.id,
+        isBestEmployee: true
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nama: true,
+            jabatan: true,
+            nip: true,
+            profilePicture: true  // Include profile picture
+          }
+        }
+      }
+    });
+
+    if (!bestEmployee) {
+      console.log('⚠️ No best employee found for previous period');
+      return null;
+    }
+
+    console.log('🏆 Found best employee:', bestEmployee.user.nama);
+
+    return {
+      user: bestEmployee.user,
+      finalScore: bestEmployee.finalScore,
+      berakhlakScore: bestEmployee.berakhlakScore,
+      presensiScore: bestEmployee.presensiScore,
+      ckpScore: bestEmployee.ckpScore,
+      period: previousPeriod  // Include period info
+    };
+
+  } catch (error) {
+    console.error('Get best employee for previous period error:', error);
+    return null;
+  }
+};
+
+// 🔥 COMPLETELY FIXED: GET EVALUATION PROGRESS 
 const getEvaluationProgress = async (req, res) => {
   try {
     const { periodId } = req.query;
+
+    console.log('📈 Getting evaluation progress - periodId:', periodId);
 
     // Get active period if not specified
     let targetPeriod;
@@ -160,11 +268,14 @@ const getEvaluationProgress = async (req, res) => {
     }
 
     if (!targetPeriod) {
+      console.log('❌ No target period found');
       return res.status(404).json({
         success: false,
         message: 'Periode tidak ditemukan'
       });
     }
+
+    console.log('📅 Target period:', targetPeriod.namaPeriode);
 
     // Get all eligible users (STAFF + PIMPINAN)
     const allUsers = await prisma.user.findMany({
@@ -181,21 +292,35 @@ const getEvaluationProgress = async (req, res) => {
       orderBy: { nama: 'asc' }
     });
 
-    // Get evaluation counts per user
-    const evaluationCounts = await prisma.evaluation.groupBy({
-      by: ['evaluatorId'],
+    console.log('👥 Found eligible users:', allUsers.length);
+
+    // 🔥 FIXED: Get evaluations for this period correctly
+    const evaluations = await prisma.evaluation.findMany({
       where: { periodId: targetPeriod.id },
-      _count: { evaluatorId: true }
+      select: {
+        evaluatorId: true,
+        targetUserId: true,
+        ranking: true
+      }
     });
 
-    // Map evaluation status
+    console.log('📝 Found evaluations:', evaluations.length);
+
+    // 🔥 FIXED: Process evaluations to count per user
+    const evaluationsByUser = {};
+    evaluations.forEach(evaluation => {
+      if (!evaluationsByUser[evaluation.evaluatorId]) {
+        evaluationsByUser[evaluation.evaluatorId] = 0;
+      }
+      evaluationsByUser[evaluation.evaluatorId]++;
+    });
+
+    console.log('📊 Evaluations by user:', Object.keys(evaluationsByUser).length, 'users have evaluations');
+
+    // Map evaluation status for each user
     const progress = allUsers.map(user => {
-      const userEvaluations = evaluationCounts.find(
-        e => e.evaluatorId === user.id
-      );
-      
-      const evaluationCount = userEvaluations ? userEvaluations._count.evaluatorId : 0;
-      const isComplete = evaluationCount >= 3; // Harus 3 evaluasi (tokoh 1, 2, 3)
+      const evaluationCount = evaluationsByUser[user.id] || 0;
+      const isComplete = evaluationCount >= 3; // User needs to evaluate at least 3 people
       
       return {
         user: {
@@ -218,6 +343,8 @@ const getEvaluationProgress = async (req, res) => {
       notStarted: progress.filter(p => p.status === 'NOT_STARTED').length
     };
 
+    console.log('📊 Progress summary:', summary);
+
     res.json({
       success: true,
       data: {
@@ -234,7 +361,8 @@ const getEvaluationProgress = async (req, res) => {
     console.error('Get evaluation progress error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -326,7 +454,8 @@ const getChartsData = async (req, res) => {
     });
 
     Object.values(jabatanStats).forEach(stat => {
-      stat.averageScore = stat.count > 0 ? (stat.totalScore / stat.count).toFixed(2) : 0;
+      stat.averageScore = stat.count > 0 ? 
+        (stat.totalScore / stat.count).toFixed(2) : 0;
     });
 
     const chartsData = {

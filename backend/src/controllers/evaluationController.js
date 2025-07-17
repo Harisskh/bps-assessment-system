@@ -16,7 +16,13 @@ const EXCLUDED_POSITIONS = [
   'Kasubbag Umum BPS Kabupaten/Kota',
   'Kepala Subbagian Umum Badan Pusat Statistik Kabupaten/Kota',
   'Kepala Subbagian Umum BPS Kabupaten/Kota',
-  'Kepala Subbagian Umum'
+  'Kepala Subbagian Umum',
+  'kepala',
+  'madya',
+  'Madya',
+  'Kepala',
+  'KEPALA',
+  'MADYA'
 ];
 
 // Helper function to check if a position is excluded from being evaluated
@@ -28,7 +34,7 @@ const isExcludedFromEvaluation = (jabatan) => {
       return true;
     }
     
-    if (excludedPos.includes('Kepala BPS') && jabatan.toLowerCase().includes('kepala bps')) {
+    if (excludedPos.includes('Kepala') && jabatan.toLowerCase().includes('kepala bps')) {
       return true;
     }
     
@@ -36,7 +42,11 @@ const isExcludedFromEvaluation = (jabatan) => {
       return true;
     }
     
-    if (excludedPos.includes('Kepala Sub Bagian') && jabatan.toLowerCase().includes('kepala sub bagian')) {
+    if (excludedPos.includes('Kepala Subbagian') && jabatan.toLowerCase().includes('kepala subbagian')) {
+      return true;
+    }
+
+    if (excludedPos.includes('Madya') && jabatan.toLowerCase().includes('madya')) {
       return true;
     }
     

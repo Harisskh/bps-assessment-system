@@ -1,6 +1,0 @@
--- AlterTable
-ALTER TABLE "attendance" ADD COLUMN     "jumlahAbsenApel" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "jumlahCuti" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "jumlahPulangAwal" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "jumlahTelat" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "jumlahTidakKerja" INTEGER NOT NULL DEFAULT 0;

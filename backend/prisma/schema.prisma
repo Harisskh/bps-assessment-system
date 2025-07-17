@@ -149,7 +149,6 @@ enum EvaluationStatus {
 // =====================
 // ATTENDANCE SYSTEM (40% bobot) - UPDATED WITH TIERED RULES
 // =====================
-
 model Attendance {
   id         String   @id @default(cuid())
   userId     String
@@ -158,19 +157,26 @@ model Attendance {
   // Persentase Total (default 100%)
   persentaseTotal Float @default(100.0)
   
-  // 🔥 UPDATED: New tiered calculation based on frequency
+  // 🔥 EXISTING: Boolean fields (keep for compatibility)
+  adaTidakKerja      Boolean @default(false)  // TK - apakah ada tidak kerja
+  adaPulangAwal      Boolean @default(false)  // PSW - apakah ada pulang sebelum waktunya
+  adaTelat           Boolean @default(false)  // TLT - apakah ada telat
+  adaAbsenApel       Boolean @default(false)  // APEL - apakah ada absen apel
+  adaCuti            Boolean @default(false)  // CT - apakah ada cuti
+  
+  // 🔥 NEW: Count fields (yang sudah ada di DB)
   jumlahTidakKerja   Int @default(0)          // Berapa kali tidak kerja
   jumlahPulangAwal   Int @default(0)          // Berapa kali pulang awal
   jumlahTelat        Int @default(0)          // Berapa kali telat
   jumlahAbsenApel    Int @default(0)          // Berapa kali absen apel
   jumlahCuti         Int @default(0)          // Berapa kali cuti
   
-  // Pengurangan otomatis berdasarkan frequency rules
-  penguranganTK      Float @default(0.0)    // TK: 1x = -20%, >1x = -30% max
-  penguranganPSW     Float @default(0.0)    // PSW: 1x = -5%, >1x = -10% max
-  penguranganTLT     Float @default(0.0)    // TLT: 1x = -5%, >1x = -10% max
-  penguranganAPEL    Float @default(0.0)    // APEL: any = -10% max
-  penguranganCT      Float @default(0.0)    // CT: <3x = -2.5%, ≥3x = -5% max
+  // 🔥 CALCULATION: Pengurangan fields
+  penguranganTK      Float @default(0.0)    // -30% max
+  penguranganPSW     Float @default(0.0)    // -10% max  
+  penguranganTLT     Float @default(0.0)    // -10% max
+  penguranganAPEL    Float @default(0.0)    // -10% max
+  penguranganCT      Float @default(0.0)    // -5% max
   
   // Total Minus (otomatis calculated)
   totalMinus      Float @default(0.0)

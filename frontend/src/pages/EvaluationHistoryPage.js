@@ -22,7 +22,6 @@ const EvaluationHistoryPage = () => {
   const [filters, setFilters] = useState({
     tahun: '',
     bulan: '',
-    ranking: '',
     sortBy: 'submitDate',
     sortOrder: 'desc'
   });
@@ -150,13 +149,6 @@ const EvaluationHistoryPage = () => {
         e.period && e.period.bulan === parseInt(filters.bulan)
       );
     }
-    
-    // Filter by ranking
-    if (filters.ranking) {
-      filteredEvaluations = filteredEvaluations.filter(e => 
-        e.ranking === parseInt(filters.ranking)
-      );
-    }
 
     // Apply sorting
     filteredEvaluations.sort((a, b) => {
@@ -195,17 +187,7 @@ const EvaluationHistoryPage = () => {
     });
 
     setEvaluations(filteredEvaluations);
-    
-    // Calculate summary
-    const summaryData = {
-      totalEvaluations: filteredEvaluations.length,
-      tokoh1Count: filteredEvaluations.filter(e => e.ranking === 1).length,
-      tokoh2Count: filteredEvaluations.filter(e => e.ranking === 2).length,
-      tokoh3Count: filteredEvaluations.filter(e => e.ranking === 3).length,
-      averageScores: calculateAverageScores(filteredEvaluations),
-      periodsInvolved: getUniquePeriodsCount(filteredEvaluations)
-    };
-    setSummary(summaryData);
+
     
     console.log('📊 Filter results:', {
       filters,
@@ -245,6 +227,9 @@ const EvaluationHistoryPage = () => {
       2: { class: 'bg-primary', icon: 'fa-medal', text: 'Tokoh 2' },
       3: { class: 'bg-info', icon: 'fa-award', text: 'Tokoh 3' }
     };
+    if (ranking === undefined || ranking === null) {
+      return { class: 'bg-success', icon: 'fa-star', text: 'Tokoh BerAKHLAK' };
+    }
     return badges[ranking] || { class: 'bg-secondary', icon: 'fa-star', text: `Tokoh ${ranking}` };
   };
 
@@ -291,7 +276,6 @@ const EvaluationHistoryPage = () => {
     setFilters({
       tahun: '',
       bulan: '',
-      ranking: '',
       sortBy: 'submitDate',
       sortOrder: 'desc'
     });
@@ -377,19 +361,6 @@ const EvaluationHistoryPage = () => {
                         ))}
                       </select>
                     </div>
-                    <div className="col-4">
-                      <label className="form-label small">Ranking</label>
-                      <select 
-                        className="form-select form-select-sm"
-                        value={filters.ranking}
-                        onChange={(e) => setFilters({...filters, ranking: e.target.value})}
-                      >
-                        <option value="">Semua</option>
-                        <option value="1">Tokoh 1</option>
-                        <option value="2">Tokoh 2</option>
-                        <option value="3">Tokoh 3</option>
-                      </select>
-                    </div>
                     <div className="col-5">
                       <label className="form-label small">Urutkan</label>
                       <select 
@@ -400,7 +371,6 @@ const EvaluationHistoryPage = () => {
                         <option value="submitDate">Tanggal</option>
                         <option value="period">Periode</option>
                         <option value="targetName">Nama</option>
-                        <option value="ranking">Ranking</option>
                       </select>
                     </div>
                     <div className="col-3">
@@ -672,24 +642,6 @@ const EvaluationHistoryPage = () => {
                   </select>
                 </div>
 
-                {/* Filter Ranking */}
-                <div className="col-md-2">
-                  <label className="form-label fw-semibold">
-                    <i className="fas fa-award me-1"></i>
-                    Ranking
-                  </label>
-                  <select 
-                      className="form-select"
-                    value={filters.ranking}
-                    onChange={(e) => setFilters({...filters, ranking: e.target.value})}
-                  >
-                    <option value="">Semua Ranking</option>
-                    <option value="1">Tokoh 1</option>
-                    <option value="2">Tokoh 2</option>
-                    <option value="3">Tokoh 3</option>
-                  </select>
-                </div>
-
                 {/* Sort By */}
                 <div className="col-md-2">
                   <label className="form-label fw-semibold">
@@ -704,7 +656,6 @@ const EvaluationHistoryPage = () => {
                     <option value="submitDate">Tanggal Penilaian</option>
                     <option value="period">Periode</option>
                     <option value="targetName">Nama Pegawai</option>
-                    <option value="ranking">Ranking</option>
                     <option value="averageScore">Rata-rata Skor</option>
                   </select>
                 </div>
@@ -757,48 +708,6 @@ const EvaluationHistoryPage = () => {
             <div className="alert alert-warning">
               <i className="fas fa-exclamation-triangle me-2"></i>
               Tidak ada riwayat penilaian. Anda belum melakukan penilaian apapun.
-            </div>
-          )}
-
-          {/* Summary Statistics */}
-          {summary && allEvaluations.length > 0 && (
-            <div className="row mb-4">
-              <div className="col-md-3">
-                <div className="card bg-light shadow-sm">
-                  <div className="card-body text-center">
-                    <i className="fas fa-list-alt fa-2x text-primary mb-2"></i>
-                    <h3 className="text-primary mb-1">{summary.totalEvaluations}</h3>
-                    <small className="text-muted">Total Penilaian</small>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3">
-                <div className="card bg-success bg-opacity-10 shadow-sm">
-                  <div className="card-body text-center">
-                    <i className="fas fa-trophy fa-2x text-success mb-2"></i>
-                    <h3 className="text-success mb-1">{summary.tokoh1Count}</h3>
-                    <small className="text-muted">Tokoh Berakhlak 1</small>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3">
-                <div className="card bg-primary bg-opacity-10 shadow-sm">
-                  <div className="card-body text-center">
-                    <i className="fas fa-medal fa-2x text-primary mb-2"></i>
-                    <h3 className="text-primary mb-1">{summary.tokoh2Count}</h3>
-                    <small className="text-muted">Tokoh Berakhlak 2</small>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3">
-                <div className="card bg-info bg-opacity-10 shadow-sm">
-                  <div className="card-body text-center">
-                    <i className="fas fa-award fa-2x text-info mb-2"></i>
-                    <h3 className="text-info mb-1">{summary.tokoh3Count}</h3>
-                    <small className="text-muted">Tokoh Berakhlak 3</small>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 // src/App.js - UPDATED WITH EVALUATION HISTORY ROUTE
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -18,6 +18,7 @@ import AttendanceInputPage from './pages/AttendanceInputPage';
 import CkpInputPage from './pages/CkpInputPage';
 import EnhancedMonitoringPage from './pages/EnhancedMonitoringPage';
 import FinalCalculationPage from './pages/FinalCalculationPage';
+import ComprehensiveReportPage from './pages/ComprehensiveReportPage';
 
 // Components
 import Layout from './components/Layout';
@@ -149,6 +150,14 @@ function App() {
               </Layout>
             </ProtectedRoute>
           } />
+
+          <Route path="/reports" element={
+                  <ProtectedRoute requiredRoles={['ADMIN', 'PIMPINAN']}>
+                    <Layout>
+                    <ComprehensiveReportPage />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
           
           {/* Redirect root to dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

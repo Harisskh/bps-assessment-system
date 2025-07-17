@@ -1,9 +1,19 @@
-// backend/src/controllers/profileController.js - UPDATED WITH USERNAME SUPPORT
+// backend/src/controllers/profileController.js - UPDATED WITH SMART CROPPING
 const { PrismaClient } = require('@prisma/client');
 const path = require('path');
+const sharp = require('sharp');
 const fs = require('fs');
 
 const prisma = new PrismaClient();
+
+const ensureDirectoryExistence = (filePath) => {
+  const dirname = path.dirname(filePath);
+  if (fs.existsSync(dirname)) {
+    return true;
+  }
+  ensureDirectoryExistence(dirname);
+  fs.mkdirSync(dirname);
+};
 
 // GET current user profile
 const getCurrentProfile = async (req, res) => {
@@ -135,12 +145,24 @@ const updateProfile = async (req, res) => {
 
     // Jika ada file upload
     if (req.file) {
-      console.log('📁 Processing file upload:', {
-        filename: req.file.filename,
-        originalname: req.file.originalname,
-        size: req.file.size,
-        path: req.file.path
-      });
+        const originalFilename = req.file.filename;
+        const originalPath = req.file.path;
+        const hdThumbnailFilename = `hd-${originalFilename}`;
+        const hdThumbnailPath = path.join(__dirname, '../../uploads/profiles', hdThumbnailFilename);
+
+        ensureDirectoryExistence(hdThumbnailPath);
+
+        // --- INILAH PERUBAHANNYA ---
+        await sharp(originalPath)
+            .resize({ 
+                width: 400, 
+                height: 400, 
+                fit: 'cover',
+                // Parameter 'gravity' untuk smart cropping
+                gravity: sharp.strategy.entropy 
+            })
+            .jpeg({ quality: 90 })
+            .toFile(hdThumbnailPath);
 
       // Hapus foto lama jika ada
       const currentUser = await prisma.user.findUnique({
@@ -162,8 +184,11 @@ const updateProfile = async (req, res) => {
       }
 
       // Set correct path format
-      updateData.profilePicture = `/uploads/profiles/${req.file.filename}`;
-      console.log('💾 New profile picture path:', updateData.profilePicture);
+      updateData.profilePicture = `/uploads/profiles/${hdThumbnailFilename}`;
+      if (fs.existsSync(originalPath)) {
+        fs.unlinkSync(originalPath);
+      }
+      console.log('💾 New HD profile picture path:', updateData.profilePicture);
     }
 
     // Update user
@@ -246,6 +271,8 @@ const updateProfile = async (req, res) => {
     });
   }
 };
+
+
 
 // DELETE profile picture
 const deleteProfilePicture = async (req, res) => {

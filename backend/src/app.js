@@ -1,4 +1,4 @@
-// backend/src/app.js - FIXED VERSION ADJUSTED TO YOUR CURRENT SETUP
+// backend/src/app.js - FIXED VERSION WITH REPORTS ROUTES ADDED
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -48,8 +48,8 @@ app.use(cors({
 
 // Security middleware
 app.use(helmet({
-  crossOriginEmbedderPolicy: false, // Allow embedding for development
-  crossOriginResourcePolicy: { policy: "cross-origin" } // 🔥 CRITICAL FIX
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // Logging
@@ -59,10 +59,9 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🔥 CRITICAL FIX: STATIC FILES MIDDLEWARE - PROPER SETUP
+// 🔥 STATIC FILES MIDDLEWARE
 console.log('📁 Setting up static file serving...');
 
-// Middleware untuk log semua request ke /uploads
 app.use('/uploads', (req, res, next) => {
   console.log(`📁 Static file request: ${req.method} ${req.originalUrl}`);
   console.log(`📂 Requested file path: ${path.join(uploadDir, req.path)}`);
@@ -70,13 +69,11 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-// 🔥 STATIC FILE SERVING - FIXED VERSION
 app.use('/uploads', express.static(uploadDir, {
   dotfiles: 'deny',
   index: false,
   redirect: false,
   setHeaders: (res, path, stat) => {
-    // 🔥 CRITICAL: Set proper headers for images
     res.set({
       'Access-Control-Allow-Origin': '*',
       'Cross-Origin-Resource-Policy': 'cross-origin',
@@ -88,7 +85,7 @@ app.use('/uploads', express.static(uploadDir, {
   }
 }));
 
-// 🔥 ADDITIONAL: Manual file serving as fallback
+// Manual file serving as fallback
 app.get('/uploads/profiles/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(profilesDir, filename);
@@ -101,7 +98,6 @@ app.get('/uploads/profiles/:filename', (req, res) => {
   if (fs.existsSync(filePath)) {
     console.log('✅ File found, serving...');
     
-    // Set proper headers
     res.set({
       'Content-Type': 'image/jpeg',
       'Access-Control-Allow-Origin': '*',
@@ -128,7 +124,6 @@ app.get('/uploads/profiles/:filename', (req, res) => {
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   
-  // 🔥 SPECIAL LOGGING for uploads requests
   if (req.path.startsWith('/uploads')) {
     console.log('📁 Static file request:', {
       path: req.path,
@@ -160,7 +155,13 @@ app.get('/api/health', (req, res) => {
     uploadDir: uploadDir,
     profilesDir: profilesDir,
     uploadDirExists: fs.existsSync(uploadDir),
-    profilesDirExists: fs.existsSync(profilesDir)
+    profilesDirExists: fs.existsSync(profilesDir),
+    features: {
+      importExcel: 'enabled',
+      multer: 'enabled',
+      xlsx: 'enabled',
+      reports: 'enabled' // 🔥 NEW: Reports feature
+    }
   });
 });
 
@@ -174,7 +175,7 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// 🔥 ENHANCED DEBUG ENDPOINT
+// Enhanced debug endpoint
 app.get('/api/debug/files', (req, res) => {
   try {
     const uploadFiles = fs.existsSync(uploadDir) 
@@ -185,7 +186,6 @@ app.get('/api/debug/files', (req, res) => {
       ? fs.readdirSync(profilesDir) 
       : [];
       
-    // Test static serving
     const testFilePath = profileFiles.length > 0 ? profileFiles[0] : null;
     
     res.json({
@@ -198,7 +198,21 @@ app.get('/api/debug/files', (req, res) => {
       staticMiddlewareSetup: 'express.static() configured for /uploads',
       backendBaseUrl: 'http://localhost:5000',
       testUrl: testFilePath ? `http://localhost:5000/uploads/profiles/${testFilePath}` : null,
-      manualTestUrl: testFilePath ? `http://localhost:5000/api/test-file/${testFilePath}` : null
+      manualTestUrl: testFilePath ? `http://localhost:5000/api/test-file/${testFilePath}` : null,
+      importEndpoints: {
+        template: '/api/import/template',
+        preview: '/api/import/preview',
+        import: '/api/import/import',
+        updateImport: '/api/import/import-update'
+      },
+      // 🔥 NEW: Reports endpoints
+      reportsEndpoints: {
+        comprehensive: '/api/reports/comprehensive',
+        berakhlak: '/api/reports/berakhlak',
+        attendance: '/api/reports/attendance', 
+        ckp: '/api/reports/ckp',
+        exportPDF: '/api/reports/export/pdf'
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -209,7 +223,7 @@ app.get('/api/debug/files', (req, res) => {
   }
 });
 
-// 🔥 TEST FILE ENDPOINT
+// Test file endpoint
 app.get('/api/test-file/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(profilesDir, filename);
@@ -249,6 +263,18 @@ app.get('/', (req, res) => {
         changePassword: 'PUT /api/auth/change-password',
         register: 'POST /api/auth/register (Admin only)'
       },
+      users: {
+        getAll: 'GET /api/users',
+        create: 'POST /api/users',
+        update: 'PUT /api/users/:id',
+        delete: 'DELETE /api/users/:id'
+      },
+      import: {
+        template: 'GET /api/import/template',
+        preview: 'POST /api/import/preview',
+        import: 'POST /api/import/import',
+        updateImport: 'POST /api/import/import-update'
+      },
       profile: {
         get: 'GET /api/profile',
         update: 'PUT /api/profile (with multipart/form-data)',
@@ -264,6 +290,7 @@ app.get('/', (req, res) => {
         evaluationStatus: 'GET /api/monitoring/evaluation-status',
         incompleteUsers: 'GET /api/monitoring/incomplete-users',
       },
+      // 🔥 NEW: Reports endpoints
       reports: {
         comprehensive: 'GET /api/reports/comprehensive',
         berakhlak: 'GET /api/reports/berakhlak',
@@ -301,22 +328,21 @@ const finalEvaluationRoutes = require('./routes/finalEvaluation');
 const periodRoutes = require('./routes/periods');
 const dashboardRoutes = require('./routes/dashboard');
 const monitoringRoutes = require('./routes/monitoring');
-const reportsRoutes = require('./routes/reports'); 
+const reportsRoutes = require('./routes/reports'); // 🔥 NEW: Reports routes
+const importRoutes = require('./routes/import');
 
-// 🔥 FIXED: Route definitions - REMOVE DUPLICATES AND CONFLICTS
+// Route definitions
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/evaluations', evaluationRoutes);        // 🔥 FIXED: evaluation endpoints
-app.use('/api', attendanceRoutes);                    // 🔥 FIXED: attendance & ckp endpoints (single definition)
+app.use('/api/evaluations', evaluationRoutes);
+app.use('/api', attendanceRoutes);
 app.use('/api/final-evaluation', finalEvaluationRoutes);
 app.use('/api/periods', periodRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/monitoring', monitoringRoutes);
-
-// 🔥 REMOVED DUPLICATE ROUTES:
-// ❌ app.use('/api/attendance', attendanceRoutes);    // This was causing conflict
-// ❌ app.use('/api/dashboard', dashboardRoutes);      // This was duplicate
+app.use('/api/reports', reportsRoutes); // 🔥 NEW: Reports routes
+app.use('/api/import', importRoutes);
 
 // =============================================
 // ERROR HANDLERS
@@ -330,6 +356,13 @@ app.use('/api/*', (req, res) => {
     message: `API endpoint not found: ${req.method} ${req.originalUrl}`,
     availableEndpoints: {
       auth: ['/api/auth/login', '/api/auth/me'],
+      users: ['/api/users', '/api/users/:id'],
+      import: [
+        '/api/import/template', 
+        '/api/import/preview', 
+        '/api/import/import',
+        '/api/import/import-update'
+      ],
       evaluations: [
         '/api/evaluations/parameters', 
         '/api/evaluations/active-period', 
@@ -341,6 +374,7 @@ app.use('/api/*', (req, res) => {
         '/api/monitoring/incomplete-users',
         '/api/monitoring/user/:userId/detail'
       ],
+      // 🔥 NEW: Reports endpoints
       reports: [
         '/api/reports/comprehensive',
         '/api/reports/berakhlak',
@@ -381,7 +415,7 @@ app.use((error, req, res, next) => {
   if (error.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ 
       success: false,
-      error: 'File terlalu besar. Maksimal 5MB' 
+      error: 'File terlalu besar. Maksimal 10MB' 
     });
   }
   
@@ -389,6 +423,13 @@ app.use((error, req, res, next) => {
     return res.status(400).json({ 
       success: false,
       error: 'File harus berupa gambar' 
+    });
+  }
+
+  if (error.message === 'File harus berformat Excel (.xls atau .xlsx)') {
+    return res.status(400).json({ 
+      success: false,
+      error: 'File harus berformat Excel (.xls atau .xlsx)' 
     });
   }
   
@@ -450,14 +491,30 @@ app.listen(PORT, () => {
 
 🔧 Route Configuration:
    ✅ /api/auth/* -> Authentication
+   ✅ /api/users/* -> User Management
+   ✅ /api/import/* -> Excel Import System
    ✅ /api/evaluations/* -> Evaluation System
    ✅ /api/attendance -> Attendance Management
    ✅ /api/ckp -> CKP Management
    ✅ /api/periods/* -> Period Management
+   ✅ /api/reports/* -> Report Generation (NEW)
    ✅ /uploads/* -> Static File Serving
+
+📊 Reports System Features:
+   ✅ GET /api/reports/comprehensive -> Complete report data
+   ✅ GET /api/reports/berakhlak -> BerAKHLAK report only
+   ✅ GET /api/reports/attendance -> Attendance report only
+   ✅ GET /api/reports/ckp -> CKP report only
+   ✅ POST /api/reports/export/pdf -> PDF export
+
+📊 Import Excel Features:
+   ✅ GET /api/import/template -> Download template
+   ✅ POST /api/import/preview -> Preview Excel data
+   ✅ POST /api/import/import -> Import new users
+   ✅ POST /api/import/import-update -> Update existing users
 `);
 
-  // 🔥 VERIFY UPLOAD DIRECTORIES AT STARTUP
+  // Verify upload directories at startup
   console.log('📁 Final verification of upload directories...');
   console.log('📂 Upload dir exists:', fs.existsSync(uploadDir));
   console.log('📂 Profiles dir exists:', fs.existsSync(profilesDir));
@@ -472,12 +529,16 @@ app.listen(PORT, () => {
   
   console.log('✅ Upload directories verified!');
   console.log('🔗 Test static serving: http://localhost:5000/uploads/profiles/');
+  console.log('📊 Reports API: http://localhost:5000/api/reports/comprehensive');
+  console.log('📊 Import Excel template: http://localhost:5000/api/import/template');
   
-  // 🔥 STARTUP HEALTH CHECK
+  // Startup health check
   console.log('🏥 Performing startup health checks...');
   console.log('   ✅ Express server running');
   console.log('   ✅ CORS configured');
   console.log('   ✅ Static file serving enabled');
+  console.log('   ✅ Import Excel routes enabled');
+  console.log('   ✅ Reports routes enabled (NEW)');
   console.log('   ✅ Route handlers registered');
   console.log('   ✅ Error handlers configured');
   console.log('🎉 All systems ready!');

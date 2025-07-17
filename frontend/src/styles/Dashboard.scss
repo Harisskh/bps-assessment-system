@@ -49,8 +49,14 @@ $border-color: #dee2e6;
 
   .welcome-title {
     font-weight: 700;
+    font-size:2.8rem;
+  }
+  .welcome-subtitle {
+    font-size:1rem;
   }
   .welcome-user-badge {
+    font-size: 1rem;
+    font-weight: 600;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
     padding: 0.35rem 0.75rem;
@@ -69,6 +75,15 @@ $border-color: #dee2e6;
   0% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-20px) rotate(180deg); }
   100% { transform: translateY(0) rotate(360deg); }
+}
+
+.dashboard-profile-pic {
+  width: 90px;         // Ukuran gambar
+  height: 90px;        // Ukuran gambar
+  border-radius: 50%;  // Membuat gambar menjadi bulat
+  object-fit: cover;   // Memastikan gambar terisi penuh tanpa distorsi
+  border: 3px solid rgba(255, 255, 255, 0.7); // Border putih semi-transparan
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);  // Efek bayangan halus
 }
 
 /* Kartu Statistik (Versi Colorful) */
@@ -364,10 +379,6 @@ $border-color: #dee2e6;
   }
 }
 
-/* Tambahkan atau ganti style ini di dalam Dashboard.scss */
-
-// ... (style sebelumnya tetap sama) ...
-
 /* Ganti rule .staff-action-card yang ada dengan ini */
 /* Staff Dashboard Specific */
 .staff-action-card {
@@ -645,4 +656,17 @@ opacity: 1;
       }
     }
   }
+
+  .welcome-title{
+    font-size:1.4rem;
+  }
+
+  .dashboard-profile-pic {
+  width: 90px;         // Ukuran gambar
+  height: 90px;        // Ukuran gambar
+  border-radius: 50%;  // Membuat gambar menjadi bulat
+  object-fit: cover;   // Memastikan gambar terisi penuh tanpa distorsi
+  border: 3px solid rgba(255, 255, 255, 0.7); // Border putih semi-transparan
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);  // Efek bayangan halus
+}
 }

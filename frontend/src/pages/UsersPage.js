@@ -1,7 +1,8 @@
-// src/pages/UsersPage.js - FIXED CRUD LENGKAP dengan Alamat/HP dan Icons
+// src/pages/UsersPage.js - MODIFIED WITH IMPORT EXCEL FEATURE
 import React, { useState, useEffect } from 'react';
 import { userAPI, authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import ImportExcelModal from '../components/ImportExcelModal'; // Import komponen yang sudah dibuat
 
 const UsersPage = () => {
   const { user } = useAuth();
@@ -30,6 +31,9 @@ const UsersPage = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [userToDeactivate, setUserToDeactivate] = useState(null);
   
+  // 🔥 NEW STATE: Import Excel Modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  
   // Form data
   const [formData, setFormData] = useState({
     nip: '',
@@ -50,12 +54,12 @@ const UsersPage = () => {
 
   useEffect(() => {
     loadUsers();
-  }, [search, roleFilter, statusFilter]); // 🔥 MODIFIKASI: currentPage tidak lagi trigger loadUsers, karena paginasi di frontend
+  }, [search, roleFilter, statusFilter]);
 
   // 🔥 NEW useEffect untuk paginasi frontend setelah allFilteredAndSortedUsers berubah atau currentPage berubah
   useEffect(() => {
     const applyFrontendPagination = () => {
-      const usersPerPage = 10; // Jumlah user per halaman (sesuai limit asli Anda)
+      const usersPerPage = 10;
       const totalCount = allFilteredAndSortedUsers.length;
       const calculatedTotalPages = Math.ceil(totalCount / usersPerPage);
       setTotalPages(calculatedTotalPages);
@@ -70,14 +74,12 @@ const UsersPage = () => {
     applyFrontendPagination();
   }, [currentPage, allFilteredAndSortedUsers]);
 
-
   const loadUsers = async () => {
     try {
       setLoading(true);
       setError('');
       
       const params = {
-        // 🔥 MODIFIKASI: Hapus page: currentPage dan berikan limit yang besar untuk mengambil semua data
         limit: 9999, // Ambil semua user yang cocok dengan filter lain
         search: search.trim(),
         role: roleFilter,
@@ -85,26 +87,23 @@ const UsersPage = () => {
       };
 
       const response = await userAPI.getAll(params);
-      let fetchedUsers = response.data.data.users; // Ambil data user yang sudah difetch
+      let fetchedUsers = response.data.data.users;
       
       // 🔥 MODIFIKASI: Implementasi sorting kustom berdasarkan role dan nama
-      const roleOrder = { 'ADMIN': 1, 'PIMPINAN': 2, 'STAFF': 3 }; // Prioritas: ADMIN (1) > PIMPINAN (2) > STAFF (3)
+      const roleOrder = { 'ADMIN': 1, 'PIMPINAN': 2, 'STAFF': 3 };
 
       fetchedUsers.sort((a, b) => {
-        const orderA = roleOrder[a.role] || 99; // Beri nilai tinggi jika role tidak dikenal
+        const orderA = roleOrder[a.role] || 99;
         const orderB = roleOrder[b.role] || 99;
 
-        // Urutkan berdasarkan role terlebih dahulu
-        if (orderA < orderB) return -1; // ADMIN akan lebih kecil dari PIMPINAN, PIMPINAN lebih kecil dari STAFF
+        if (orderA < orderB) return -1;
         if (orderA > orderB) return 1;
 
-        // Jika role sama, urutkan berdasarkan nama (abjad)
         return a.nama.localeCompare(b.nama);
       });
 
-      // 🔥 SIMPAN HASIL SORTING GLOBAL KE STATE BARU
       setAllFilteredAndSortedUsers(fetchedUsers); 
-      setCurrentPage(1); // Reset ke halaman 1 setiap kali filter/pencarian berubah
+      setCurrentPage(1);
       
     } catch (error) {
       console.error('Load users error:', error);
@@ -112,12 +111,6 @@ const UsersPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setCurrentPage(1); // Ini akan ditangani oleh useEffect `allFilteredAndSortedUsers`
-    // loadUsers(); // Tidak perlu panggil langsung, useEffect `search` akan memicu `loadUsers`
   };
 
   const handleCreateUser = () => {
@@ -139,6 +132,41 @@ const UsersPage = () => {
       role: 'STAFF'
     });
     setShowModal(true);
+  };
+
+  // 🔥 NEW FUNCTION: Handle Import Excel Success
+  const handleImportSuccess = () => {
+    setSuccess('Import Excel berhasil! Data pegawai telah ditambahkan.');
+    loadUsers(); // Refresh data setelah import
+  };
+
+  // 🔥 NEW FUNCTION: Download Template Excel
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/import/template', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'template_import_pegawai_bps.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        setError('Gagal mendownload template');
+      }
+    } catch (error) {
+      console.error('Download template error:', error);
+      setError('Error saat mendownload template');
+    }
   };
 
   const handleEditUser = (userData) => {
@@ -169,83 +197,83 @@ const UsersPage = () => {
   };
 
   const handleFormSubmit = async (e) => {
-  e.preventDefault();
-  setSubmitting(true);
-  setError('');
-  setSuccess('');
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
 
-  try {
-    if (modalMode === 'create') {
-      const createData = {
-        nip: formData.nip,
-        nama: formData.nama,
-        email: formData.email,
-        jenisKelamin: formData.jenisKelamin,
-        tanggalLahir: formData.tanggalLahir,
-        alamat: formData.alamat,
-        mobilePhone: formData.mobilePhone,
-        pendidikanTerakhir: formData.pendidikanTerakhir,
-        jabatan: formData.jabatan,
-        golongan: formData.golongan,
-        status: formData.status,
-        username: formData.username,
-        password: formData.password || 'bps1810',
-        role: formData.role
-      };
+    try {
+      if (modalMode === 'create') {
+        const createData = {
+          nip: formData.nip,
+          nama: formData.nama,
+          email: formData.email,
+          jenisKelamin: formData.jenisKelamin,
+          tanggalLahir: formData.tanggalLahir,
+          alamat: formData.alamat,
+          mobilePhone: formData.mobilePhone,
+          pendidikanTerakhir: formData.pendidikanTerakhir,
+          jabatan: formData.jabatan,
+          golongan: formData.golongan,
+          status: formData.status,
+          username: formData.username,
+          password: formData.password || 'bps1810',
+          role: formData.role
+        };
+        
+        console.log('Creating user with data:', createData);
+        await userAPI.create(createData); 
+        setSuccess('User berhasil dibuat');
+        
+      } else if (modalMode === 'edit') {
+        const updateData = {
+          nip: formData.nip,
+          nama: formData.nama,
+          email: formData.email,
+          jenisKelamin: formData.jenisKelamin,
+          tanggalLahir: formData.tanggalLahir,
+          alamat: formData.alamat,
+          mobilePhone: formData.mobilePhone,
+          pendidikanTerakhir: formData.pendidikanTerakhir,
+          jabatan: formData.jabatan,
+          golongan: formData.golongan,
+          status: formData.status,
+          username: formData.username,
+          role: formData.role,
+          isActive: formData.isActive
+        };
+        
+        console.log('Updating user with data:', updateData);
+        await userAPI.update(selectedUser.id, updateData);
+        setSuccess('User berhasil diperbarui');
+      }
       
-      console.log('Creating user with data:', createData);
-      await userAPI.create(createData); 
-      setSuccess('User berhasil dibuat');
+      setShowModal(false);
       
-    } else if (modalMode === 'edit') {
-      const updateData = {
-        nip: formData.nip,
-        nama: formData.nama,
-        email: formData.email,
-        jenisKelamin: formData.jenisKelamin,
-        tanggalLahir: formData.tanggalLahir,
-        alamat: formData.alamat,
-        mobilePhone: formData.mobilePhone,
-        pendidikanTerakhir: formData.pendidikanTerakhir,
-        jabatan: formData.jabatan,
-        golongan: formData.golongan,
-        status: formData.status,
-        username: formData.username,
-        role: formData.role,
-        isActive: formData.isActive
-      };
+      setTimeout(() => {
+        loadUsers();
+      }, 1000);
       
-      console.log('Updating user with data:', updateData);
-      await userAPI.update(selectedUser.id, updateData);
-      setSuccess('User berhasil diperbarui');
+    } catch (error) {
+      console.error('Submit user error:', error);
+      setError(error.response?.data?.message || 'Gagal menyimpan user');
+    } finally {
+      setSubmitting(false);
     }
-    
-    setShowModal(false);
-    
-    setTimeout(() => {
-      loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
-    }, 1000);
-    
-  } catch (error) {
-    console.error('Submit user error:', error);
-    setError(error.response?.data?.message || 'Gagal menyimpan user');
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   const handleDeactivateUser = async () => {
     if (!userToDeactivate) return;
     
     try {
       setSubmitting(true);
-      await userAPI.delete(userToDeactivate.id); // Soft delete
+      await userAPI.delete(userToDeactivate.id);
       setSuccess(`User ${userToDeactivate.nama} berhasil dinonaktifkan`);
       setShowDeactivateModal(false);
       setUserToDeactivate(null);
       
       setTimeout(() => {
-        loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
+        loadUsers();
       }, 500);
     } catch (error) {
       console.error('Deactivate user error:', error);
@@ -260,13 +288,13 @@ const UsersPage = () => {
     
     try {
       setSubmitting(true);
-      await userAPI.permanentDelete(userToDelete.id); // Permanent delete
+      await userAPI.permanentDelete(userToDelete.id);
       setSuccess(`User ${userToDelete.nama} berhasil dihapus permanen`);
       setShowDeleteModal(false);
       setUserToDelete(null);
       
       setTimeout(() => {
-        loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
+        loadUsers();
       }, 500);
     } catch (error) {
       console.error('Permanent delete user error:', error);
@@ -283,7 +311,7 @@ const UsersPage = () => {
       setSuccess(`User ${userData.nama} berhasil diaktifkan`);
       
       setTimeout(() => {
-        loadUsers(); // Panggil loadUsers untuk memuat ulang dan mensorting ulang
+        loadUsers();
       }, 500);
     } catch (error) {
       console.error('Activate user error:', error);
@@ -338,13 +366,54 @@ const UsersPage = () => {
           </p>
         </div>
         {isAdmin && (
-          <button 
-            className="btn btn-primary"
-            onClick={handleCreateUser}
-          >
-            <i className="fas fa-plus me-2"></i>
-            Tambah User
-          </button>
+          <div className="d-flex gap-2">
+            {/* 🔥 NEW: Import Excel Button */}
+            <div className="btn-group">
+              <button 
+                className="btn btn-success"
+                onClick={() => setShowImportModal(true)}
+              >
+                <i className="fas fa-file-excel me-2"></i>
+                Import Excel
+              </button>
+              <button
+                type="button"
+                className="btn btn-success dropdown-toggle dropdown-toggle-split"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                <span className="visually-hidden">Toggle Dropdown</span>
+              </button>
+              <ul className="dropdown-menu">
+                <li>
+                  <button 
+                    className="dropdown-item"
+                    onClick={handleDownloadTemplate}
+                  >
+                    <i className="fas fa-download me-2"></i>
+                    Download Template
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    className="dropdown-item"
+                    onClick={() => setShowImportModal(true)}
+                  >
+                    <i className="fas fa-upload me-2"></i>
+                    Import Data
+                  </button>
+                </li>
+              </ul>
+            </div>
+            
+            <button 
+              className="btn btn-primary"
+              onClick={handleCreateUser}
+            >
+              <i className="fas fa-plus me-2"></i>
+              Tambah User
+            </button>
+          </div>
         )}
       </div>
 
@@ -370,11 +439,10 @@ const UsersPage = () => {
         <div className="card-body">
           <form
             onSubmit={(e) => {
-            e.preventDefault();
-            // setCurrentPage(1); // Tidak perlu karena loadUsers akan me-resetnya
-            loadUsers(); // Panggil loadUsers untuk memicu pencarian/filter
+              e.preventDefault();
+              loadUsers();
             }}
-            >
+          >
             <div className="row g-3">
               <div className="col-md-4">
                 <label className="form-label">Cari</label>
@@ -383,10 +451,7 @@ const UsersPage = () => {
                   className="form-control"
                   placeholder="Nama, NIP, atau username..."
                   value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    // setCurrentPage(1); // Tidak perlu, karena useEffect 'search' akan memicu loadUsers dan mereset currentPage
-                  }}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <div className="col-md-2">
@@ -394,10 +459,7 @@ const UsersPage = () => {
                 <select
                   className="form-select"
                   value={roleFilter}
-                  onChange={(e) => {
-                    setRoleFilter(e.target.value);
-                    // setCurrentPage(1); // Tidak perlu
-                  }}
+                  onChange={(e) => setRoleFilter(e.target.value)}
                 >
                   <option value="">Semua Role</option>
                   <option value="ADMIN">Admin</option>
@@ -410,10 +472,7 @@ const UsersPage = () => {
                 <select
                   className="form-select"
                   value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    // setCurrentPage(1); // Tidak perlu
-                  }}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <option value="">Semua Status</option>
                   <option value="PNS">PNS</option>
@@ -430,19 +489,17 @@ const UsersPage = () => {
                     setSearch('');
                     setRoleFilter('');
                     setStatusFilter('');
-                    // setCurrentPage(1); // Tidak perlu
-                    // loadUsers(); // Tidak perlu, useEffect akan memicu ini
                   }}
                 >
                   Reset
                 </button>
               </div>
             </div>
-            </form>
-          </div>
+          </form>
         </div>
+      </div>
 
-      {/* Users Table - ENHANCED dengan Icons */}
+      {/* Users Table */}
       <div className="card">
         <div className="card-body">
           {loading ? (
@@ -634,6 +691,13 @@ const UsersPage = () => {
         </div>
       </div>
 
+      {/* 🔥 NEW: Import Excel Modal */}
+      <ImportExcelModal 
+        showModal={showImportModal}
+        setShowModal={setShowImportModal}
+        onImportSuccess={handleImportSuccess}
+      />
+
       {/* User Form/Detail Modal */}
       {showModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -745,7 +809,11 @@ const UsersPage = () => {
                           value={formData.nip}
                           onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
                           required
+                          maxLength="18"
+                          pattern="[0-9]{18}"
+                          title="NIP harus 18 digit angka"
                         />
+                        <small className="text-muted">18 digit angka</small>
                       </div>
                       <div className="col-md-6">
                         <label className="form-label">Username *</label>
@@ -902,7 +970,7 @@ const UsersPage = () => {
                     className="btn btn-secondary"
                     onClick={() => setShowModal(false)}
                   >
-                    Tuturp
+                    Tutup
                   </button>
                 </div>
               )}
@@ -911,7 +979,7 @@ const UsersPage = () => {
         </div>
       )}
 
-      {/* FIXED: Deactivate Confirmation Modal */}
+      {/* Deactivate Confirmation Modal */}
       {showDeactivateModal && isAdmin && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">
@@ -966,7 +1034,7 @@ const UsersPage = () => {
         </div>
       )}
 
-      {/* FIXED: Permanent Delete Confirmation Modal */}
+      {/* Permanent Delete Confirmation Modal */}
       {showDeleteModal && isAdmin && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">

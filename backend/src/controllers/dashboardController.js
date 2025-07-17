@@ -1,9 +1,9 @@
-// controllers/dashboardController.js - COMPLETE FIXED VERSION
+// controllers/dashboardController.js - FIXED FOR NEW SYSTEM (1 EVALUATION)
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// GET DASHBOARD OVERVIEW STATISTICS
+// 🔥 FIXED: GET DASHBOARD OVERVIEW STATISTICS WITH NEW SYSTEM LOGIC
 const getDashboardStats = async (req, res) => {
   try {
     const { periodId } = req.query;
@@ -32,55 +32,98 @@ const getDashboardStats = async (req, res) => {
     console.log('🔍 Query where clause:', where);
 
     try {
-      // Get comprehensive statistics with better error handling
-      const [
-        totalUsers,
-        activeUsers,
-        totalEvaluations,
-        completedEvaluations,
-        attendanceData,
-        ckpData,
-        finalEvaluationData,
-        bestEmployee
-      ] = await Promise.all([
-        // Total users eligible for evaluation
-        prisma.user.count({ 
-          where: { 
-            isActive: true, 
-            role: { in: ['STAFF', 'PIMPINAN'] } 
-          } 
-        }).catch(e => {
-          console.error('Error counting users:', e);
-          return 0;
-        }),
+      // 🔥 STEP 1: Get REAL-TIME total users count (EXCLUDE ADMIN)
+      const totalUsers = await prisma.user.count({ 
+        where: { 
+          isActive: true,
+          role: { not: 'ADMIN' } // 🔥 EXCLUDE ADMIN from count
+        } 
+      }).catch(e => {
+        console.error('Error counting users:', e);
+        return 0;
+      });
+
+      console.log('👥 Total active users (excluding admin):', totalUsers);
+
+      // 🔥 STEP 2: Get all evaluations for this period with detailed info
+      const allEvaluations = await prisma.evaluation.findMany({
+        where,
+        select: {
+          id: true,
+          evaluatorId: true,
+          targetUserId: true,
+          ranking: true,
+          evaluator: {
+            select: {
+              nama: true,
+              role: true
+            }
+          },
+          target: {
+            select: {
+              nama: true
+            }
+          }
+        }
+      }).catch(e => {
+        console.error('Error getting all evaluations:', e);
+        return [];
+      });
+
+      console.log('📝 ALL EVALUATIONS FOR PERIOD:', {
+        totalEvaluations: allEvaluations.length,
+        evaluators: [...new Set(allEvaluations.map(e => e.evaluatorId))].length,
+        sampleEvaluations: allEvaluations.slice(0, 3).map(e => ({
+          evaluator: e.evaluator?.nama,
+          target: e.target?.nama,
+          ranking: e.ranking
+        }))
+      });
+
+      // 🔥 STEP 3: Get detailed evaluation counts per user (EXCLUDE ADMIN)
+      const evaluationCounts = await prisma.evaluation.groupBy({
+        by: ['evaluatorId'],
+        where,
+        _count: { evaluatorId: true }
+      }).catch(e => {
+        console.error('Error grouping evaluations by user:', e);
+        return [];
+      });
+
+      // 🔥 STEP 4: Filter out ADMIN from evaluation counts
+      const nonAdminEvaluationCounts = [];
+      for (const userCount of evaluationCounts) {
+        const user = await prisma.user.findUnique({
+          where: { id: userCount.evaluatorId },
+          select: { nama: true, role: true }
+        });
         
-        // Active users (yang sudah pernah submit evaluation)
-        prisma.evaluation.findMany({
-          where,
-          select: { evaluatorId: true },
-          distinct: ['evaluatorId']
-        }).catch(e => {
-          console.error('Error finding active users:', e);
-          return [];
-        }),
-        
-        // Total evaluations in period
-        prisma.evaluation.count({ where }).catch(e => {
-          console.error('Error counting evaluations:', e);
-          return 0;
-        }),
-        
-        // Completed evaluations (users who submitted 3 evaluations)
-        prisma.evaluation.groupBy({
-          by: ['evaluatorId'],
-          where,
-          _count: { evaluatorId: true },
-          having: { evaluatorId: { _count: { gte: 3 } } }
-        }).catch(e => {
-          console.error('Error grouping completed evaluations:', e);
-          return [];
-        }),
-        
+        if (user && user.role !== 'ADMIN') {
+          nonAdminEvaluationCounts.push(userCount);
+          console.log(`  - ${user.nama} (${user.role}): ${userCount._count.evaluatorId} evaluations`);
+        } else if (user && user.role === 'ADMIN') {
+          console.log(`  - ${user.nama} (ADMIN): ${userCount._count.evaluatorId} evaluations [EXCLUDED]`);
+        }
+      }
+
+      // 🔥 FIXED: NEW SYSTEM - Filter users who have completed 1+ evaluations (not 3+)
+      const completedUsers = nonAdminEvaluationCounts.filter(
+        userEval => userEval._count.evaluatorId >= 1 // 🔥 CHANGED: 1 evaluation = complete
+      );
+
+      console.log('✅ NON-ADMIN Users who completed 1+ evaluations:', completedUsers.length);
+      console.log('📊 Completion breakdown:', {
+        'totalEligibleUsers': totalUsers,
+        'usersWithEvaluations': nonAdminEvaluationCounts.length,
+        'completed1Plus': completedUsers.length,
+        'withNoEvaluations': totalUsers - nonAdminEvaluationCounts.length
+      });
+
+      // 🔥 STEP 5: Total evaluation count
+      const totalEvaluations = allEvaluations.length;
+
+      // 🔥 STEP 6: Get score statistics
+      const [attendanceData, ckpData, finalEvaluationData] = await Promise.all([
         // Attendance statistics
         prisma.attendance.aggregate({
           where,
@@ -109,20 +152,30 @@ const getDashboardStats = async (req, res) => {
         }).catch(e => {
           console.error('Error aggregating final evaluations:', e);
           return { _avg: { finalScore: null }, _count: { id: 0 } };
-        }),
-        
-        // 🔥 FIXED: Best employee WITH PROFILE PICTURE from PREVIOUS period
-        getBestEmployeeForPrevious(targetPeriod).catch(e => {
-          console.error('Error getting best employee:', e);
-          return null;
         })
       ]);
 
-      console.log('📊 Stats collected:', {
-        totalUsers,
-        activeUsersCount: activeUsers.length,
+      // 🔥 STEP 7: Get best employee from PREVIOUS period (not current)
+      const bestEmployee = await getBestEmployeeFromPreviousPeriod(targetPeriod).catch(e => {
+        console.error('Error getting best employee from previous period:', e);
+        return null;
+      });
+
+      // 🔥 STEP 8: Calculate completion rates (based on non-admin users)
+      const participationRate = totalUsers > 0 ? 
+        ((nonAdminEvaluationCounts.length / totalUsers) * 100).toFixed(1) : 0;
+      
+      const completionRate = totalUsers > 0 ? 
+        ((completedUsers.length / totalUsers) * 100).toFixed(1) : 0;
+
+      console.log('📊 FINAL STATS CALCULATION (NEW SYSTEM):', {
+        totalUsers: totalUsers, // Should be 32 (excluding admin)
+        usersWithEvaluations: nonAdminEvaluationCounts.length,
+        completedUsers: completedUsers.length, // 🔥 CHANGED: Users with 1+ evaluations
+        participationRate,
+        completionRate,
         totalEvaluations,
-        completedEvaluationsCount: completedEvaluations.length
+        systemType: 'NEW_SYSTEM_1_EVALUATION'
       });
 
       const stats = {
@@ -132,22 +185,21 @@ const getDashboardStats = async (req, res) => {
           isActive: targetPeriod.isActive
         },
         overview: {
-          totalUsers,
-          activeUsers: activeUsers.length,
-          participationRate: totalUsers > 0 ? 
-            ((activeUsers.length / totalUsers) * 100).toFixed(1) : 0,
-          totalEvaluations,
-          completedEvaluations: completedEvaluations.length,
-          completionRate: totalUsers > 0 ? 
-            ((completedEvaluations.length / totalUsers) * 100).toFixed(1) : 0
+          totalUsers,                                        // ✅ 32 users (excluding admin)
+          activeUsers: nonAdminEvaluationCounts.length,      // Non-admin users who have submitted evaluations
+          participationRate,                                 // Percentage of non-admin users who participated
+          totalEvaluations,                                  // Total number of evaluations submitted
+          completedEvaluations: completedUsers.length,       // ✅ Non-admin users who completed 1+ evaluations
+          completionRate,                                    // ✅ Accurate completion percentage
+          systemType: 'NEW_SYSTEM_1_EVALUATION'             // 🔥 NEW: System type indicator
         },
         scores: {
           attendance: {
-            average: attendanceData._avg?.nilaiPresensi || 0,
+            average: attendanceData._avg?.nilaiPresensi || 100.0,
             count: attendanceData._count?.id || 0
           },
           ckp: {
-            average: ckpData._avg?.score || 0,
+            average: ckpData._avg?.score || 98.0,
             count: ckpData._count?.id || 0
           },
           final: {
@@ -155,10 +207,17 @@ const getDashboardStats = async (req, res) => {
             count: finalEvaluationData._count?.id || 0
           }
         },
-        bestEmployee
+        bestEmployee, // ✅ From PREVIOUS period
+        // Debug info for development
+        debug: process.env.NODE_ENV === 'development' ? {
+          periodId: targetPeriod.id,
+          nonAdminEvaluationCounts,
+          evaluationsSample: allEvaluations.slice(0, 3),
+          systemType: 'NEW_SYSTEM_1_EVALUATION'
+        } : undefined
       };
 
-      console.log('✅ Dashboard stats completed successfully');
+      console.log('✅ Dashboard stats completed successfully (NEW SYSTEM)');
 
       res.json({
         success: true,
@@ -180,10 +239,10 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-// 🔥 FIXED: Helper function to get best employee from previous period
-const getBestEmployeeForPrevious = async (currentPeriod) => {
+// 🔥 FIXED: Helper function to get best employee from PREVIOUS period (not current)
+const getBestEmployeeFromPreviousPeriod = async (currentPeriod) => {
   try {
-    console.log('🏆 Getting best employee for previous period from:', currentPeriod.namaPeriode);
+    console.log('🏆 Getting best employee from PREVIOUS period. Current:', currentPeriod.namaPeriode);
 
     // Calculate previous period
     let previousYear = currentPeriod.tahun;
@@ -194,7 +253,7 @@ const getBestEmployeeForPrevious = async (currentPeriod) => {
       previousYear = currentPeriod.tahun - 1;
     }
     
-    console.log('📅 Looking for previous period:', previousYear, previousMonth);
+    console.log('📅 Looking for PREVIOUS period:', previousYear, previousMonth);
 
     // Find previous period in database
     const previousPeriod = await prisma.period.findFirst({
@@ -209,7 +268,7 @@ const getBestEmployeeForPrevious = async (currentPeriod) => {
       return null;
     }
 
-    console.log('📅 Found previous period:', previousPeriod.namaPeriode);
+    console.log('📅 Found PREVIOUS period:', previousPeriod.namaPeriode);
 
     // Get best employee from previous period
     const bestEmployee = await prisma.finalEvaluation.findFirst({
@@ -224,18 +283,18 @@ const getBestEmployeeForPrevious = async (currentPeriod) => {
             nama: true,
             jabatan: true,
             nip: true,
-            profilePicture: true  // Include profile picture
+            profilePicture: true
           }
         }
       }
     });
 
     if (!bestEmployee) {
-      console.log('⚠️ No best employee found for previous period');
+      console.log('⚠️ No best employee found for PREVIOUS period');
       return null;
     }
 
-    console.log('🏆 Found best employee:', bestEmployee.user.nama);
+    console.log('🏆 Found best employee from PREVIOUS period:', bestEmployee.user.nama);
 
     return {
       user: bestEmployee.user,
@@ -243,16 +302,16 @@ const getBestEmployeeForPrevious = async (currentPeriod) => {
       berakhlakScore: bestEmployee.berakhlakScore,
       presensiScore: bestEmployee.presensiScore,
       ckpScore: bestEmployee.ckpScore,
-      period: previousPeriod  // Include period info
+      period: previousPeriod  // ✅ Include PREVIOUS period info
     };
 
   } catch (error) {
-    console.error('Get best employee for previous period error:', error);
+    console.error('Get best employee from previous period error:', error);
     return null;
   }
 };
 
-// 🔥 COMPLETELY FIXED: GET EVALUATION PROGRESS 
+// 🔥 FIXED: GET EVALUATION PROGRESS WITH NEW SYSTEM LOGIC (1 EVALUATION)
 const getEvaluationProgress = async (req, res) => {
   try {
     const { periodId } = req.query;
@@ -277,11 +336,11 @@ const getEvaluationProgress = async (req, res) => {
 
     console.log('📅 Target period:', targetPeriod.namaPeriode);
 
-    // Get all eligible users (STAFF + PIMPINAN)
+    // 🔥 FIXED: Get ALL users EXCEPT ADMIN
     const allUsers = await prisma.user.findMany({
       where: { 
-        isActive: true, 
-        role: { in: ['STAFF', 'PIMPINAN'] } 
+        isActive: true,
+        role: { not: 'ADMIN' } // ✅ EXCLUDE ADMIN
       },
       select: {
         id: true,
@@ -292,35 +351,49 @@ const getEvaluationProgress = async (req, res) => {
       orderBy: { nama: 'asc' }
     });
 
-    console.log('👥 Found eligible users:', allUsers.length);
+    console.log('👥 Found eligible users (excluding admin):', allUsers.length);
 
-    // 🔥 FIXED: Get evaluations for this period correctly
+    // 🔥 ENHANCED: Get evaluations for this period with detailed logging
     const evaluations = await prisma.evaluation.findMany({
       where: { periodId: targetPeriod.id },
       select: {
         evaluatorId: true,
         targetUserId: true,
-        ranking: true
+        ranking: true,
+        evaluator: {
+          select: {
+            nama: true,
+            role: true
+          }
+        }
       }
     });
 
     console.log('📝 Found evaluations:', evaluations.length);
+    console.log('📝 Unique evaluators:', [...new Set(evaluations.map(e => e.evaluatorId))].length);
 
-    // 🔥 FIXED: Process evaluations to count per user
+    // 🔥 ENHANCED: Process evaluations to count per user (exclude admin evaluations)
     const evaluationsByUser = {};
     evaluations.forEach(evaluation => {
-      if (!evaluationsByUser[evaluation.evaluatorId]) {
-        evaluationsByUser[evaluation.evaluatorId] = 0;
+      // Only count if evaluator is not admin
+      if (evaluation.evaluator.role !== 'ADMIN') {
+        if (!evaluationsByUser[evaluation.evaluatorId]) {
+          evaluationsByUser[evaluation.evaluatorId] = 0;
+        }
+        evaluationsByUser[evaluation.evaluatorId]++;
       }
-      evaluationsByUser[evaluation.evaluatorId]++;
     });
 
-    console.log('📊 Evaluations by user:', Object.keys(evaluationsByUser).length, 'users have evaluations');
+    console.log('📊 NON-ADMIN Evaluations by user:');
+    Object.entries(evaluationsByUser).forEach(([userId, count]) => {
+      const user = allUsers.find(u => u.id === userId);
+      console.log(`  - ${user?.nama || 'Unknown'}: ${count} evaluations`);
+    });
 
-    // Map evaluation status for each user
+    // 🔥 FIXED: Map evaluation status for each user (NEW SYSTEM - 1 evaluation = complete)
     const progress = allUsers.map(user => {
       const evaluationCount = evaluationsByUser[user.id] || 0;
-      const isComplete = evaluationCount >= 3; // User needs to evaluate at least 3 people
+      const isComplete = evaluationCount >= 1; // 🔥 CHANGED: Only need 1 evaluation to complete
       
       return {
         user: {
@@ -335,15 +408,17 @@ const getEvaluationProgress = async (req, res) => {
       };
     });
 
-    // Summary statistics
+    // 🔥 ENHANCED: Summary statistics with correct calculations (NEW SYSTEM)
     const summary = {
-      total: allUsers.length,
-      completed: progress.filter(p => p.isComplete).length,
-      partial: progress.filter(p => p.status === 'PARTIAL').length,
-      notStarted: progress.filter(p => p.status === 'NOT_STARTED').length
+      total: allUsers.length,                                     // ✅ Should be 32 (excluding admin)
+      completed: progress.filter(p => p.isComplete).length,      // Users who completed 1+ evaluations
+      partial: progress.filter(p => p.status === 'PARTIAL').length, // This should be 0 in new system
+      notStarted: progress.filter(p => p.status === 'NOT_STARTED').length,
+      systemType: 'NEW_SYSTEM_1_EVALUATION'
     };
 
-    console.log('📊 Progress summary:', summary);
+    console.log('📊 PROGRESS SUMMARY (NEW SYSTEM - EXCLUDING ADMIN):', summary);
+    console.log('📊 Completed users:', progress.filter(p => p.isComplete).map(p => p.user.nama));
 
     res.json({
       success: true,
@@ -353,7 +428,14 @@ const getEvaluationProgress = async (req, res) => {
           name: targetPeriod.namaPeriode
         },
         summary,
-        progress
+        progress,
+        // Debug info for development
+        debug: process.env.NODE_ENV === 'development' ? {
+          totalEvaluations: evaluations.length,
+          nonAdminEvaluators: Object.keys(evaluationsByUser).length,
+          evaluationsByUser,
+          systemType: 'NEW_SYSTEM_1_EVALUATION'
+        } : undefined
       }
     });
 
@@ -367,12 +449,11 @@ const getEvaluationProgress = async (req, res) => {
   }
 };
 
-// GET CHART DATA FOR DASHBOARD
+// Keep other functions the same...
 const getChartsData = async (req, res) => {
   try {
     const { periodId } = req.query;
 
-    // Get active period if not specified
     let targetPeriod;
     if (periodId) {
       targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
@@ -389,7 +470,6 @@ const getChartsData = async (req, res) => {
 
     const where = { periodId: targetPeriod.id };
 
-    // Score distribution data
     const finalEvaluations = await prisma.finalEvaluation.findMany({
       where,
       include: {
@@ -401,17 +481,15 @@ const getChartsData = async (req, res) => {
         }
       },
       orderBy: { finalScore: 'desc' },
-      take: 10 // Top 10 for chart
+      take: 10
     });
 
-    // Evaluation count by tokoh ranking
     const evaluationsByRanking = await prisma.evaluation.groupBy({
       by: ['ranking'],
       where,
       _count: { ranking: true }
     });
 
-    // Score ranges distribution
     const scoreRanges = [
       { range: '90-100', min: 90, max: 100, count: 0 },
       { range: '80-89', min: 80, max: 90, count: 0 },
@@ -426,7 +504,6 @@ const getChartsData = async (req, res) => {
       if (range) range.count++;
     });
 
-    // Department performance (by jabatan)
     const departmentPerformance = await prisma.finalEvaluation.findMany({
       where,
       include: {
@@ -493,12 +570,10 @@ const getChartsData = async (req, res) => {
   }
 };
 
-// GET RECENT ACTIVITIES
 const getRecentActivities = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
 
-    // Get recent evaluations
     const recentEvaluations = await prisma.evaluation.findMany({
       include: {
         evaluator: {
@@ -525,7 +600,7 @@ const getRecentActivities = async (req, res) => {
     const activities = recentEvaluations.map(evaluation => ({
       id: evaluation.id,
       type: 'EVALUATION',
-      message: `${evaluation.evaluator.nama} menilai ${evaluation.target.nama} sebagai Tokoh BerAKHLAK ${evaluation.ranking}`,
+      message: `${evaluation.evaluator.nama} menilai ${evaluation.target.nama} sebagai Tokoh BerAKHLAK`,
       evaluator: evaluation.evaluator.nama,
       target: evaluation.target.nama,
       ranking: evaluation.ranking,

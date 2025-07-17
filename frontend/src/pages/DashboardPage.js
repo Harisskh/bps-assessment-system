@@ -1,12 +1,11 @@
-// src/pages/DashboardPage.js - FIXED WITH BETTER ERROR HANDLING
+// src/pages/DashboardPage.js - FIXED PROGRESS CALCULATION FOR NEW SYSTEM
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardAPI, finalEvaluationAPI, periodAPI, evaluationAPI } from '../services/api';
 import { Link } from 'react-router-dom';
 import '../styles/Dashboard.scss';
 
-// --- Komponen-komponen Dashboard ---
-
+// Components remain the same...
 const StatCardColorful = ({ title, value, icon, unit = '', colorClass = 'bg-primary' }) => (
     <div className={`stat-card-colorful ${colorClass} h-100`}>
         <h6 className="stat-label">{title}</h6>
@@ -15,11 +14,10 @@ const StatCardColorful = ({ title, value, icon, unit = '', colorClass = 'bg-prim
     </div>
 );
 
-// 🔥 UPDATED: BestEmployeeCard dengan profile picture support + period info
+// 🔥 ENHANCED: BestEmployeeCard with clear period display
 const BestEmployeeCard = ({ employee, period }) => {
     const BACKEND_BASE_URL = 'http://localhost:5000';
     
-    // 🔥 Helper function untuk construct image URL
     const getImageUrl = (imagePath) => {
         if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {
             return null;
@@ -33,9 +31,7 @@ const BestEmployeeCard = ({ employee, period }) => {
             finalUrl = BACKEND_BASE_URL + cleanPath;
         }
         
-        // Add cache busting
         finalUrl += (finalUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
-        
         return finalUrl;
     };
     
@@ -57,7 +53,7 @@ const BestEmployeeCard = ({ employee, period }) => {
                     <p className="small text-muted">
                         {period 
                             ? `Belum ada best employee untuk ${period.namaPeriode}`
-                            : 'Jalankan perhitungan final untuk menentukan pegawai terbaik periode ini.'
+                            : 'Belum ada best employee untuk periode sebelumnya.'
                         }
                     </p>
                 </div>
@@ -65,17 +61,14 @@ const BestEmployeeCard = ({ employee, period }) => {
         );
     }
     
-    // 🔥 FIX: Handle different data structures more comprehensively
     const userData = employee.user || employee;
     const scores = {
-        // Handle multiple possible field names for each score type
-        berakhlak: employee.berakhlakScore || employee.tokohBerakhlakScore || employee.berAKHLAKScore || employee.berakhlak || 0,
-        presensi: employee.presensiScore || employee.attendanceScore || employee.presensi || 0,
-        ckp: employee.ckpScore || employee.ckp || 0,
-        final: employee.finalScore || employee.totalScore || employee.nilaiAkhir || 0
+        berakhlak: employee.berakhlakScore || employee.nilaiBerakhlak || employee.berAKHLAKScore || employee.berakhlak || 0,
+        presensi: employee.presensiScore || employee.nilaiPresensi || employee.attendanceScore || employee.presensi || 0,
+        ckp: employee.ckpScore || employee.nilaiCkp || employee.ckp || 0,
+        final: employee.finalScore || employee.nilaiAkhir || employee.totalScore || 0
     };
     
-    // 🔥 Profile picture URL
     const profileImageUrl = userData.profilePicture ? getImageUrl(userData.profilePicture) : null;
     
     return (
@@ -84,7 +77,6 @@ const BestEmployeeCard = ({ employee, period }) => {
                 <i className="fas fa-star"></i> CONGRATULATIONS!
             </div>
             <div className="text-center pt-4">
-                {/* 🔥 PROFILE PICTURE SECTION */}
                 <div className="employee-avatar-large mx-auto mb-3">
                     {profileImageUrl ? (
                         <img 
@@ -92,7 +84,6 @@ const BestEmployeeCard = ({ employee, period }) => {
                             alt={userData.nama}
                             className="avatar-image-large"
                             onError={(e) => {
-                                // Fallback ke initials jika gambar gagal load
                                 e.target.style.display = 'none';
                                 const parent = e.target.parentElement;
                                 if (parent && !parent.querySelector('.avatar-placeholder-large')) {
@@ -113,20 +104,18 @@ const BestEmployeeCard = ({ employee, period }) => {
                 <h4 className="mt-3 mb-1 fw-bold">{userData.nama}</h4>
                 <p className="text-muted small mb-3">{userData.jabatan}</p>
                 
-                {/* 🔥 NEW: Best Employee Period Display */}
-                {period && (
-                    <div className="best-employee-period mb-3">
-                        <div className="d-flex align-items-center justify-content-center mb-2">
-                            <i className="fas fa-trophy text-warning me-2"></i>
-                            <span className="fw-bold text-primary">Best Employee of the Month</span>
-                        </div>
-                        <div className="period-badge">
-                            <span className="badge bg-warning text-dark fs-6">
-                                in {period.namaPeriode}
-                            </span>
-                        </div>
+                {/* 🔥 ALWAYS show period info (should be PREVIOUS period) */}
+                <div className="best-employee-period mb-3">
+                    <div className="d-flex align-items-center justify-content-center mb-2">
+                        <i className="fas fa-trophy text-warning me-2"></i>
+                        <span className="fw-bold text-primary">Best Employee of the Month</span>
                     </div>
-                )}
+                    <div className="period-badge">
+                        <span className="badge bg-warning text-dark fs-6">
+                            in {period?.namaPeriode || 'Previous Period'}
+                        </span>
+                    </div>
+                </div>
                 
                 <div className="mb-3">
                     <span className="h1 fw-bolder text-success me-2">{scores.final.toFixed(2)}</span>
@@ -143,6 +132,7 @@ const BestEmployeeCard = ({ employee, period }) => {
     );
 };
 
+// 🔥 FIXED: RadialProgress component with better calculation
 const RadialProgress = ({ percentage, color = '#2c549c', backgroundColor = '#dc3545' }) => {
     const radius = 60;
     const circumference = 2 * Math.PI * radius;
@@ -151,7 +141,6 @@ const RadialProgress = ({ percentage, color = '#2c549c', backgroundColor = '#dc3
     return (
         <div className="progress-radial">
             <svg width="100%" height="100%" viewBox="0 0 150 150">
-                {/* Background circle (gray) */}
                 <circle 
                     cx="75" 
                     cy="75" 
@@ -161,7 +150,6 @@ const RadialProgress = ({ percentage, color = '#2c549c', backgroundColor = '#dc3
                     strokeWidth="15" 
                 />
                 
-                {/* Red circle for remaining percentage (97%) */}
                 <circle 
                     cx="75" 
                     cy="75" 
@@ -175,7 +163,6 @@ const RadialProgress = ({ percentage, color = '#2c549c', backgroundColor = '#dc3
                     transform="rotate(-90 75 75)"
                 />
                 
-                {/* Blue circle for completed percentage (3%) */}
                 <circle 
                     className="progress-circle" 
                     cx="75" 
@@ -190,7 +177,6 @@ const RadialProgress = ({ percentage, color = '#2c549c', backgroundColor = '#dc3
                     transform="rotate(-90 75 75)"
                 />
                 
-                {/* Percentage text */}
                 <text 
                     x="50%" 
                     y="50%" 
@@ -208,8 +194,6 @@ const RadialProgress = ({ percentage, color = '#2c549c', backgroundColor = '#dc3
     );
 };
 
-// --- Komponen Baru untuk Staff ---
-
 const StaffActionCard = ({ periodName }) => (
     <div className="staff-action-card mb-4">
         <h4>Saatnya Memberi Penilaian!</h4>
@@ -223,12 +207,15 @@ const StaffActionCard = ({ periodName }) => (
 
 const EvaluationHistoryCard = ({ evaluations = [] }) => {
     const getRankingBadge = (ranking) => {
-        const badges = {
-            1: { class: 'bg-success', icon: 'fa-trophy', text: 'Tokoh 1' },
-            2: { class: 'bg-primary', icon: 'fa-medal', text: 'Tokoh 2' },
-            3: { class: 'bg-info', icon: 'fa-award', text: 'Tokoh 3' }
-        };
-        return badges[ranking] || { class: 'bg-secondary', icon: 'fa-star', text: `Tokoh ${ranking}` };
+    const badges = {
+      1: { class: 'bg-success', icon: 'fa-trophy', text: 'Tokoh 1' },
+      2: { class: 'bg-primary', icon: 'fa-medal', text: 'Tokoh 2' },
+      3: { class: 'bg-info', icon: 'fa-award', text: 'Tokoh 3' }
+    };
+    if (ranking === undefined || ranking === null) {
+      return { class: 'bg-success', icon: 'fa-star', text: 'Tokoh BerAKHLAK' };
+    }
+    return badges[ranking] || { class: 'bg-secondary', icon: 'fa-star', text: `Tokoh ${ranking}` };
     };
 
     const formatDate = (dateString) => {
@@ -299,7 +286,7 @@ const EvaluationHistoryCard = ({ evaluations = [] }) => {
     );
 };
 
-// --- Komponen Utama Dashboard ---
+// Main Dashboard Component
 const DashboardPage = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -312,50 +299,26 @@ const DashboardPage = () => {
     const [evaluationProgress, setEvaluationProgress] = useState(null);
     const [myEvaluations, setMyEvaluations] = useState([]);
 
-    // 🔥 NEW: Helper function to get previous month period
-    const getPreviousPeriod = (currentPeriod) => {
-        if (!currentPeriod) return null;
-        
-        const currentYear = currentPeriod.tahun;
-        const currentMonth = currentPeriod.bulan;
-        
-        let previousYear = currentYear;
-        let previousMonth = currentMonth - 1;
-        
-        if (previousMonth < 1) {
-            previousMonth = 12;
-            previousYear = currentYear - 1;
-        }
-        
-        return {
-            tahun: previousYear,
-            bulan: previousMonth
-        };
-    };
-
-    // 🔥 NEW: Helper function to get month name
-    const getMonthName = (month) => {
-        const months = [
-            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-        ];
-        return months[month - 1] || 'Unknown';
-    };
-
-    // 🔥 NEW: Find period by year and month
-    const findPeriodByYearMonth = async (year, month) => {
-        try {
-            const response = await periodAPI.getAll({ limit: 100 });
-            const periods = response.data.data?.periods || [];
-            
-            return periods.find(p => p.tahun === year && p.bulan === month);
-        } catch (error) {
-            console.error('Error finding period:', error);
+    const BACKEND_BASE_URL = 'http://localhost:5000';
+    
+    const getImageUrl = (imagePath) => {
+        if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {
             return null;
         }
+        
+        let finalUrl;
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            finalUrl = imagePath;
+        } else {
+            const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+            finalUrl = BACKEND_BASE_URL + cleanPath;
+        }
+        
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        return finalUrl;
     };
 
-    // 🔥 FIXED: Main data loading function with better error handling
+    // 🔥 FIXED: Main data loading useEffect - Backend now handles previous period logic
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -364,10 +327,9 @@ const DashboardPage = () => {
                 
                 console.log('🔄 Starting dashboard data load...');
                 
-                // 🔥 STEP 1: Get active period with comprehensive error handling
+                // STEP 1: Get active period
                 let activePeriodData = null;
                 try {
-                    console.log('📅 Getting active period...');
                     const periodRes = await periodAPI.getActive();
                     activePeriodData = periodRes.data.data?.period || periodRes.data.period;
                     console.log('✅ Active period loaded:', activePeriodData?.namaPeriode);
@@ -379,7 +341,6 @@ const DashboardPage = () => {
                 }
                 
                 if (!activePeriodData || !activePeriodData.id) {
-                    console.error('❌ No active period found or missing ID');
                     setError('Tidak ada periode aktif yang ditemukan. Hubungi administrator.');
                     setLoading(false);
                     return;
@@ -387,53 +348,24 @@ const DashboardPage = () => {
                 
                 setActivePeriod(activePeriodData);
                 
-                // 🔥 STEP 2: Find previous period and load best employee
-                try {
-                    console.log('📅 Finding previous period...');
-                    const previousPeriodInfo = getPreviousPeriod(activePeriodData);
-                    const actualPreviousPeriod = await findPeriodByYearMonth(
-                        previousPeriodInfo.tahun, 
-                        previousPeriodInfo.bulan
-                    );
-                    
-                    if (actualPreviousPeriod) {
-                        console.log('📅 Found previous period:', actualPreviousPeriod.namaPeriode);
-                        setBestEmployeePeriod(actualPreviousPeriod);
-                        
-                        // Load best employee from previous period
-                        try {
-                            const bestEmployeeRes = await finalEvaluationAPI.getBestEmployee(actualPreviousPeriod.id);
-                            if (bestEmployeeRes.data?.success && bestEmployeeRes.data.data?.bestEmployee) {
-                                setBestEmployee(bestEmployeeRes.data.data.bestEmployee);
-                                console.log('✅ Best employee loaded:', bestEmployeeRes.data.data.bestEmployee.user.nama);
-                            } else {
-                                console.log('⚠️ No best employee found for previous period');
-                                setBestEmployee(null);
-                            }
-                        } catch (bestEmployeeError) {
-                            console.warn('⚠️ Error loading best employee:', bestEmployeeError);
-                            setBestEmployee(null);
-                        }
-                    } else {
-                        console.log('⚠️ Previous period not found');
-                        setBestEmployee(null);
-                        setBestEmployeePeriod(null);
-                    }
-                } catch (previousPeriodError) {
-                    console.warn('⚠️ Error finding previous period:', previousPeriodError);
-                    setBestEmployee(null);
-                    setBestEmployeePeriod(null);
-                }
-                
-                // 🔥 STEP 3: Load current period data
+                // STEP 2: Load data with current period ID
                 const currentPeriodId = activePeriodData.id;
-                console.log('📊 Loading current period data for:', currentPeriodId);
+                console.log('📊 Loading data for period:', currentPeriodId);
                 
-                // Common data for all users
-                const commonPromises = [];
+                const promises = [];
+                
+                // Load stats (backend now handles previous period best employee automatically)
+                promises.push(
+                    dashboardAPI.getStats({ periodId: currentPeriodId })
+                        .then(res => ({ type: 'stats', data: res }))
+                        .catch(err => {
+                            console.warn('Stats failed:', err);
+                            return { type: 'stats', error: err };
+                        })
+                );
                 
                 // Load my evaluations
-                commonPromises.push(
+                promises.push(
                     evaluationAPI.getMyEvaluations({ periodId: currentPeriodId })
                         .then(res => ({ type: 'myEvaluations', data: res }))
                         .catch(err => ({ type: 'myEvaluations', error: err }))
@@ -441,23 +373,16 @@ const DashboardPage = () => {
                 
                 // Admin/Pimpinan specific data
                 if (user.role === 'ADMIN' || user.role === 'PIMPINAN') {
-                    commonPromises.push(
-                        dashboardAPI.getStats({ periodId: currentPeriodId })
-                            .then(res => ({ type: 'stats', data: res }))
-                            .catch(err => ({ type: 'stats', error: err }))
-                    );
-                    
-                    commonPromises.push(
+                    promises.push(
                         dashboardAPI.getEvaluationProgress({ periodId: currentPeriodId })
                             .then(res => ({ type: 'progress', data: res }))
                             .catch(err => ({ type: 'progress', error: err }))
                     );
                 }
                 
-                // Execute all promises
-                const results = await Promise.all(commonPromises);
+                const results = await Promise.all(promises);
                 
-                // 🔥 STEP 4: Process results with better error handling
+                // STEP 3: Process results
                 results.forEach(result => {
                     if (result.error) {
                         console.warn(`⚠️ Error loading ${result.type}:`, result.error.message);
@@ -467,61 +392,49 @@ const DashboardPage = () => {
                     const responseData = result.data.data.data || result.data.data;
                     
                     switch (result.type) {
+                        case 'stats':
+                            setStats(responseData);
+                            console.log('✅ Dashboard stats loaded:', responseData.overview);
+                            
+                            // 🔥 FIXED: Best employee comes from backend (previous period)
+                            if (responseData.bestEmployee) {
+                                setBestEmployee(responseData.bestEmployee);
+                                setBestEmployeePeriod(responseData.bestEmployee.period);
+                                console.log('✅ Best employee from previous period:', responseData.bestEmployee.user.nama);
+                                console.log('📅 Best employee period:', responseData.bestEmployee.period?.namaPeriode);
+                            } else {
+                                console.log('⚠️ No best employee found from backend');
+                                setBestEmployee(null);
+                                setBestEmployeePeriod(null);
+                            }
+                            break;
+                            
                         case 'myEvaluations':
                             const evaluations = responseData.evaluations || [];
                             setMyEvaluations(evaluations);
                             console.log('✅ My evaluations loaded:', evaluations.length);
                             break;
                             
-                        case 'stats':
-                            setStats(responseData);
-                            console.log('✅ Dashboard stats loaded');
-                            break;
-                            
                         case 'progress':
                             setEvaluationProgress(responseData);
                             console.log('✅ Evaluation progress loaded:', responseData.summary);
                             break;
-                            
-                        default:
-                            console.warn('Unknown result type:', result.type);
                     }
                 });
                 
-                // 🔥 STEP 5: Fallback for evaluation progress if it failed
-                if ((user.role === 'ADMIN' || user.role === 'PIMPINAN') && !evaluationProgress) {
-                    console.log('🔄 Attempting fallback progress calculation...');
-                    
-                    try {
-                        const evaluationsRes = await evaluationAPI.getAll({ periodId: currentPeriodId, limit: 1000 });
-                        const evaluations = evaluationsRes.data.data?.evaluations || [];
-                        
-                        const uniqueEvaluators = new Set(evaluations.map(e => e.evaluatorId));
-                        const completedCount = uniqueEvaluators.size;
-                        const totalUsers = 32; // Adjust as needed
-                        
-                        const fallbackProgress = {
-                            summary: {
-                                total: totalUsers,
-                                completed: completedCount,
-                                notStarted: totalUsers - completedCount,
-                                completionRate: totalUsers > 0 ? Math.round((completedCount / totalUsers) * 100) : 0
-                            }
-                        };
-                        
-                        setEvaluationProgress(fallbackProgress);
-                        console.log('✅ Fallback progress calculated:', fallbackProgress);
-                    } catch (fallbackError) {
-                        console.error('❌ Fallback calculation failed:', fallbackError);
-                        setEvaluationProgress({
-                            summary: {
-                                total: 32,
-                                completed: 0,
-                                notStarted: 32,
-                                completionRate: 0
-                            }
-                        });
-                    }
+                // 🔥 FIXED: Use stats data for progress calculation if no specific progress data
+                if ((user.role === 'ADMIN' || user.role === 'PIMPINAN') && !evaluationProgress && stats) {
+                    console.log('🔄 Using stats data for progress calculation...');
+                    const progressFromStats = {
+                        summary: {
+                            total: stats.overview.totalUsers,
+                            completed: stats.overview.completedEvaluations,
+                            notStarted: stats.overview.totalUsers - stats.overview.completedEvaluations,
+                            completionRate: Math.round((stats.overview.completedEvaluations / stats.overview.totalUsers) * 100)
+                        }
+                    };
+                    setEvaluationProgress(progressFromStats);
+                    console.log('✅ Progress from stats set:', progressFromStats);
                 }
                 
                 console.log('✅ Dashboard data loading completed successfully');
@@ -538,73 +451,98 @@ const DashboardPage = () => {
             loadData();
         }
     }, [user]);
-    
-    const renderAdminDashboard = () => (
-        <div className="row g-4">
-            <div className="col-lg-5 d-flex flex-column">
-                <BestEmployeeCard employee={bestEmployee} period={bestEmployeePeriod} />
-            </div>
-            <div className="col-lg-7 d-flex flex-column">
-                <div className="row g-4 flex-grow-1">
-                    <div className="col-md-5">
-                        <div className="dashboard-card progress-card">
-                            <div className="card-body d-flex flex-column align-items-center justify-content-center p-4">
-                                <h5 className="card-title mb-4">Progress Evaluasi</h5>
-                                <RadialProgress 
-                                    percentage={evaluationProgress?.summary?.total > 0 ? 
-                                        Math.round((evaluationProgress.summary.completed / evaluationProgress.summary.total) * 100) : 0
-                                    } 
-                                />
-                                <div className="w-100 mt-4 text-center">
-                                    <div className="d-flex justify-content-around">
-                                        <div>
-                                            <p className="mb-0 h5 fw-bold text-success">
-                                                {evaluationProgress?.summary?.completed || 0}
-                                            </p>
-                                            <small className="text-muted">Sudah Menilai</small>
+
+    // 🔥 FIXED: Calculate progress percentage correctly
+    const calculateProgressPercentage = () => {
+        if (!stats?.overview) return 0;
+        
+        const totalUsers = stats.overview.totalUsers || 0;
+        const completedEvaluations = stats.overview.completedEvaluations || 0;
+        
+        if (totalUsers === 0) return 0;
+        
+        const percentage = Math.round((completedEvaluations / totalUsers) * 100);
+        console.log('📊 Progress calculation:', {
+            totalUsers,
+            completedEvaluations,
+            percentage
+        });
+        
+        return percentage;
+    };
+
+    // Dashboard render functions
+    const renderAdminDashboard = () => {
+        // 🔥 FIXED: Calculate progress from stats data
+        const progressPercentage = calculateProgressPercentage();
+        const totalUsers = stats?.overview?.totalUsers || 0;
+        const completedEvaluations = stats?.overview?.completedEvaluations || 0;
+        const notStarted = totalUsers - completedEvaluations;
+        
+        return (
+            <div className="row g-4">
+                <div className="col-lg-5 d-flex flex-column">
+                    {/* 🔥 FIXED: Show best employee from PREVIOUS period */}
+                    <BestEmployeeCard employee={bestEmployee} period={bestEmployeePeriod} />
+                </div>
+                <div className="col-lg-7 d-flex flex-column">
+                    <div className="row g-4 flex-grow-1">
+                        <div className="col-md-5">
+                            <div className="dashboard-card progress-card">
+                                <div className="card-body d-flex flex-column align-items-center justify-content-center p-4">
+                                    <h5 className="card-title mb-4">Progress Evaluasi</h5>
+                                    <RadialProgress percentage={progressPercentage} />
+                                    <div className="w-100 mt-4 text-center">
+                                        <div className="d-flex justify-content-around">
+                                            <div>
+                                                <p className="mb-0 h5 fw-bold text-success">
+                                                    {completedEvaluations}
+                                                </p>
+                                                <small className="text-muted">Sudah Menilai</small>
+                                            </div>
+                                            <div>
+                                                <p className="mb-0 h5 fw-bold text-danger">
+                                                    {notStarted}
+                                                </p>
+                                                <small className="text-muted">Belum Menilai</small>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="mb-0 h5 fw-bold text-danger">
-                                                {evaluationProgress?.summary?.notStarted || 0}
-                                            </p>
-                                            <small className="text-muted">Belum Menilai</small>
-                                        </div>
+                                        <Link to="/monitoring" className="btn btn-outline-primary btn-sm mt-4 w-100">
+                                            Lihat Detail
+                                        </Link>
                                     </div>
-                                    <Link to="/monitoring" className="btn btn-outline-primary btn-sm mt-4 w-100">
-                                        Lihat Detail
-                                    </Link>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div className="col-md-7">
-                        <div className="dashboard-card quick-actions-card">
-                            <div className="card-body p-4">
-                                <h5 className="card-title mb-4">
-                                    <i className="fas fa-rocket me-2"></i>Aksi Cepat
-                                </h5>
-                                <div className="d-grid gap-3">
-                                    <Link to="/attendance-input" className="btn btn-light btn-action text-success border">
-                                        <i className="fas fa-calendar-check"></i>
-                                        <span>Input Presensi</span>
-                                    </Link>
-                                    <Link to="/ckp-input" className="btn btn-light btn-action text-warning border">
-                                        <i className="fas fa-chart-line"></i>
-                                        <span>Input CKP</span>
-                                    </Link>
-                                    <Link to="/period-management" className="btn btn-light btn-action text-danger border">
-                                        <i className="fas fa-calendar-alt"></i>
-                                        <span>Kelola Periode</span>
-                                    </Link>
+                        <div className="col-md-7">
+                            <div className="dashboard-card quick-actions-card">
+                                <div className="card-body p-4">
+                                    <h5 className="card-title mb-4">
+                                        <i className="fas fa-rocket me-2"></i>Aksi Cepat
+                                    </h5>
+                                    <div className="d-grid gap-3">
+                                        <Link to="/attendance-input" className="btn btn-light btn-action text-success border">
+                                            <i className="fas fa-calendar-check"></i>
+                                            <span>Input Presensi</span>
+                                        </Link>
+                                        <Link to="/ckp-input" className="btn btn-light btn-action text-warning border">
+                                            <i className="fas fa-chart-line"></i>
+                                            <span>Input CKP</span>
+                                        </Link>
+                                        <Link to="/period-management" className="btn btn-light btn-action text-danger border">
+                                            <i className="fas fa-calendar-alt"></i>
+                                            <span>Kelola Periode</span>
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    );
-    
+        );
+    };
+
     const renderStaffDashboard = () => (
         <div className="row g-4">
             <div className="col-lg-7">
@@ -614,6 +552,7 @@ const DashboardPage = () => {
                 </div>
             </div>
             <div className="col-lg-5">
+                {/* 🔥 FIXED: Staff also shows best employee from PREVIOUS period */}
                 <BestEmployeeCard employee={bestEmployee} period={bestEmployeePeriod} />
             </div>
             <div className="col-12 d-lg-none">
@@ -621,7 +560,7 @@ const DashboardPage = () => {
             </div>
         </div>
     );
-    
+
     return (
         <div className="container-fluid">
             {loading ? (
@@ -634,19 +573,26 @@ const DashboardPage = () => {
                 <>
                     <div className="welcome-header">
                         <div className="d-flex justify-content-between align-items-center">
+                            <div className="d-flex align-items-center">
+                            <img
+                                src={getImageUrl(user.profilePicture)}
+                                alt="Foto Profil"
+                                className="dashboard-profile-pic me-4" 
+                            />
                             <div>
                                 <h1 className="welcome-title">Dashboard</h1>
                                 <p className="welcome-subtitle mb-0">
                                     Selamat datang, <span className="welcome-user-badge">{user.nama}</span>
                                 </p>
                             </div>
+                            </div>
                             <div className="text-end">
-                                <h6 className="mb-1 opacity-75">Periode Aktif</h6>
-                                <span className="badge period-badge fs-6">
+                                <h6 className="mb-1 opacity-75" style={{ fontSize: '1.1rem' }}>Periode Aktif</h6>
+                                <span className="badge period-badge fs-6" style={{ fontSize: '1.2rem', padding: '0.7em 1.2em' }}>
                                     {activePeriod?.namaPeriode || 'N/A'}
                                 </span>
                             </div>
-                        </div>
+                            </div>
                     </div>
 
                     {error && (
@@ -656,12 +602,13 @@ const DashboardPage = () => {
                         </div>
                     )}
 
+                    {/* 🔥 FIXED: Stats cards with correct values (32 users, excluding admin) */}
                     {(user.role === 'ADMIN' || user.role === 'PIMPINAN') && (
                         <div className="row g-4 mb-4">
                             <div className="col-lg-3 col-md-6">
                                 <StatCardColorful 
                                     title="Total Pegawai" 
-                                    value={evaluationProgress?.summary?.total || 32} 
+                                    value={stats?.overview?.totalUsers || 32} 
                                     icon="fa-users" 
                                     colorClass="bg-primary" 
                                 />
@@ -669,16 +616,16 @@ const DashboardPage = () => {
                             <div className="col-lg-3 col-md-6">
                                 <StatCardColorful 
                                     title="Sudah Menilai" 
-                                    value={`${evaluationProgress?.summary?.completed || 0}`} 
+                                    value={stats?.overview?.completedEvaluations || 0} 
                                     icon="fa-user-check" 
-                                    unit={`/ ${evaluationProgress?.summary?.total || 32}`} 
+                                    unit={`/ ${stats?.overview?.totalUsers || 32}`} 
                                     colorClass="bg-success" 
                                 />
                             </div>
                             <div className="col-lg-3 col-md-6">
                                 <StatCardColorful 
                                     title="Rata-rata Presensi" 
-                                    value="100.0" 
+                                    value={stats?.scores?.attendance?.average?.toFixed(1) || '100.0'} 
                                     icon="fa-calendar-check" 
                                     colorClass="bg-warning text-dark" 
                                 />
@@ -686,7 +633,7 @@ const DashboardPage = () => {
                             <div className="col-lg-3 col-md-6">
                                 <StatCardColorful 
                                     title="Rata-rata CKP" 
-                                    value="98.0" 
+                                    value={stats?.scores?.ckp?.average?.toFixed(1) || '98.0'} 
                                     icon="fa-chart-line" 
                                     colorClass="bg-info" 
                                 />

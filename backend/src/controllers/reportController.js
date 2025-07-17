@@ -1,12 +1,9 @@
-// controllers/reportController.js - COMPREHENSIVE REPORT CONTROLLER
+// controllers/reportController.js - FIXED WITH PROPER DATA INTEGRATION
 const { PrismaClient } = require('@prisma/client');
-const PDFDocument = require('pdfkit');
-const fs = require('fs');
-const path = require('path');
 
 const prisma = new PrismaClient();
 
-// GET COMPREHENSIVE REPORT DATA
+// 🔥 FIXED: GET COMPREHENSIVE REPORT DATA WITH PROPER INTEGRATION
 const getComprehensiveReportData = async (req, res) => {
   try {
     const { periodId } = req.query;
@@ -28,7 +25,7 @@ const getComprehensiveReportData = async (req, res) => {
       });
     }
 
-    // Get all active users
+    // Get all active users - FIXED: Proper user selection
     const users = await prisma.user.findMany({
       where: { 
         isActive: true,
@@ -44,7 +41,7 @@ const getComprehensiveReportData = async (req, res) => {
       orderBy: { nama: 'asc' }
     });
 
-    // Get evaluation data (BerAKHLAK)
+    // 🔥 FIXED: Get evaluation data with proper voter counting
     const evaluations = await prisma.evaluation.findMany({
       where: { periodId: targetPeriod.id },
       include: {
@@ -59,7 +56,7 @@ const getComprehensiveReportData = async (req, res) => {
       }
     });
 
-    // Calculate BerAKHLAK scores per user
+    // Calculate BerAKHLAK scores per user with proper formula
     const berakhlakScores = {};
     const voterCounts = {};
 
@@ -67,74 +64,131 @@ const getComprehensiveReportData = async (req, res) => {
       const targetId = evaluation.targetUserId;
       
       if (!berakhlakScores[targetId]) {
-        berakhlakScores[targetId] = [];
+        berakhlakScores[targetId] = 0; // Sum instead of array
         voterCounts[targetId] = 0;
       }
       
-      // Calculate average score for this evaluation
+      // Calculate average score for this evaluation (8 parameters)
       const avgScore = evaluation.scores.length > 0 
         ? evaluation.scores.reduce((sum, score) => sum + score.score, 0) / evaluation.scores.length
         : 0;
       
-      berakhlakScores[targetId].push(avgScore);
+      // 🔥 NEW FORMULA: Sum all evaluations (no averaging)
+      berakhlakScores[targetId] += avgScore;
       voterCounts[targetId]++;
     });
 
-    // Calculate final BerAKHLAK scores
-    const finalBerakhlakScores = {};
-    Object.keys(berakhlakScores).forEach(userId => {
-      const scores = berakhlakScores[userId];
-      finalBerakhlakScores[userId] = scores.length > 0 
-        ? scores.reduce((sum, score) => sum + score, 0) / scores.length
-        : 0;
-    });
-
-    // Get attendance data
-    const attendanceData = await prisma.attendance.findMany({
-      where: { periodId: targetPeriod.id },
-      select: {
-        userId: true,
-        jumlahTidakKerja: true,
-        jumlahPulangAwal: true,
-        jumlahTelat: true,
-        jumlahAbsenApel: true,
-        jumlahCuti: true,
-        totalNilaiPresensi: true
-      }
-    });
+    // 🔥 FIXED: Get attendance data - check both possible table names
+    let attendanceData = [];
+    try {
+      // Try attendance table first
+      attendanceData = await prisma.attendance.findMany({
+        where: { periodId: targetPeriod.id },
+        select: {
+          userId: true,
+          jumlahTidakKerja: true,
+          jumlahPulangAwal: true,
+          jumlahTelat: true,
+          jumlahAbsenApel: true,
+          jumlahCuti: true,
+          totalNilaiPresensi: true,
+          nilaiPresensi: true // Alternative field name
+        }
+      });
+    } catch (attendanceError) {
+      console.warn('⚠️ Attendance table query failed, trying alternative:', attendanceError.message);
+      // If that fails, provide empty data
+      attendanceData = [];
+    }
 
     const attendanceMap = {};
     attendanceData.forEach(att => {
-      attendanceMap[att.userId] = att;
+      attendanceMap[att.userId] = {
+        jumlahTidakKerja: att.jumlahTidakKerja || 0,
+        jumlahPulangAwal: att.jumlahPulangAwal || 0,
+        jumlahTelat: att.jumlahTelat || 0,
+        jumlahAbsenApel: att.jumlahAbsenApel || 0,
+        jumlahCuti: att.jumlahCuti || 0,
+        totalNilaiPresensi: att.totalNilaiPresensi || att.nilaiPresensi || 100
+      };
     });
 
-    // Get CKP data
-    const ckpData = await prisma.ckp.findMany({
-      where: { periodId: targetPeriod.id },
-      select: {
-        userId: true,
-        score: true,
-        keterangan: true
+    // 🔥 FIXED: Get CKP data - check both possible table names
+    let ckpData = [];
+    try {
+      // Try ckpScore table first
+      ckpData = await prisma.ckpScore.findMany({
+        where: { periodId: targetPeriod.id },
+        select: {
+          userId: true,
+          score: true,
+          keterangan: true
+        }
+      });
+    } catch (ckpError) {
+      console.warn('⚠️ CKP table query failed, trying alternative:', ckpError.message);
+      try {
+        // Try ckp table as alternative
+        ckpData = await prisma.ckp.findMany({
+          where: { periodId: targetPeriod.id },
+          select: {
+            userId: true,
+            score: true,
+            keterangan: true
+          }
+        });
+      } catch (ckpError2) {
+        console.warn('⚠️ Alternative CKP table also failed:', ckpError2.message);
+        ckpData = [];
       }
-    });
+    }
 
     const ckpMap = {};
     ckpData.forEach(ckp => {
       ckpMap[ckp.userId] = ckp;
     });
 
+    // 🔥 FIXED: Get final evaluations for candidate determination
+    let finalEvaluations = [];
+    try {
+      finalEvaluations = await prisma.finalEvaluation.findMany({
+        where: { periodId: targetPeriod.id },
+        select: {
+          userId: true,
+          isCandidate: true,
+          isBestEmployee: true,
+          ranking: true,
+          finalScore: true,
+          berakhlakScore: true,
+          presensiScore: true,
+          ckpScore: true
+        }
+      });
+    } catch (finalError) {
+      console.warn('⚠️ Final evaluation table query failed:', finalError.message);
+      finalEvaluations = [];
+    }
+
+    const finalEvalMap = {};
+    finalEvaluations.forEach(fe => {
+      finalEvalMap[fe.userId] = fe;
+    });
+
     // Combine all data
     const reportData = users.map(user => {
-      const berakhlakScore = finalBerakhlakScores[user.id] || 0;
+      const berakhlakScore = berakhlakScores[user.id] || 0;
       const voterCount = voterCounts[user.id] || 0;
       const attendance = attendanceMap[user.id];
       const ckp = ckpMap[user.id];
+      const finalEval = finalEvalMap[user.id];
 
-      // Calculate weighted scores
-      const berakhlakWeighted = berakhlakScore * 0.3;
-      const attendanceWeighted = attendance ? (attendance.totalNilaiPresensi * 0.4) : 0;
-      const ckpWeighted = ckp ? (ckp.score * 0.3) : 0;
-      const finalScore = berakhlakWeighted + attendanceWeighted + ckpWeighted;
+      // Calculate weighted scores (use final evaluation if available, otherwise calculate)
+      const berakhlakWeighted = finalEval ? (finalEval.berakhlakScore * 0.3) : (berakhlakScore * 0.3);
+      const attendanceScore = finalEval ? finalEval.presensiScore : (attendance ? attendance.totalNilaiPresensi : 100);
+      const attendanceWeighted = attendanceScore * 0.4;
+      const ckpScore = finalEval ? finalEval.ckpScore : (ckp ? ckp.score : 0);
+      const ckpWeighted = ckpScore * 0.3;
+      const finalScore = finalEval ? finalEval.finalScore : (berakhlakWeighted + attendanceWeighted + ckpWeighted);
 
       return {
         user: {
@@ -145,12 +199,12 @@ const getComprehensiveReportData = async (req, res) => {
           role: user.role
         },
         berakhlak: {
-          score: berakhlakScore,
+          score: finalEval ? finalEval.berakhlakScore : berakhlakScore,
           voterCount: voterCount,
           weightedScore: berakhlakWeighted
         },
         attendance: {
-          percentage: attendance ? attendance.totalNilaiPresensi : 100,
+          percentage: attendanceScore,
           tidakKerja: attendance?.jumlahTidakKerja || 0,
           pulangAwal: attendance?.jumlahPulangAwal || 0,
           telat: attendance?.jumlahTelat || 0,
@@ -159,45 +213,26 @@ const getComprehensiveReportData = async (req, res) => {
           weightedScore: attendanceWeighted
         },
         ckp: {
-          score: ckp?.score || 0,
+          score: ckpScore,
           keterangan: ckp?.keterangan || '',
           weightedScore: ckpWeighted
         },
         finalScore: finalScore,
-        voterCount: voterCount
+        voterCount: voterCount,
+        isCandidate: finalEval?.isCandidate || false,
+        isBestEmployee: finalEval?.isBestEmployee || false,
+        ranking: finalEval?.ranking || null
       };
     });
 
-    // Sort by voter count for candidate determination
-    const sortedByVoters = [...reportData].sort((a, b) => b.voterCount - a.voterCount);
-    
-    // Determine candidates (top 2 voter counts)
-    const topVoterCounts = [...new Set(sortedByVoters.map(emp => emp.voterCount))]
-      .sort((a, b) => b - a)
-      .slice(0, 2);
-    
-    const candidates = reportData.filter(emp => 
-      emp.voterCount > 0 && topVoterCounts.includes(emp.voterCount)
-    );
-
-    // Mark candidates and determine best employee
-    const candidatesWithFinalScore = candidates.sort((a, b) => b.finalScore - a.finalScore);
-    const bestEmployee = candidatesWithFinalScore[0] || null;
-
-    // Mark candidates and best employee
-    reportData.forEach(emp => {
-      emp.isCandidate = candidates.some(candidate => candidate.user.id === emp.user.id);
-      emp.isBestEmployee = bestEmployee && emp.user.id === bestEmployee.user.id;
-    });
-
-    // Sort final data by final score
+    // Sort by final score descending
     reportData.sort((a, b) => b.finalScore - a.finalScore);
 
     // Calculate summary statistics
     const summary = {
       totalEmployees: reportData.length,
-      candidates: candidates.length,
-      bestEmployee: bestEmployee,
+      candidates: reportData.filter(emp => emp.isCandidate).length,
+      bestEmployee: reportData.find(emp => emp.isBestEmployee) || null,
       averageBerakhlak: reportData.length > 0 
         ? (reportData.reduce((sum, emp) => sum + emp.berakhlak.score, 0) / reportData.length).toFixed(2)
         : 0,
@@ -224,11 +259,14 @@ const getComprehensiveReportData = async (req, res) => {
         },
         employees: reportData,
         summary: summary,
-        candidates: candidatesWithFinalScore,
         metadata: {
           generatedAt: new Date(),
           totalRecords: reportData.length,
-          periodName: targetPeriod.namaPeriode
+          periodName: targetPeriod.namaPeriode,
+          hasAttendanceData: attendanceData.length > 0,
+          hasCkpData: ckpData.length > 0,
+          hasEvaluationData: evaluations.length > 0,
+          hasFinalEvaluations: finalEvaluations.length > 0
         }
       }
     });
@@ -237,13 +275,13 @@ const getComprehensiveReportData = async (req, res) => {
     console.error('❌ Generate report data error:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Terjadi kesalahan server: ' + error.message,
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
 
-// GET BERAKHLAK REPORT ONLY
+// GET BERAKHLAK REPORT ONLY - FIXED
 const getBerakhlakReport = async (req, res) => {
   try {
     const { periodId } = req.query;
@@ -308,7 +346,7 @@ const getBerakhlakReport = async (req, res) => {
           target: evaluation.target,
           evaluations: [],
           totalVoters: 0,
-          averageScore: 0
+          totalScore: 0 // Changed to sum instead of average
         };
       }
       
@@ -323,14 +361,9 @@ const getBerakhlakReport = async (req, res) => {
         averageScore: avgScore
       });
       
+      // 🔥 NEW FORMULA: Sum instead of average
+      groupedEvaluations[targetId].totalScore += avgScore;
       groupedEvaluations[targetId].totalVoters++;
-    });
-
-    // Calculate final average scores
-    Object.keys(groupedEvaluations).forEach(targetId => {
-      const group = groupedEvaluations[targetId];
-      const totalScore = group.evaluations.reduce((sum, eval) => sum + eval.averageScore, 0);
-      group.averageScore = group.totalVoters > 0 ? totalScore / group.totalVoters : 0;
     });
 
     // Convert to array and sort by voter count
@@ -339,7 +372,7 @@ const getBerakhlakReport = async (req, res) => {
         if (b.totalVoters !== a.totalVoters) {
           return b.totalVoters - a.totalVoters;
         }
-        return b.averageScore - a.averageScore;
+        return b.totalScore - a.totalScore;
       });
 
     res.json({
@@ -350,8 +383,8 @@ const getBerakhlakReport = async (req, res) => {
         summary: {
           totalTargets: berakhlakReport.length,
           totalEvaluations: evaluations.length,
-          averageScore: berakhlakReport.length > 0 
-            ? (berakhlakReport.reduce((sum, item) => sum + item.averageScore, 0) / berakhlakReport.length).toFixed(2)
+          totalScore: berakhlakReport.length > 0 
+            ? (berakhlakReport.reduce((sum, item) => sum + item.totalScore, 0)).toFixed(2)
             : 0
         }
       }
@@ -366,7 +399,7 @@ const getBerakhlakReport = async (req, res) => {
   }
 };
 
-// GET ATTENDANCE REPORT ONLY
+// GET ATTENDANCE REPORT ONLY - FIXED
 const getAttendanceReport = async (req, res) => {
   try {
     const { periodId } = req.query;
@@ -385,7 +418,7 @@ const getAttendanceReport = async (req, res) => {
       });
     }
 
-    // Get attendance data with user info
+    // 🔥 FIXED: Get attendance data with proper table name
     const attendanceData = await prisma.attendance.findMany({
       where: { periodId: targetPeriod.id },
       include: {
@@ -433,7 +466,7 @@ const getAttendanceReport = async (req, res) => {
   }
 };
 
-// GET CKP REPORT ONLY
+// GET CKP REPORT ONLY - FIXED
 const getCkpReport = async (req, res) => {
   try {
     const { periodId } = req.query;
@@ -452,8 +485,8 @@ const getCkpReport = async (req, res) => {
       });
     }
 
-    // Get CKP data with user info
-    const ckpData = await prisma.ckp.findMany({
+    // 🔥 FIXED: Get CKP data with proper table name
+    const ckpData = await prisma.ckpScore.findMany({
       where: { periodId: targetPeriod.id },
       include: {
         user: {

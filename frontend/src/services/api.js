@@ -545,10 +545,13 @@ export const finalEvaluationAPIAlternative = {
 // 🔥 NEW: REPORTS API
 // =====================
 export const reportsAPI = {
-  // Get comprehensive report data (all-in-one)
+  // Get comprehensive report data (all-in-one) - FIXED WITH PROPER INTEGRATION
   getComprehensive: (params = {}) => {
     console.log('📊 Getting comprehensive report data:', params);
-    return api.get('/reports/comprehensive', { params });
+    return api.get('/reports/comprehensive', { 
+      params,
+      timeout: 60000 // 60 seconds for complex report generation
+    });
   },
   
   // Get BerAKHLAK report only
@@ -557,7 +560,7 @@ export const reportsAPI = {
     return api.get('/reports/berakhlak', { params });
   },
   
-  // Get attendance report only
+  // Get attendance report only  
   getAttendance: (params = {}) => {
     console.log('📊 Getting attendance report:', params);
     return api.get('/reports/attendance', { params });
@@ -576,6 +579,85 @@ export const reportsAPI = {
       responseType: 'blob', // Important for file downloads
       timeout: 120000 // 2 minutes for PDF generation
     });
+  }
+};
+
+// 🔥 FIXED: Add CSS fix for cursor pointer issue
+export const fixCursorIssue = () => {
+  // Remove any problematic CSS that might cause cursor issues
+  const style = document.createElement('style');
+  style.textContent = `
+    * {
+      cursor: auto !important;
+    }
+    
+    button, .btn, a, [role="button"], input[type="button"], input[type="submit"] {
+      cursor: pointer !important;
+    }
+    
+    .table-responsive {
+      cursor: auto !important;
+    }
+    
+    .form-control, .form-select, input, textarea, select {
+      cursor: text !important;
+    }
+    
+    .disabled, :disabled {
+      cursor: not-allowed !important;
+    }
+    
+    .text-muted {
+      cursor: auto !important;
+    }
+  `;
+  
+  // Remove any existing fix styles
+  const existingFix = document.getElementById('cursor-fix');
+  if (existingFix) {
+    existingFix.remove();
+  }
+  
+  style.id = 'cursor-fix';
+  document.head.appendChild(style);
+  
+  console.log('🔧 Applied cursor fix');
+};
+
+
+// 🔥 ENHANCED: Updated comprehensive report API call with better error handling
+export const getComprehensiveReportWithFix = async (params = {}) => {
+  try {
+    console.log('📊 Getting comprehensive report with cursor fix:', params);
+    
+    // Apply cursor fix before API call
+    fixCursorIssue();
+    
+    const response = await api.get('/reports/comprehensive', { 
+      params,
+      timeout: 60000, // 60 seconds for complex report generation
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Apply cursor fix after successful response
+    setTimeout(() => {
+      fixCursorIssue();
+    }, 500);
+    
+    return response;
+    
+  } catch (error) {
+    console.error('❌ Comprehensive report error:', error);
+    
+    // Apply cursor fix on error too
+    setTimeout(() => {
+      fixCursorIssue();
+    }, 500);
+    
+    throw error;
   }
 };
 

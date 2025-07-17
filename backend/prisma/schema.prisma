@@ -1,4 +1,4 @@
-// File: prisma/schema.prisma - UPDATED FOR SINGLE BERAKHLAK CATEGORY
+// File: prisma/schema.prisma - UPDATED FOR MULTI-ROLE SYSTEM
 
 generator client {
   provider = "prisma-client-js"
@@ -10,7 +10,7 @@ datasource db {
 }
 
 // =====================
-// USER MANAGEMENT
+// USER MANAGEMENT - UPDATED FOR MULTI-ROLE
 // =====================
 
 model User {
@@ -19,7 +19,15 @@ model User {
   nama              String
   email             String?  
   password          String
-  role              Role     @default(STAFF)
+  
+  // 🔥 UPDATED: Multi-Role System
+  roles             String[] @default([])     // Array of roles: ["STAFF", "ADMIN"]
+  primaryRole       String   @default("STAFF") // Primary role for display
+  role              Role     @default(STAFF)   // Keep for backward compatibility
+  
+  // 🔥 NEW: Admin Expiry (Optional)
+  adminExpiry       DateTime? // Auto-revoke admin role after this date
+  
   jenisKelamin      Gender
   tanggalLahir      DateTime?
   alamat            String?
@@ -31,7 +39,7 @@ model User {
   instansi          String   @default("BPS Kabupaten Pringsewu")
   kantor            String   @default("BPS Kabupaten Pringsewu")
   username          String   @unique
-  profilePicture    String?  // NEW FIELD - Profile picture path
+  profilePicture    String?  // Profile picture path
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

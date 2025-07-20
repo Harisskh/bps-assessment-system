@@ -1,4 +1,4 @@
-// src/pages/PeriodManagementPage.js - UPDATED DELETE MODAL
+// src/pages/PeriodManagementPage.js - ENHANCED UI/UX WITH DOUBLE CONFIRMATION
 import React, { useState, useEffect } from 'react';
 import { periodAPI } from '../services/api';
 import Select from 'react-select';
@@ -22,8 +22,13 @@ const PeriodManagementPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [selectedPeriod, setSelectedPeriod] = useState(null);
+  
+  // 🔥 Enhanced Delete States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(1); // 1 = first warning, 2 = final confirmation
   const [periodToDelete, setPeriodToDelete] = useState(null);
+  const [periodHasData, setPeriodHasData] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   const [formData, setFormData] = useState({
     tahun: 2025,
@@ -40,24 +45,24 @@ const PeriodManagementPage = () => {
 
   useEffect(() => {
     const fetchAllPeriodsForFilter = async () => {
-        try {
-            const response = await periodAPI.getAll({ limit: 1000 });
-            setAllPeriods(response.data.data.periods);
-        } catch (error) {
-            console.error("Failed to fetch all periods for filter", error);
-        }
+      try {
+        const response = await periodAPI.getAll({ limit: 1000 });
+        setAllPeriods(response.data.data.periods);
+      } catch (error) {
+        console.error("Failed to fetch all periods for filter", error);
+      }
     };
     fetchAllPeriodsForFilter();
   }, []);
 
   const loadPeriods = async () => {
     try {
-      setLoading(true); 
+      setLoading(true);
       setError('');
-      const params = { 
-        page: currentPage, 
-        limit: 10, 
-        tahun: yearFilter?.value || '' 
+      const params = {
+        page: currentPage,
+        limit: 10,
+        tahun: yearFilter?.value || ''
       };
       const response = await periodAPI.getAll(params);
       const fetchedPeriods = response.data.data.periods;
@@ -82,80 +87,74 @@ const PeriodManagementPage = () => {
   };
 
   const handleCreatePeriod = () => {
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
-  setModalMode('create');
-  
-  // 🔥 FIXED: Removed noPeriode field
-  setFormData({
-    tahun: currentYear, 
-    bulan: currentMonth,
-    namaPeriode: `${getMonthName(currentMonth)} ${currentYear}`,
-    startDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
-    endDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${getLastDayOfMonth(currentYear, currentMonth)}`,
-    isActive: false
-  });
-  
-  setShowModal(true);
-};
-
-// Untuk handleEditPeriod function:
-const handleEditPeriod = (period) => {
-  setModalMode('edit');
-  setSelectedPeriod(period);
-  
-  // 🔥 FIXED: Removed noPeriode field
-  setFormData({
-    tahun: period.tahun, 
-    bulan: period.bulan, 
-    namaPeriode: period.namaPeriode,
-    startDate: period.startDate ? period.startDate.split('T')[0] : '',
-    endDate: period.endDate ? period.endDate.split('T')[0] : '',
-    isActive: period.isActive
-  });
-  
-  setShowModal(true);
-};
-
-// Untuk handleFormSubmit function:
-const handleFormSubmit = async (e) => {
-  e.preventDefault();
-  setSubmitting(true); 
-  setError(''); 
-  setSuccess('');
-  
-  try {
-    // 🔥 FIXED: Removed noPeriode field from submitData
-    const submitData = {
-      tahun: parseInt(formData.tahun), 
-      bulan: parseInt(formData.bulan),
-      namaPeriode: formData.namaPeriode,
-      startDate: formData.startDate, 
-      endDate: formData.endDate, 
-      isActive: formData.isActive
-    };
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    setModalMode('create');
     
-    console.log('📤 Submitting period data:', submitData);
+    setFormData({
+      tahun: currentYear,
+      bulan: currentMonth,
+      namaPeriode: `${getMonthName(currentMonth)} ${currentYear}`,
+      startDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
+      endDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${getLastDayOfMonth(currentYear, currentMonth)}`,
+      isActive: false
+    });
     
-    if (modalMode === 'create') {
-      await periodAPI.create(submitData);
-      setSuccess('Periode berhasil dibuat');
-    } else {
-      await periodAPI.update(selectedPeriod.id, submitData);
-      setSuccess('Periode berhasil diperbarui');
+    setShowModal(true);
+  };
+
+  const handleEditPeriod = (period) => {
+    setModalMode('edit');
+    setSelectedPeriod(period);
+    
+    setFormData({
+      tahun: period.tahun,
+      bulan: period.bulan,
+      namaPeriode: period.namaPeriode,
+      startDate: period.startDate ? period.startDate.split('T')[0] : '',
+      endDate: period.endDate ? period.endDate.split('T')[0] : '',
+      isActive: period.isActive
+    });
+    
+    setShowModal(true);
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const submitData = {
+        tahun: parseInt(formData.tahun),
+        bulan: parseInt(formData.bulan),
+        namaPeriode: formData.namaPeriode,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        isActive: formData.isActive
+      };
+      
+      console.log('📤 Submitting period data:', submitData);
+      
+      if (modalMode === 'create') {
+        await periodAPI.create(submitData);
+        setSuccess('Periode berhasil dibuat');
+      } else {
+        await periodAPI.update(selectedPeriod.id, submitData);
+        setSuccess('Periode berhasil diperbarui');
+      }
+      
+      setShowModal(false);
+      loadPeriods();
+      
+    } catch (error) {
+      console.error('Submit period error:', error);
+      setError(error.response?.data?.message || 'Gagal menyimpan periode');
+    } finally {
+      setSubmitting(false);
     }
-    
-    setShowModal(false);
-    loadPeriods();
-    
-  } catch (error) {
-    console.error('Submit period error:', error);
-    setError(error.response?.data?.message || 'Gagal menyimpan periode');
-  } finally {
-    setSubmitting(false);
-  }
-};
-
+  };
 
   const handleActivatePeriod = async (periodId) => {
     try {
@@ -173,15 +172,68 @@ const handleFormSubmit = async (e) => {
     }
   };
 
-  const handleDeletePeriod = async () => {
+  // 🔥 Enhanced Delete Handler with Data Check
+  const handleDeletePeriodClick = async (period) => {
+    setPeriodToDelete(period);
+    setDeleteStep(1);
+    setDeleteConfirmText('');
+    
+    try {
+      // Check if period has related data
+      const detailResponse = await periodAPI.getById(period.id);
+      const periodDetail = detailResponse.data.data.period;
+      
+      const hasData = (
+        periodDetail._count?.evaluations > 0 ||
+        periodDetail._count?.attendances > 0 ||
+        periodDetail._count?.ckpScores > 0 ||
+        periodDetail._count?.finalEvaluations > 0
+      );
+      
+      setPeriodHasData(hasData);
+      setShowDeleteModal(true);
+      
+    } catch (error) {
+      console.error('Check period data error:', error);
+      // If we can't check, assume it has data for safety
+      setPeriodHasData(true);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (periodHasData) {
+      if (deleteStep === 1) {
+        // First confirmation - show second warning
+        setDeleteStep(2);
+      } else {
+        // Second confirmation - check text input
+        const expectedText = `hapus ${periodToDelete.namaPeriode}`;
+        if (deleteConfirmText.toLowerCase() === expectedText.toLowerCase()) {
+          performDelete();
+        } else {
+          setError('Teks konfirmasi tidak sesuai. Ketik persis: ' + expectedText);
+        }
+      }
+    } else {
+      // No data - single confirmation
+      performDelete();
+    }
+  };
+
+  const performDelete = async () => {
     if (!periodToDelete) return;
+    
     try {
       setSubmitting(true);
       const response = await periodAPI.delete(periodToDelete.id);
       setSuccess(response.data.message || `Periode ${periodToDelete.namaPeriode} berhasil dihapus`);
-      setShowDeleteModal(false); 
-      setPeriodToDelete(null); 
+      setShowDeleteModal(false);
+      setPeriodToDelete(null);
+      setDeleteStep(1);
+      setDeleteConfirmText('');
       loadPeriods();
+      
       const periodsResponse = await periodAPI.getAll({ limit: 1000 });
       setAllPeriods(periodsResponse.data.data.periods);
     } catch (error) {
@@ -190,6 +242,14 @@ const handleFormSubmit = async (e) => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setPeriodToDelete(null);
+    setDeleteStep(1);
+    setDeleteConfirmText('');
+    setPeriodHasData(false);
   };
 
   const getMonthName = (month) => {
@@ -205,21 +265,21 @@ const handleFormSubmit = async (e) => {
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => {
-        const newFormState = { 
-          ...prev, 
-          [name]: type === 'checkbox' ? checked : value 
+      const newFormState = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      };
+      
+      if (name === 'tahun' || name === 'bulan') {
+        const tahun = name === 'tahun' ? parseInt(value) : newFormState.tahun;
+        const bulan = name === 'bulan' ? parseInt(value) : newFormState.bulan;
+        const newNamaPeriode = `${getMonthName(bulan)} ${tahun}`;
+        return {
+          ...newFormState,
+          namaPeriode: newNamaPeriode
         };
-        
-        if (name === 'tahun' || name === 'bulan') {
-            const tahun = name === 'tahun' ? parseInt(value) : newFormState.tahun;
-            const bulan = name === 'bulan' ? parseInt(value) : newFormState.bulan;
-            const newNamaPeriode = `${getMonthName(bulan)} ${tahun}`;
-            return { 
-              ...newFormState, 
-              namaPeriode: newNamaPeriode 
-            };
-        }
-        return newFormState;
+      }
+      return newFormState;
     });
   };
 
@@ -232,75 +292,140 @@ const handleFormSubmit = async (e) => {
   };
   
   const generateFilterYearOptions = () => {
-      const yearsFromData = [...new Set(allPeriods.map(p => p.tahun))];
-      return yearsFromData.sort((a, b) => a - b).map(year => ({
-          value: year,
-          label: year.toString()
-      }));
+    const yearsFromData = [...new Set(allPeriods.map(p => p.tahun))];
+    return yearsFromData.sort((a, b) => b - a).map(year => ({
+      value: year,
+      label: year.toString()
+    }));
   };
   
   const modalYearOptions = generateModalYearOptions();
   const filterYearOptions = generateFilterYearOptions();
 
   const customSelectStyles = {
-    control: (provided) => ({ 
-      ...provided, 
-      borderRadius: '0.5rem', 
-      minHeight: '42px', 
-      boxShadow: 'none' 
+    control: (provided, state) => ({
+      ...provided,
+      borderRadius: '0.75rem',
+      minHeight: '48px',
+      border: `2px solid ${state.isFocused ? '#2c549c' : '#ced4da'}`,
+      boxShadow: state.isFocused ? '0 0 0 3px rgba(44, 84, 156, 0.1)' : 'none',
+      '&:hover': {
+        borderColor: '#2c549c'
+      }
     }),
-    menu: (provided) => ({ 
-      ...provided, 
-      borderRadius: '0.5rem', 
-      zIndex: 1056 
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: '0.75rem',
+      border: '1px solid #ced4da',
+      boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
+      zIndex: 1056
     }),
+    option: (provided, state) => ({
+      ...provided,
+      padding: '12px 16px',
+      backgroundColor: state.isSelected ? '#2c549c' : state.isFocused ? '#f8f9fa' : 'white',
+      color: state.isSelected ? 'white' : state.isFocused ? '#2c549c' : '#495057',
+      '&:hover': {
+        backgroundColor: state.isSelected ? '#2c549c' : '#f8f9fa',
+        color: state.isSelected ? 'white' : '#2c549c'
+      }
+    })
+  };
+
+  const clearFilter = () => {
+    setYearFilter(null);
+    setCurrentPage(1);
   };
 
   return (
     <div className="container-fluid p-4 period-management-page">
+      {/* 🔥 Enhanced Header */}
       <div className="page-header">
-        <div className="header-title">
-          <i className="fas fa-calendar-alt header-icon"></i>
-          <div>
-            <h1>Kelola Periode Penilaian</h1>
-            <p className="header-subtitle mb-0">Atur periode penilaian dan aktivasi sistem.</p>
+        <div className="header-content">
+          <div className="header-title">
+            <i className="fas fa-calendar-alt header-icon"></i>
+            <div>
+              <h1>Kelola Periode Penilaian</h1>
+              <p className="header-subtitle">Atur periode penilaian dan aktivasi sistem evaluasi pegawai</p>
+            </div>
           </div>
+          <button className="btn btn-add-period" onClick={handleCreatePeriod}>
+            <i className="fas fa-plus me-2"></i>Tambah Periode
+          </button>
         </div>
-        <button className="btn btn-primary btn-add-period" onClick={handleCreatePeriod}>
-          <i className="fas fa-plus me-2"></i>Tambah Periode
-        </button>
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+      {/* Alert Messages */}
+      {error && (
+        <div className="alert alert-danger alert-dismissible fade show" role="alert">
+          <i className="fas fa-exclamation-triangle me-2"></i>
+          {error}
+          <button type="button" className="btn-close" onClick={() => setError('')}></button>
+        </div>
+      )}
+      {success && (
+        <div className="alert alert-success alert-dismissible fade show" role="alert">
+          <i className="fas fa-check-circle me-2"></i>
+          {success}
+          <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
+        </div>
+      )}
       
-      <div className="table-controls">
-          <div className="filter-group">
-              <label htmlFor="year-filter" className="form-label mb-0 fw-bold">Filter Tahun:</label>
-              <div className="searchable-select-wrapper">
-                  <Select
-                      id="year-filter"
-                      options={filterYearOptions}
-                      value={yearFilter}
-                      onChange={(option) => { 
-                        setYearFilter(option); 
-                        setCurrentPage(1); 
-                      }}
-                      placeholder="Semua Tahun"
-                      isClearable
-                      styles={customSelectStyles}
-                  />
-              </div>
-          </div>
-          <div className="info-badge">
-            <i className="fas fa-info-circle"></i>
+      {/* 🔥 Enhanced Filter Section */}
+      <div className="filter-section">
+        <div className="filter-header">
+          <h5>
+            <i className="fas fa-filter"></i>
+            Filter & Pencarian
+          </h5>
+          <div className="active-period-badge">
+            <i className="fas fa-check-circle"></i>
             <span>Periode Aktif: <strong>{activePeriodInfo}</strong></span>
           </div>
+        </div>
+        
+        <div className="filter-controls">
+          <div className="filter-group">
+            <label htmlFor="year-filter">Filter Tahun:</label>
+            <div className="filter-select-wrapper">
+              <Select
+                id="year-filter"
+                options={filterYearOptions}
+                value={yearFilter}
+                onChange={(option) => {
+                  setYearFilter(option);
+                  setCurrentPage(1);
+                }}
+                placeholder="Pilih tahun..."
+                isClearable
+                styles={customSelectStyles}
+                noOptionsMessage={() => "Tidak ada tahun tersedia"}
+              />
+            </div>
+          </div>
+          
+          <div className="filter-actions">
+            {yearFilter && (
+              <button className="btn btn-clear-filter" onClick={clearFilter}>
+                <i className="fas fa-times me-1"></i>
+                Bersihkan Filter
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="period-table-wrapper">
+      {/* 🔥 Enhanced Table Section */}
+      <div className="table-section">
+        <div className="table-header">
+          <h5>
+            <i className="fas fa-table"></i>
+            Daftar Periode Penilaian
+          </h5>
+        </div>
+        
         <div className="table-responsive">
-        <table className="table period-table">
+          <table className="table period-table">
             <thead>
               <tr>
                 <th className="d-none d-md-table-cell">No.</th>
@@ -314,8 +439,10 @@ const handleFormSubmit = async (e) => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="text-center p-5">
-                    <div className="spinner-border text-primary"></div>
+                  <td colSpan="6" className="text-center p-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </td>
                 </tr>
               ) : periods.length > 0 ? (
@@ -325,64 +452,64 @@ const handleFormSubmit = async (e) => {
                       {((currentPage - 1) * 10) + index + 1}
                     </td>
                     <td>
-                      <strong>{period.namaPeriode}</strong>
+                      <div>
+                        <strong>{period.namaPeriode}</strong>
+                        <br />
+                        <small className="text-muted">
+                          {period.tahun}/{String(period.bulan).padStart(2, '0')}
+                        </small>
+                      </div>
                     </td>
                     <td className="d-none d-md-table-cell">
-                      {period.startDate ? 
-                        new Date(period.startDate).toLocaleDateString('id-ID', { 
-                          day: '2-digit', 
-                          month: 'short', 
-                          year: 'numeric' 
+                      {period.startDate ?
+                        new Date(period.startDate).toLocaleDateString('id-ID', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
                         }) : '-'
                       }
                     </td>
                     <td className="d-none d-md-table-cell">
-                      {period.endDate ? 
-                        new Date(period.endDate).toLocaleDateString('id-ID', { 
-                          day: '2-digit', 
-                          month: 'short', 
-                          year: 'numeric' 
+                      {period.endDate ?
+                        new Date(period.endDate).toLocaleDateString('id-ID', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
                         }) : '-'
                       }
                     </td>
                     <td>
                       <span className={`status-badge ${period.isActive ? 'status-active' : 'status-inactive'}`}>
-                        {/* Ikon tetap terlihat */}
                         <i className={`fas ${period.isActive ? 'fa-check-circle' : 'fa-pause-circle'}`}></i>
-                        
-                        {/* FIXED: Teks ini hanya akan muncul di layar desktop (md ke atas) */}
-                        <span className="d-none d-md-inline ms-md-1">
+                        <span className="d-none d-md-inline ms-1">
                           {period.isActive ? 'Aktif' : 'Nonaktif'}
                         </span>
                       </span>
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button 
-                          className="btn btn-sm action-edit" 
-                          onClick={() => handleEditPeriod(period)} 
-                          title="Edit"
+                        <button
+                          className="btn btn-sm action-edit"
+                          onClick={() => handleEditPeriod(period)}
+                          title="Edit Periode"
                         >
                           <i className="fas fa-edit"></i>
                         </button>
                         {!period.isActive && (
-                          <button 
-                            className="btn btn-sm action-activate" 
-                            onClick={() => handleActivatePeriod(period.id)} 
-                            title="Aktifkan" 
+                          <button
+                            className="btn btn-sm action-activate"
+                            onClick={() => handleActivatePeriod(period.id)}
+                            title="Aktifkan Periode"
                             disabled={submitting}
                           >
                             <i className="fas fa-play"></i>
                           </button>
                         )}
-                        <button 
-                          className="btn btn-sm action-delete" 
-                          onClick={() => { 
-                            setPeriodToDelete(period); 
-                            setShowDeleteModal(true); 
-                          }} 
-                          title="Hapus" 
-                          disabled={period.isActive}
+                        <button
+                          className="btn btn-sm action-delete"
+                          onClick={() => handleDeletePeriodClick(period)}
+                          title="Hapus Periode"
+                          disabled={period.isActive || submitting}
                         >
                           <i className="fas fa-trash"></i>
                         </button>
@@ -392,36 +519,38 @@ const handleFormSubmit = async (e) => {
                 ))
               ) : (
                 <tr>
-                  {/* Sesuaikan colSpan karena beberapa kolom disembunyikan di mobile */}
-                  <td colSpan="4" className="d-md-none text-center p-5 text-muted">
-                    Tidak ada data untuk filter yang dipilih.
-                  </td>
-                  <td colSpan="7" className="d-none d-md-table-cell text-center p-5 text-muted">
-                    Tidak ada data untuk filter yang dipilih.
+                  <td colSpan="6" className="text-center p-5 text-muted">
+                    <i className="fas fa-inbox fa-2x mb-3 d-block"></i>
+                    {yearFilter ? 
+                      `Tidak ada periode untuk tahun ${yearFilter.label}` :
+                      'Belum ada periode yang dibuat'
+                    }
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-          </div>
+        </div>
       </div>
 
+      {/* Enhanced Pagination */}
       {totalPages > 1 && (
         <nav className="mt-4">
           <ul className="pagination justify-content-center">
             <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-              <button 
+              <button
                 className="page-link"
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
               >
-                Previous
+                <i className="fas fa-chevron-left"></i>
+                <span className="d-none d-md-inline ms-1">Previous</span>
               </button>
             </li>
             
             {[...Array(totalPages)].map((_, index) => (
               <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                <button 
+                <button
                   className="page-link"
                   onClick={() => setCurrentPage(index + 1)}
                 >
@@ -431,12 +560,13 @@ const handleFormSubmit = async (e) => {
             ))}
             
             <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-              <button 
+              <button
                 className="page-link"
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
-                Next
+                <span className="d-none d-md-inline me-1">Next</span>
+                <i className="fas fa-chevron-right"></i>
               </button>
             </li>
           </ul>
@@ -446,230 +576,305 @@ const handleFormSubmit = async (e) => {
       {/* Modal Tambah/Edit Periode */}
       {showModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            {/* 櫨 FIXED: Kelas 'modal-lg' dikembalikan agar modal lebar di desktop. */}
-            <div className="modal-dialog modal-lg modal-dialog-centered">
-                <div className="modal-content">
-                    <form onSubmit={handleFormSubmit}>
-                        <div className="modal-header">
-                            <h5 className="modal-title">
-                              {modalMode === 'create' ? 'Tambah Periode Baru' : 'Edit Periode'}
-                            </h5>
-                            <button 
-                              type="button" 
-                              className="btn-close" 
-                              onClick={() => setShowModal(false)}
-                            ></button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="row g-3">
-                                {/* Tahun dan Bulan dibuat berdampingan di semua ukuran layar */}
-                                <div className="col-6">
-                                    <label className="form-label">Tahun *</label>
-                                    <Select 
-                                        options={modalYearOptions} 
-                                        value={modalYearOptions.find(y => y.value === formData.tahun)} 
-                                        onChange={(opt) => handleFormChange({ 
-                                          target: { name: 'tahun', value: opt.value }
-                                        })} 
-                                        styles={customSelectStyles} 
-                                        placeholder="Pilih Tahun"
-                                    />
-                                </div>
-                                <div className="col-6">
-                                    <label className="form-label">Bulan *</label>
-                                    <select 
-                                      className="form-select" 
-                                      name="bulan" 
-                                      value={formData.bulan} 
-                                      onChange={handleFormChange} 
-                                      required 
-                                      style={{minHeight: '42px'}}
-                                    >
-                                        {Array.from({ length: 12 }, (_, i) => (
-                                          <option key={i + 1} value={i + 1}>
-                                            {getMonthName(i + 1)}
-                                          </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                {/* Nama Periode dibuat lebar penuh */}
-                                <div className="col-12">
-                                    <label className="form-label">Nama Periode *</label>
-                                    <input 
-                                      type="text" 
-                                      className="form-control" 
-                                      name="namaPeriode" 
-                                      value={formData.namaPeriode} 
-                                      onChange={handleFormChange} 
-                                      required 
-                                    />
-                                </div>
-                                {/* Tanggal Mulai dan Selesai dibuat berdampingan */}
-                                <div className="col-6">
-                                    <label className="form-label">Tanggal Mulai</label>
-                                    <input 
-                                      type="date" 
-                                      className="form-control" 
-                                      name="startDate" 
-                                      value={formData.startDate} 
-                                      onChange={handleFormChange} 
-                                    />
-                                </div>
-                                <div className="col-6">
-                                    <label className="form-label">Tanggal Selesai</label>
-                                    <input 
-                                      type="date" 
-                                      className="form-control" 
-                                      name="endDate" 
-                                      value={formData.endDate} 
-                                      onChange={handleFormChange} 
-                                    />
-                                </div>
-                                <div className="col-12">
-                                  <div className="form-check form-switch">
-                                    <input 
-                                      className="form-check-input" 
-                                      type="checkbox" 
-                                      id="isActive" 
-                                      name="isActive" 
-                                      checked={formData.isActive} 
-                                      onChange={handleFormChange} 
-                                    />
-                                    <label className="form-check-label" htmlFor="isActive">
-                                      Aktifkan periode ini
-                                    </label>
-                                  </div>
-                                </div>
-                                <div className="col-12">
-                                  <div className="card bg-light">
-                                    <div className="card-body">
-                                      <h6 className="card-title text-secondary">Preview Periode</h6>
-                                      <div className="row">
-                                        <div className="col-md-6">
-                                          <p className="mb-1">
-                                            <strong>Nama:</strong> {formData.namaPeriode}
-                                          </p>
-                                        </div>
-                                        <div className="col-md-6">
-                                          <p className="mb-1">
-                                            <strong>Tanggal:</strong> {formData.startDate} s/d {formData.endDate}
-                                          </p>
-                                          <p className="mb-1">
-                                            <strong>Status:</strong> 
-                                            <span className={`badge ms-2 ${formData.isActive ? 'bg-success' : 'bg-secondary'}`}>
-                                              {formData.isActive ? 'Aktif' : 'Nonaktif'}
-                                            </span>
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button 
-                              type="button" 
-                              className="btn btn-secondary" 
-                              onClick={() => setShowModal(false)}
-                            >
-                              Batal
-                            </button>
-                            <button 
-                              type="submit" 
-                              className="btn btn-primary" 
-                              disabled={submitting}
-                            >
-                              {submitting ? 'Menyimpan...' : 'Simpan'}
-                            </button>
-                        </div>
-                    </form>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content">
+              <form onSubmit={handleFormSubmit}>
+                <div className="modal-header">
+                  <h5 className="modal-title">
+                    <i className={`fas ${modalMode === 'create' ? 'fa-plus' : 'fa-edit'} me-2`}></i>
+                    {modalMode === 'create' ? 'Tambah Periode Baru' : 'Edit Periode'}
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowModal(false)}
+                  ></button>
                 </div>
+                <div className="modal-body">
+                  <div className="row g-3">
+                    <div className="col-6">
+                      <label className="form-label">Tahun *</label>
+                      <Select
+                        options={modalYearOptions}
+                        value={modalYearOptions.find(y => y.value === formData.tahun)}
+                        onChange={(opt) => handleFormChange({
+                          target: { name: 'tahun', value: opt.value }
+                        })}
+                        styles={customSelectStyles}
+                        placeholder="Pilih Tahun"
+                      />
+                    </div>
+                    <div className="col-6">
+                      <label className="form-label">Bulan *</label>
+                      <select
+                        className="form-select"
+                        name="bulan"
+                        value={formData.bulan}
+                        onChange={handleFormChange}
+                        required
+                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <option key={i + 1} value={i + 1}>
+                            {getMonthName(i + 1)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Nama Periode *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="namaPeriode"
+                        value={formData.namaPeriode}
+                        onChange={handleFormChange}
+                        required
+                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                      />
+                    </div>
+                    <div className="col-6">
+                      <label className="form-label">Tanggal Mulai</label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="startDate"
+                        value={formData.startDate}
+                        onChange={handleFormChange}
+                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                      />
+                    </div>
+                    <div className="col-6">
+                      <label className="form-label">Tanggal Selesai</label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="endDate"
+                        value={formData.endDate}
+                        onChange={handleFormChange}
+                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                      />
+                    </div>
+                    <div className="col-12">
+                      <div className="form-check form-switch">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="isActive"
+                          name="isActive"
+                          checked={formData.isActive}
+                          onChange={handleFormChange}
+                        />
+                        <label className="form-check-label" htmlFor="isActive">
+                          <strong>Aktifkan periode ini</strong>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <div className="card bg-light">
+                        <div className="card-body">
+                          <h6 className="card-title text-secondary">
+                            <i className="fas fa-eye me-2"></i>Preview Periode
+                          </h6>
+                          <div className="row">
+                            <div className="col-md-6">
+                              <p className="mb-1">
+                                <strong>Nama:</strong> {formData.namaPeriode}
+                              </p>
+                            </div>
+                            <div className="col-md-6">
+                              <p className="mb-1">
+                                <strong>Tanggal:</strong> {formData.startDate} s/d {formData.endDate}
+                              </p>
+                              <p className="mb-1">
+                                <strong>Status:</strong>
+                                <span className={`badge ms-2 ${formData.isActive ? 'bg-success' : 'bg-secondary'}`}>
+                                  {formData.isActive ? 'Aktif' : 'Nonaktif'}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowModal(false)}
+                  >
+                    <i className="fas fa-times me-2"></i>Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        Menyimpan...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-save me-2"></i>Simpan
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
+          </div>
         </div>
       )}
 
-      {/* UPDATED Modal Konfirmasi Hapus */}
+      {/* 🔥 Enhanced Delete Modal with Double Confirmation */}
       {showDeleteModal && periodToDelete && (
-          <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-              <div className="modal-dialog modal-dialog-centered">
-                  <div className="modal-content">
-                      <div className="modal-header bg-danger text-white">
-                          <h5 className="modal-title">
-                            <i className="fas fa-exclamation-triangle me-2"></i>Konfirmasi Hapus Periode
-                          </h5>
-                          <button 
-                            type="button" 
-                            className="btn-close btn-close-white" 
-                            onClick={() => setShowDeleteModal(false)}
-                          ></button>
-                      </div>
-                      <div className="modal-body">
-                          <div className="alert alert-warning">
-                            <i className="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Perhatian!</strong> Tindakan ini akan menghapus periode beserta SEMUA data terkait dan tidak dapat dibatalkan.
-                          </div>
-                          
-                          <div className="mb-3">
-                            <h6>Periode yang akan dihapus:</h6>
-                            <div className="card bg-light">
-                              <div className="card-body py-2">
-                                <strong>{periodToDelete.namaPeriode}</strong><br/>
-                                <small className="text-muted">
-                                  {periodToDelete.tahun}/{String(periodToDelete.bulan).padStart(2, '0')}
-                                  {periodToDelete.startDate && periodToDelete.endDate && (
-                                    <> • {new Date(periodToDelete.startDate).toLocaleDateString('id-ID')} s/d {new Date(periodToDelete.endDate).toLocaleDateString('id-ID')}</>
-                                  )}
-                                </small>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mb-3">
-                            <h6 className="text-danger">Data yang akan ikut terhapus:</h6>
-                            <ul className="list-unstyled">
-                              <li><i className="fas fa-times text-danger me-2"></i>Semua evaluasi BerAKHLAK</li>
-                              <li><i className="fas fa-times text-danger me-2"></i>Semua data presensi</li>
-                              <li><i className="fas fa-times text-danger me-2"></i>Semua data CKP</li>
-                              <li><i className="fas fa-times text-danger me-2"></i>Semua hasil perhitungan final</li>
-                              <li><i className="fas fa-times text-danger me-2"></i>Data Best Employee (jika ada)</li>
-                            </ul>
-                          </div>
-
-                          <p className="mb-0">
-                            Apakah Anda yakin ingin menghapus periode <strong>{periodToDelete.namaPeriode}</strong> beserta semua data terkait?
-                          </p>
-                      </div>
-                      <div className="modal-footer">
-                          <button 
-                            type="button" 
-                            className="btn btn-secondary" 
-                            onClick={() => setShowDeleteModal(false)}
-                          >
-                            <i className="fas fa-times me-2"></i>Batal
-                          </button>
-                          <button 
-                            type="button" 
-                            className="btn btn-danger" 
-                            onClick={handleDeletePeriod} 
-                            disabled={submitting}
-                          >
-                            {submitting ? (
-                              <>
-                                <span className="spinner-border spinner-border-sm me-2"></span>
-                                Menghapus...
-                              </>
-                            ) : (
-                              <>
-                                <i className="fas fa-trash me-2"></i>
-                                Ya, Hapus Semua
-                              </>
-                            )}
-                          </button>
-                      </div>
-                  </div>
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content delete-modal">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="fas fa-exclamation-triangle me-2"></i>
+                  {deleteStep === 1 ? 'Peringatan Hapus Periode' : 'Konfirmasi Final'}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={handleDeleteCancel}
+                ></button>
               </div>
+              <div className="modal-body">
+                {deleteStep === 1 && (
+                  <>
+                    <div className="alert alert-warning">
+                      <i className="fas fa-exclamation-triangle me-2"></i>
+                      <strong>Perhatian!</strong> Anda akan menghapus periode penilaian.
+                    </div>
+                    
+                    <div className="mb-3">
+                      <h6>Periode yang akan dihapus:</h6>
+                      <div className="card bg-light">
+                        <div className="card-body py-2">
+                          <strong>{periodToDelete.namaPeriode}</strong><br />
+                          <small className="text-muted">
+                            {periodToDelete.tahun}/{String(periodToDelete.bulan).padStart(2, '0')}
+                            {periodToDelete.startDate && periodToDelete.endDate && (
+                              <> • {new Date(periodToDelete.startDate).toLocaleDateString('id-ID')} s/d {new Date(periodToDelete.endDate).toLocaleDateString('id-ID')}</>
+                            )}
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+
+                    {periodHasData && (
+                      <div className="data-impact-list">
+                        <h6 className="text-danger mb-3">
+                          <i className="fas fa-database me-2"></i>
+                          Data yang akan ikut terhapus:
+                        </h6>
+                        <ul>
+                          <li><i className="fas fa-times"></i>Semua evaluasi BerAKHLAK</li>
+                          <li><i className="fas fa-times"></i>Semua data presensi</li>
+                          <li><i className="fas fa-times"></i>Semua data CKP</li>
+                          <li><i className="fas fa-times"></i>Semua hasil perhitungan final</li>
+                          <li><i className="fas fa-times"></i>Data Best Employee (jika ada)</li>
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="mt-3">
+                      {periodHasData ? (
+                        <>
+                          <strong className="text-danger">Periode ini memiliki data!</strong> 
+                          Tindakan ini akan menghapus semua data terkait dan tidak dapat dibatalkan.
+                        </>
+                      ) : (
+                        <>
+                          <strong className="text-info">Periode ini belum memiliki data.</strong> 
+                          Apakah Anda yakin ingin menghapus?
+                        </>
+                      )}
+                    </p>
+                  </>
+                )}
+
+                {deleteStep === 2 && (
+                  <>
+                    <div className="alert alert-danger">
+                      <i className="fas fa-exclamation-triangle me-2"></i>
+                      <strong>KONFIRMASI TERAKHIR!</strong> Tindakan ini tidak dapat dibatalkan.
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="mb-2">
+                        Untuk melanjutkan penghapusan, ketik teks berikut persis:
+                      </p>
+                      <div className="card bg-light">
+                        <div className="card-body text-center">
+                          <code className="text-danger fs-5">
+                            hapus {periodToDelete.namaPeriode}
+                          </code>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Konfirmasi Penghapusan:</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="Ketik teks konfirmasi..."
+                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                      />
+                    </div>
+
+                    <p className="text-muted small">
+                      <i className="fas fa-info-circle me-1"></i>
+                      Teks harus diketik persis seperti yang ditampilkan di atas.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleDeleteCancel}
+                >
+                  <i className="fas fa-times me-2"></i>Batal
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={handleDeleteConfirm}
+                  disabled={submitting || (deleteStep === 2 && !deleteConfirmText)}
+                >
+                  {submitting ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Menghapus...
+                    </>
+                  ) : deleteStep === 1 ? (
+                    <>
+                      <i className="fas fa-arrow-right me-2"></i>
+                      {periodHasData ? 'Lanjutkan' : 'Ya, Hapus'}
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-trash me-2"></i>
+                      HAPUS PERMANEN
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
       )}
     </div>
   );

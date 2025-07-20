@@ -1,4 +1,4 @@
-// controllers/periodController.js - FIXED FOR SCHEMA COMPATIBILITY
+// controllers/periodController.js - ENHANCED FOR FORCE DELETE
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -80,8 +80,7 @@ const getAllPeriods = async (req, res) => {
   }
 };
 
-
-// 🔥 FIXED: CREATE PERIOD - Removed noPeriode field
+// CREATE PERIOD
 const createPeriod = async (req, res) => {
   try {
     console.log('📝 Creating new period...');
@@ -158,7 +157,7 @@ const createPeriod = async (req, res) => {
       });
     }
 
-    // 🔥 FIXED: Prepare data without noPeriode field
+    // Prepare data
     const periodData = {
       tahun: tahunInt,
       bulan: bulanInt,
@@ -227,7 +226,7 @@ const createPeriod = async (req, res) => {
   }
 };
 
-// 🔥 FIXED: UPDATE PERIOD - Removed noPeriode field
+// UPDATE PERIOD
 const updatePeriod = async (req, res) => {
   try {
     console.log('🔄 Updating period...');
@@ -303,13 +302,13 @@ const updatePeriod = async (req, res) => {
   }
 };
 
-// DELETE PERIOD
+// 🔥 ENHANCED DELETE PERIOD - Now supports force delete
 const deletePeriod = async (req, res) => {
   try {
     console.log('🗑️ Deleting period...');
     const { id } = req.params;
 
-    // Check if period exists and has related data
+    // Check if period exists and get related data count
     const existingPeriod = await prisma.period.findUnique({
       where: { id },
       include: {
@@ -331,6 +330,14 @@ const deletePeriod = async (req, res) => {
       });
     }
 
+    // Check if period is active
+    if (existingPeriod.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tidak dapat menghapus periode yang sedang aktif'
+      });
+    }
+
     // Check if period has related data
     const hasRelatedData = 
       existingPeriod._count.evaluations > 0 ||
@@ -338,23 +345,69 @@ const deletePeriod = async (req, res) => {
       existingPeriod._count.ckpScores > 0 ||
       existingPeriod._count.finalEvaluations > 0;
 
+    console.log('📊 Period has related data:', hasRelatedData);
+    console.log('📈 Data counts:', existingPeriod._count);
+
     if (hasRelatedData) {
-      return res.status(400).json({
-        success: false,
-        message: 'Tidak dapat menghapus periode yang sudah memiliki data evaluasi, presensi, atau CKP'
+      // Force delete all related data using transaction
+      console.log('🔄 Force deleting period with all related data...');
+      
+      await prisma.$transaction(async (tx) => {
+        // Delete in correct order to avoid foreign key constraints
+        
+        // 1. Delete final evaluations first
+        await tx.finalEvaluation.deleteMany({
+          where: { periodId: id }
+        });
+        
+        // 2. Delete evaluations
+        await tx.evaluation.deleteMany({
+          where: { periodId: id }
+        });
+        
+        // 3. Delete attendances
+        await tx.attendance.deleteMany({
+          where: { periodId: id }
+        });
+        
+        // 4. Delete CKP scores
+        await tx.ckpScore.deleteMany({
+          where: { periodId: id }
+        });
+        
+        // 5. Finally delete the period
+        await tx.period.delete({
+          where: { id }
+        });
+      });
+
+      console.log('✅ Period and all related data deleted successfully');
+      
+      res.json({
+        success: true,
+        message: `Periode ${existingPeriod.namaPeriode} beserta semua data terkait berhasil dihapus`,
+        deletedData: {
+          evaluations: existingPeriod._count.evaluations,
+          attendances: existingPeriod._count.attendances,
+          ckpScores: existingPeriod._count.ckpScores,
+          finalEvaluations: existingPeriod._count.finalEvaluations
+        }
+      });
+    } else {
+      // No related data, simple delete
+      console.log('🗑️ Deleting period without related data...');
+      
+      await prisma.period.delete({
+        where: { id }
+      });
+
+      console.log('✅ Period deleted successfully');
+
+      res.json({
+        success: true,
+        message: `Periode ${existingPeriod.namaPeriode} berhasil dihapus`
       });
     }
-
-    await prisma.period.delete({
-      where: { id }
-    });
-
-    console.log('✅ Period deleted successfully');
-
-    res.json({
-      success: true,
-      message: `Periode ${existingPeriod.namaPeriode} berhasil dihapus`
-    });
 
   } catch (error) {
     console.error('❌ Delete period error:', error);
@@ -425,7 +478,7 @@ const activatePeriod = async (req, res) => {
   }
 };
 
-// GET PERIOD BY ID
+// 🔥 ENHANCED GET PERIOD BY ID - Now includes data counts
 const getPeriodById = async (req, res) => {
   try {
     console.log('🔍 Getting period by ID...');
@@ -453,6 +506,7 @@ const getPeriodById = async (req, res) => {
     }
 
     console.log('✅ Period found:', period.namaPeriode);
+    console.log('📊 Data counts:', period._count);
 
     res.json({
       success: true,
@@ -498,7 +552,7 @@ const getActivePeriod = async (req, res) => {
   }
 };
 
-// 🔥 NEW: GET period by year and month
+// GET period by year and month
 const getPeriodByYearMonth = async (req, res) => {
   try {
     const { tahun, bulan } = req.query;
@@ -538,7 +592,7 @@ const getPeriodByYearMonth = async (req, res) => {
   }
 };
 
-// 🔥 NEW: GET previous period from active period
+// GET previous period from active period
 const getPreviousPeriod = async (req, res) => {
   try {
     // Get active period first

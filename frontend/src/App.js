@@ -19,6 +19,7 @@ import CkpInputPage from './pages/CkpInputPage';
 import EnhancedMonitoringPage from './pages/EnhancedMonitoringPage';
 import FinalCalculationPage from './pages/FinalCalculationPage';
 import ComprehensiveReportPage from './pages/ComprehensiveReportPage';
+import CertificatePage from './pages/CertificatePage'; 
 
 // Components
 import Layout from './components/Layout';
@@ -91,6 +92,9 @@ function App() {
               </Layout>
             </ProtectedRoute>
           } />
+
+          {/* 🔥 NEW: Sertifikat route */}
+          <Route path="/certificate" element={<CertificatePage />} />
           
           {/* Admin only - Management Routes */}
           <Route path="/evaluation-management" element={

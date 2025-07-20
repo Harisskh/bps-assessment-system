@@ -1,7 +1,8 @@
-// src/components/Sidebar.js - FIXED VERSION
+// src/components/Sidebar.js - WITH CERTIFICATE MENU
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getMyAwards } from '../services/api'; // 🔥 NEW: Import certificate API
 
 const Icon = ({ path, className = "nav-icon" }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -14,6 +15,8 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [userImage, setUserImage] = useState(null);
+  const [hasAwards, setHasAwards] = useState(false); // 🔥 NEW: Track if user has awards
+  const [loadingAwards, setLoadingAwards] = useState(false); // 🔥 NEW: Loading state
 
   const BACKEND_BASE_URL = 'http://localhost:5000';
   
@@ -38,6 +41,24 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
     }
     
     return finalUrl;
+  };
+
+  // 🔥 NEW: Check if user has awards
+  const checkUserAwards = async () => {
+    if (!user || user.role !== 'STAFF') return;
+    
+    setLoadingAwards(true);
+    try {
+      const response = await getMyAwards();
+      if (response.success) {
+        setHasAwards(response.data.hasAnyAwards);
+      }
+    } catch (error) {
+      console.error('Error checking awards:', error);
+      setHasAwards(false);
+    } finally {
+      setLoadingAwards(false);
+    }
   };
 
   useEffect(() => {
@@ -65,10 +86,18 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
     };
   }, [user]);
 
+  // 🔥 NEW: Check awards when user changes
+  useEffect(() => {
+    if (user && user.role === 'STAFF') {
+      checkUserAwards();
+    }
+  }, [user]);
+
   const menuIcons = {
     dashboard: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
     evaluation: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
     history: "M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
+    certificate: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z M10 9a2 2 0 1 1 4 0 2 2 0 0 1-4 0z M16 18H8v-1c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v1z M12 6V2l6 6h-4a2 2 0 0 1-2-2z", // 🔥 NEW: Certificate icon
     period: "M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z",
     evaluation_management: "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
     users: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z",
@@ -85,6 +114,17 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
     { path: '/evaluation', icon: menuIcons.evaluation, label: 'Penilaian BerAKHLAK', roles: ['STAFF', 'PIMPINAN'] },
     { path: '/evaluation-history', icon: menuIcons.history, label: 'Riwayat Penilaian', roles: ['STAFF', 'PIMPINAN'] },
     
+    // 🔥 NEW: Certificate menu - hanya tampil jika user punya awards
+    { 
+      key: 'certificate',
+      icon: menuIcons.certificate, 
+      label: 'Sertifikat',
+      path: '/certificate',
+      roles: ['STAFF', 'ADMIN', 'PIMPINAN'], // All roles can access
+      description: 'Unduh sertifikat penghargaan',
+      condition: hasAwards && !loadingAwards, // 🔥 NEW: Conditional rendering
+    },
+    
     { type: 'divider', roles: ['ADMIN', 'PIMPINAN'] },
     { type: 'title', label: 'Manajemen', roles: ['ADMIN'] },
     { path: '/period-management', icon: menuIcons.period, label: 'Kelola Periode', roles: ['ADMIN'] },
@@ -100,13 +140,17 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
     { path: '/final-calculation', icon: menuIcons.calculation, label: 'Perhitungan Final', roles: ['ADMIN'] },
     { path: '/monitoring', icon: menuIcons.monitoring, label: 'Monitoring', roles: ['ADMIN', 'PIMPINAN'] },
     
-    // 🔥 NEW: Report Menu
     { path: '/reports', icon: menuIcons.report, label: 'Laporan Evaluasi', roles: ['ADMIN', 'PIMPINAN'] },
     
     { path: '/users', icon: menuIcons.users, label: 'Data Pegawai', roles: ['PIMPINAN'] },
   ];
   
-  const allowedMenus = menuItems.filter(item => item.roles.includes(user?.role));
+  // 🔥 UPDATED: Filter menu items berdasarkan role dan condition
+  const allowedMenus = menuItems.filter(item => {
+    if (!item.roles.includes(user?.role)) return false;
+    if (item.condition !== undefined && !item.condition) return false;
+    return true;
+  });
 
   const getInitial = (name) => {
     if (!name) return '?';
@@ -148,11 +192,27 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
             <div key={item.path + index} className="nav-item" title={isCollapsed ? item.label : ''}>
               <a href={item.path} className={`nav-link ${isActive ? 'active' : ''}`}>
                 <Icon path={item.icon} />
-                <span className="nav-label">{item.label}</span>
+                <span className="nav-label">
+                  {item.label}
+                  {/* 🔥 NEW: Badge for certificate menu */}
+                  {item.badge && (
+                    <span className="nav-badge">{item.badge}</span>
+                  )}
+                </span>
               </a>
             </div>
           );
         })}
+
+        {/* 🔥 NEW: Loading indicator for awards check */}
+        {user?.role === 'STAFF' && loadingAwards && (
+          <div className="nav-item">
+            <div className="nav-link nav-loading">
+              <div className="nav-loading-spinner"></div>
+              <span className="nav-label">Mengecek penghargaan...</span>
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="sidebar-footer">

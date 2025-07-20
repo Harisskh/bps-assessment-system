@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { periodAPI, reportsAPI, finalEvaluationAPI, attendanceAPI, ckpAPI, userAPI, evaluationAPI } from '../services/api';
+import '../styles/ComprehensiveReport.scss';
+
 
 const ComprehensiveReportPage = () => {
   const { user } = useAuth();
@@ -315,7 +317,6 @@ const ComprehensiveReportPage = () => {
             attendance: attendanceInfo,
             ckp: {
               score: ckp?.score || 0,
-              keterangan: ckp?.keterangan || '',
               weightedScore: ckp ? (ckp.score * 0.3) : 0
             },
             finalScore: finalEval?.finalScore || 0,
@@ -370,7 +371,7 @@ const ComprehensiveReportPage = () => {
           kepalaBpsName: reportResult.kepalaBpsName // 🔥 NEW: Pass Kepala BPS name
         });
 
-        setSuccess('Report berhasil digenerate! Scroll ke bawah untuk melihat hasil.');
+        setSuccess('Report berhasil digenerate! Download PDF untuk melihat hasill Laporan.');
       } else {
         setError('Data report tidak valid atau kosong');
       }
@@ -549,7 +550,7 @@ const ComprehensiveReportPage = () => {
                 font-size: 14px; 
                 font-weight: bold; 
                 margin-bottom: 10px; 
-                background-color: #f8f9fa; 
+                background-color:rgb(51, 98, 146); 
                 padding: 8px; 
                 border-left: 4px solid #007bff;
             }
@@ -804,7 +805,6 @@ const ComprehensiveReportPage = () => {
                         <th>No</th>
                         <th>Nama</th>
                         <th>Skor CKP</th>
-                        <th>Keterangan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -813,7 +813,6 @@ const ComprehensiveReportPage = () => {
                         <td>${index + 1}</td>
                         <td class="text-left">${emp.user.nama}</td>
                         <td><strong>${emp.ckp.score}</strong></td>
-                        <td class="text-left" style="font-size: 9px;">${emp.ckp.keterangan || '-'}</td>
                     </tr>
                     `).join('')}
                 </tbody>
@@ -823,17 +822,17 @@ const ComprehensiveReportPage = () => {
         <!-- 🔥 FIXED: Footer with Dynamic Kepala BPS Name -->
         <div class="footer">
             <p>Pringsewu, ${formattedDate}</p>
+            <br><br><br><br>
+            <p style="margin-bottom: 0;"><strong>${reportData.kepalaBpsName || 'Kepala BPS Kabupaten Pringsewu'}</strong></p>
+            <strong>_________________________</strong>
             <br><br><br>
-            <p><strong>${reportData.kepalaBpsName || 'Kepala BPS Kabupaten Pringsewu'}</strong></p>
-            <br><br><br>
-            <p><strong>_________________________</strong></p>
-            <br>
             <p style="font-size: 10px; color: #666;">
-                *Laporan ini dicetak otomatis dari sistem pada ${new Date().toLocaleDateString('id-ID', { 
-                  day: '2-digit', month: 'long', year: 'numeric'
+                *Laporan ini dicetak pada ${new Date().toLocaleDateString('id-ID', { 
+                    day: '2-digit', month: 'long', year: 'numeric'
                 })} ${new Date().toLocaleTimeString('id-ID')}
             </p>
         </div>
+        
         
         <!-- JavaScript untuk Logo Fallback -->
         <script>
@@ -868,6 +867,7 @@ const ComprehensiveReportPage = () => {
     </html>
     `;
   };
+
 
   if (loading && !reportData) {
     return (
@@ -1145,7 +1145,6 @@ const ComprehensiveReportPage = () => {
                     <th>No</th>
                     <th>Nama</th>
                     <th>Skor CKP</th>
-                    <th>Keterangan</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1154,7 +1153,6 @@ const ComprehensiveReportPage = () => {
                       <td>{index + 1}</td>
                       <td>{emp.user.nama}</td>
                       <td className="text-center"><strong>{emp.ckp.score}</strong></td>
-                      <td><small>{emp.ckp.keterangan || '-'}</small></td>
                     </tr>
                   ))}
                 </tbody>
@@ -1171,9 +1169,7 @@ const ComprehensiveReportPage = () => {
                 <li>Klik tombol "Download PDF" untuk membuka preview print</li>
                 <li>Di dialog print, pilih "Save as PDF" sebagai destination</li>
                 <li>Atur orientasi ke "Landscape" untuk tampilan yang lebih baik</li>
-                <li>Pastikan "Print headers and footers" dicentang</li>
                 <li>Laporan akan mengikuti format resmi dengan logo dan header BPS</li>
-                <li><strong>🔥 BARU:</strong> Nama Kepala BPS akan otomatis diambil dari database berdasarkan jabatan atau role</li>
               </ul>
             </div>
           </div>
@@ -1192,13 +1188,13 @@ const ComprehensiveReportPage = () => {
               Laporan akan mencakup:
             </p>
             <ul className="list-unstyled text-start d-inline-block">
-              <li>✅ Best Employee of the Month</li>
-              <li>✅ Leaderboard Final (kandidat + semua pegawai)</li>
-              <li>✅ Rekap BerAKHLAK (nama, pemilih, skor)</li>
-              <li>✅ <strong>Rekap Presensi (TK, PSW, TLT, APEL, CT dengan jumlah detail)</strong></li>
-              <li>✅ Rekap CKP (nama, skor, dan keterangan)</li>
-              <li>✅ Format PDF resmi dengan logo BPS</li>
-              <li>✅ <strong>Nama Kepala BPS otomatis dari database</strong></li>
+              <li> Best Employee of the Month</li>
+              <li> Leaderboard Final (kandidat + semua pegawai)</li>
+              <li> Rekap BerAKHLAK (nama, pemilih, skor)</li>
+              <li> Rekap Presensi (TK, PSW, TLT, APEL, CT dengan jumlah detail)</li>
+              <li> Rekap CKP (nama, dan skor)</li>
+              <li> Format PDF resmi dengan logo BPS</li>
+              <li> Nama Kepala BPS otomatis dari database</li>
             </ul>
           </div>
         </div>

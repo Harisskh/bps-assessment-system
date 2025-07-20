@@ -303,7 +303,7 @@ const upsertAttendance = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Data presensi berhasil disimpan dengan sistem perhitungan baru',
+      message: 'Data presensi berhasil disimpan',
       data: { 
         attendance,
         calculationDetails: {

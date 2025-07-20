@@ -1,31 +1,36 @@
-// src/components/Layout.js - INTEGRATED VERSION
+// src/components/Layout.js - ENHANCED VERSION WITH WORKING MOBILE DROPDOWN
 
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import '../styles/Layout.scss';
 
 const Layout = ({ children }) => {
-  // 1. Ambil status awal dari localStorage, jika tidak ada, default-nya 'false' (terbuka)
+  // Sidebar state management
   const getInitialSidebarState = () => {
     const savedState = localStorage.getItem('sidebarCollapsed');
     return savedState ? JSON.parse(savedState) : false;
   };
 
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarState);
-
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  
+  // 🔥 NEW: Mobile dropdown state
+  const [isMobileDropdownOpen, setMobileDropdownOpen] = useState(false);
+  
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
-  // 2. useEffect ini akan menyimpan status sidebar setiap kali berubah
+  // Save sidebar state
   useEffect(() => {
-    // Jangan simpan state saat di tampilan mobile karena logikanya berbeda (selalu collapsed)
     if (!isMobile) {
       localStorage.setItem('sidebarCollapsed', JSON.stringify(isSidebarCollapsed));
     }
   }, [isSidebarCollapsed, isMobile]);
 
+  // Handle window resize
   const handleResize = () => {
     const mobileView = window.innerWidth <= 768;
     setIsMobile(mobileView);
@@ -34,7 +39,6 @@ const Layout = ({ children }) => {
       setSidebarCollapsed(true);
       setSidebarOpen(false);
     }
-    // 3. Logika yang me-reset state di tampilan desktop DIHAPUS agar tidak menimpa pilihan user
   };
 
   useEffect(() => {
@@ -43,12 +47,46 @@ const Layout = ({ children }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // 🔥 NEW: Handle click outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.mobile-user-dropdown')) {
+        setMobileDropdownOpen(false);
+      }
+    };
+
+    if (isMobileDropdownOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isMobileDropdownOpen]);
+
   const toggleMobileSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
   const toggleDesktopSidebar = () => {
     setSidebarCollapsed(prevState => !prevState);
+  };
+
+  // 🔥 NEW: Mobile dropdown handlers
+  const toggleMobileDropdown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMobileDropdownOpen(!isMobileDropdownOpen);
+  };
+
+  const handleDropdownItemClick = (path) => {
+    setMobileDropdownOpen(false);
+    navigate(path);
+  };
+
+  const handleLogout = () => {
+    setMobileDropdownOpen(false);
+    logout();
   };
 
   return (
@@ -60,6 +98,7 @@ const Layout = ({ children }) => {
       />
       
       <div className="main-content-wrapper flex-grow-1 d-flex flex-column">
+        {/* 🔥 ENHANCED: Mobile header with working dropdown */}
         <header className="top-bar d-md-none d-flex align-items-center justify-content-between shadow-sm">
           <button className="sidebar-toggle" onClick={toggleMobileSidebar}>
             <i className="fas fa-bars"></i>
@@ -67,25 +106,46 @@ const Layout = ({ children }) => {
           
           <div className="d-flex align-items-center">
             {user && (
-              <div className="dropdown">
-                <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <div className="mobile-user-dropdown">
+                <button 
+                  className={`mobile-dropdown-toggle ${isMobileDropdownOpen ? 'active' : ''}`}
+                  onClick={toggleMobileDropdown}
+                  type="button"
+                >
                   <i className="fas fa-user-circle me-2"></i>
                   {user.nama}
+                  <i className={`fas fa-chevron-down ms-2 ${isMobileDropdownOpen ? 'rotated' : ''}`}></i>
                 </button>
-                <ul className="dropdown-menu dropdown-menu-end">
-                  <li><a className="dropdown-item" href="/profile">Profil</a></li>
-                  {/* NEW: Add Evaluation History to mobile dropdown */}
+                
+                <div className={`mobile-dropdown-menu ${isMobileDropdownOpen ? 'show' : ''}`}>
+                  <button 
+                    className="mobile-dropdown-item" 
+                    onClick={() => handleDropdownItemClick('/profile')}
+                  >
+                    <i className="fas fa-user me-2"></i>
+                    Lihat Profile
+                  </button>
+                  
                   {(user.role === 'STAFF' || user.role === 'PIMPINAN') && (
-                    <li>
-                      <a className="dropdown-item" href="/evaluation-history">
-                        <i className="fas fa-history me-2"></i>
-                        Riwayat Penilaian
-                      </a>
-                    </li>
+                    <button 
+                      className="mobile-dropdown-item" 
+                      onClick={() => handleDropdownItemClick('/evaluation-history')}
+                    >
+                      <i className="fas fa-history me-2"></i>
+                      Riwayat Penilaian
+                    </button>
                   )}
-                  <li><hr className="dropdown-divider" /></li>
-                  <li><button className="dropdown-item text-danger" onClick={logout}>Logout</button></li>
-                </ul>
+                  
+                  <div className="mobile-dropdown-divider"></div>
+                  
+                  <button 
+                    className="mobile-dropdown-item text-danger" 
+                    onClick={handleLogout}
+                  >
+                    <i className="fas fa-sign-out-alt me-2"></i>
+                    Logout
+                  </button>
+                </div>
               </div>
             )}
           </div>

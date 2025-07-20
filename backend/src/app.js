@@ -1,4 +1,4 @@
-// backend/src/app.js - FIXED VERSION WITH REPORTS ROUTES ADDED
+// backend/src/app.js - COMPLETE VERSION WITH CERTIFICATE ROUTES
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -14,24 +14,27 @@ const PORT = process.env.PORT || 5000;
 // 🔥 CRITICAL: ENSURE UPLOAD DIRECTORIES EXIST FIRST
 const uploadDir = path.join(__dirname, '../uploads');
 const profilesDir = path.join(__dirname, '../uploads/profiles');
+const tempDir = path.join(__dirname, '../uploads/temp');
+const templatesDir = path.join(__dirname, '../templates'); // 🔥 NEW: Templates directory
 
 console.log('📁 Checking upload directories...');
 console.log('📂 Upload dir path:', uploadDir);
 console.log('📂 Profiles dir path:', profilesDir);
+console.log('📂 Temp dir path:', tempDir);
+console.log('📂 Templates dir path:', templatesDir); // 🔥 NEW
 
 // Create directories if they don't exist
-if (!fs.existsSync(uploadDir)) {
-  console.log('🔧 Creating upload directory...');
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-if (!fs.existsSync(profilesDir)) {
-  console.log('🔧 Creating profiles directory...');
-  fs.mkdirSync(profilesDir, { recursive: true });
-}
+[uploadDir, profilesDir, tempDir, templatesDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    console.log(`🔧 Creating directory: ${dir}`);
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 console.log('📂 Upload dir exists:', fs.existsSync(uploadDir));
 console.log('📂 Profiles dir exists:', fs.existsSync(profilesDir));
+console.log('📂 Temp dir exists:', fs.existsSync(tempDir));
+console.log('📂 Templates dir exists:', fs.existsSync(templatesDir)); // 🔥 NEW
 
 // Enhanced CORS configuration
 app.use(cors({
@@ -154,13 +157,18 @@ app.get('/api/health', (req, res) => {
     uploadPath: '/uploads',
     uploadDir: uploadDir,
     profilesDir: profilesDir,
+    tempDir: tempDir,
+    templatesDir: templatesDir, // 🔥 NEW
     uploadDirExists: fs.existsSync(uploadDir),
     profilesDirExists: fs.existsSync(profilesDir),
+    tempDirExists: fs.existsSync(tempDir),
+    templatesDirExists: fs.existsSync(templatesDir), // 🔥 NEW
     features: {
       importExcel: 'enabled',
       multer: 'enabled',
       xlsx: 'enabled',
-      reports: 'enabled' // 🔥 NEW: Reports feature
+      reports: 'enabled',
+      certificates: 'enabled' // 🔥 NEW
     }
   });
 });
@@ -185,40 +193,54 @@ app.get('/api/debug/files', (req, res) => {
     const profileFiles = fs.existsSync(profilesDir) 
       ? fs.readdirSync(profilesDir) 
       : [];
+
+    const tempFiles = fs.existsSync(tempDir)
+      ? fs.readdirSync(tempDir)
+      : [];
+
+    const templateFiles = fs.existsSync(templatesDir) // 🔥 NEW
+      ? fs.readdirSync(templatesDir)
+      : [];
       
     const testFilePath = profileFiles.length > 0 ? profileFiles[0] : null;
     
     res.json({
       uploadsDir: uploadDir,
       profilesDir: profilesDir,
+      tempDir: tempDir,
+      templatesDir: templatesDir, // 🔥 NEW
       uploadsDirExists: fs.existsSync(uploadDir),
       profilesDirExists: fs.existsSync(profilesDir),
+      tempDirExists: fs.existsSync(tempDir),
+      templatesDirExists: fs.existsSync(templatesDir), // 🔥 NEW
       uploadFiles: uploadFiles,
       profileFiles: profileFiles,
+      tempFiles: tempFiles,
+      templateFiles: templateFiles, // 🔥 NEW
       staticMiddlewareSetup: 'express.static() configured for /uploads',
       backendBaseUrl: 'http://localhost:5000',
       testUrl: testFilePath ? `http://localhost:5000/uploads/profiles/${testFilePath}` : null,
       manualTestUrl: testFilePath ? `http://localhost:5000/api/test-file/${testFilePath}` : null,
       importEndpoints: {
         template: '/api/import/template',
-        preview: '/api/import/preview',
-        import: '/api/import/import',
-        updateImport: '/api/import/import-update'
+        users: '/api/import/users',
+        debug: '/api/import/debug'
       },
-      // 🔥 NEW: Reports endpoints
-      reportsEndpoints: {
-        comprehensive: '/api/reports/comprehensive',
-        berakhlak: '/api/reports/berakhlak',
-        attendance: '/api/reports/attendance', 
-        ckp: '/api/reports/ckp',
-        exportPDF: '/api/reports/export/pdf'
+      // 🔥 NEW: Certificate endpoints
+      certificateEndpoints: {
+        myAwards: '/api/certificate/my-awards',
+        preview: '/api/certificate/preview/:periodId',
+        generate: '/api/certificate/generate/:periodId',
+        history: '/api/certificate/history'
       }
     });
   } catch (error) {
     res.status(500).json({
       error: error.message,
       uploadsDir: uploadDir,
-      profilesDir: profilesDir
+      profilesDir: profilesDir,
+      tempDir: tempDir,
+      templatesDir: templatesDir
     });
   }
 });
@@ -271,9 +293,15 @@ app.get('/', (req, res) => {
       },
       import: {
         template: 'GET /api/import/template',
-        preview: 'POST /api/import/preview',
-        import: 'POST /api/import/import',
-        updateImport: 'POST /api/import/import-update'
+        users: 'POST /api/import/users (with multipart/form-data)',
+        debug: 'GET /api/import/debug'
+      },
+      // 🔥 NEW: Certificate endpoints documentation
+      certificate: {
+        myAwards: 'GET /api/certificate/my-awards',
+        preview: 'GET /api/certificate/preview/:periodId',
+        generate: 'POST /api/certificate/generate/:periodId',
+        history: 'GET /api/certificate/history (admin only)'
       },
       profile: {
         get: 'GET /api/profile',
@@ -289,14 +317,6 @@ app.get('/', (req, res) => {
       monitoring: {
         evaluationStatus: 'GET /api/monitoring/evaluation-status',
         incompleteUsers: 'GET /api/monitoring/incomplete-users',
-      },
-      // 🔥 NEW: Reports endpoints
-      reports: {
-        comprehensive: 'GET /api/reports/comprehensive',
-        berakhlak: 'GET /api/reports/berakhlak',
-        attendance: 'GET /api/reports/attendance',
-        ckp: 'GET /api/reports/ckp',
-        exportPDF: 'POST /api/reports/export/pdf'
       },
       attendance: {
         getAll: 'GET /api/attendance',
@@ -328,8 +348,8 @@ const finalEvaluationRoutes = require('./routes/finalEvaluation');
 const periodRoutes = require('./routes/periods');
 const dashboardRoutes = require('./routes/dashboard');
 const monitoringRoutes = require('./routes/monitoring');
-const reportsRoutes = require('./routes/reports'); // 🔥 NEW: Reports routes
 const importRoutes = require('./routes/import');
+const certificateRoutes = require('./routes/certificate'); // 🔥 NEW: Certificate routes
 
 // Route definitions
 app.use('/api/auth', authRoutes);
@@ -341,8 +361,8 @@ app.use('/api/final-evaluation', finalEvaluationRoutes);
 app.use('/api/periods', periodRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/monitoring', monitoringRoutes);
-app.use('/api/reports', reportsRoutes); // 🔥 NEW: Reports routes
 app.use('/api/import', importRoutes);
+app.use('/api/certificate', certificateRoutes); // 🔥 NEW: Certificate routes registration
 
 // =============================================
 // ERROR HANDLERS
@@ -359,9 +379,15 @@ app.use('/api/*', (req, res) => {
       users: ['/api/users', '/api/users/:id'],
       import: [
         '/api/import/template', 
-        '/api/import/preview', 
-        '/api/import/import',
-        '/api/import/import-update'
+        '/api/import/users',
+        '/api/import/debug'
+      ],
+      // 🔥 NEW: Certificate endpoints in 404 response
+      certificate: [
+        '/api/certificate/my-awards',
+        '/api/certificate/preview/:periodId',
+        '/api/certificate/generate/:periodId',
+        '/api/certificate/history'
       ],
       evaluations: [
         '/api/evaluations/parameters', 
@@ -373,14 +399,6 @@ app.use('/api/*', (req, res) => {
         '/api/monitoring/evaluation-status',
         '/api/monitoring/incomplete-users',
         '/api/monitoring/user/:userId/detail'
-      ],
-      // 🔥 NEW: Reports endpoints
-      reports: [
-        '/api/reports/comprehensive',
-        '/api/reports/berakhlak',
-        '/api/reports/attendance',
-        '/api/reports/ckp',
-        '/api/reports/export/pdf'
       ],
       attendance: ['/api/attendance', '/api/attendance/:id'],
       ckp: ['/api/ckp', '/api/ckp/:id'],
@@ -403,7 +421,9 @@ app.use('/uploads/*', (req, res) => {
     lookingAt: filePath,
     exists: fs.existsSync(filePath),
     uploadDir: uploadDir,
-    profilesDir: profilesDir
+    profilesDir: profilesDir,
+    tempDir: tempDir,
+    templatesDir: templatesDir
   });
 });
 
@@ -487,37 +507,39 @@ app.listen(PORT, () => {
 🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}
 📁 Upload directory: ${uploadDir}
 📂 Profiles directory: ${profilesDir}
+📂 Temp directory: ${tempDir}
+📂 Templates directory: ${templatesDir}
 ⏰ Started at: ${new Date().toISOString()}
 
 🔧 Route Configuration:
    ✅ /api/auth/* -> Authentication
    ✅ /api/users/* -> User Management
+   ✅ /api/certificate/* -> Certificate Generation (NEW)
    ✅ /api/import/* -> Excel Import System
    ✅ /api/evaluations/* -> Evaluation System
    ✅ /api/attendance -> Attendance Management
    ✅ /api/ckp -> CKP Management
    ✅ /api/periods/* -> Period Management
-   ✅ /api/reports/* -> Report Generation (NEW)
    ✅ /uploads/* -> Static File Serving
 
-📊 Reports System Features:
-   ✅ GET /api/reports/comprehensive -> Complete report data
-   ✅ GET /api/reports/berakhlak -> BerAKHLAK report only
-   ✅ GET /api/reports/attendance -> Attendance report only
-   ✅ GET /api/reports/ckp -> CKP report only
-   ✅ POST /api/reports/export/pdf -> PDF export
+📜 Certificate Features:
+   ✅ GET /api/certificate/my-awards -> Get user's best employee awards
+   ✅ POST /api/certificate/generate/:periodId -> Generate certificate  
+   ✅ GET /api/certificate/preview/:periodId -> Preview certificate data
+   ✅ GET /api/certificate/history -> Certificate history (admin only)
 
 📊 Import Excel Features:
    ✅ GET /api/import/template -> Download template
-   ✅ POST /api/import/preview -> Preview Excel data
-   ✅ POST /api/import/import -> Import new users
-   ✅ POST /api/import/import-update -> Update existing users
+   ✅ POST /api/import/users -> Import users from Excel
+   ✅ GET /api/import/debug -> Debug import system
 `);
 
   // Verify upload directories at startup
-  console.log('📁 Final verification of upload directories...');
+  console.log('📁 Final verification of directories...');
   console.log('📂 Upload dir exists:', fs.existsSync(uploadDir));
   console.log('📂 Profiles dir exists:', fs.existsSync(profilesDir));
+  console.log('📂 Temp dir exists:', fs.existsSync(tempDir));
+  console.log('📂 Templates dir exists:', fs.existsSync(templatesDir));
   
   if (fs.existsSync(profilesDir)) {
     const files = fs.readdirSync(profilesDir);
@@ -526,11 +548,19 @@ app.listen(PORT, () => {
       console.log(`   - ${file}`);
     });
   }
+
+  if (fs.existsSync(templatesDir)) {
+    const files = fs.readdirSync(templatesDir);
+    console.log('📄 Files in templates directory:', files.length);
+    files.forEach(file => {
+      console.log(`   - ${file}`);
+    });
+  }
   
-  console.log('✅ Upload directories verified!');
+  console.log('✅ All directories verified!');
   console.log('🔗 Test static serving: http://localhost:5000/uploads/profiles/');
-  console.log('📊 Reports API: http://localhost:5000/api/reports/comprehensive');
   console.log('📊 Import Excel template: http://localhost:5000/api/import/template');
+  console.log('📜 Certificate endpoints ready!');
   
   // Startup health check
   console.log('🏥 Performing startup health checks...');
@@ -538,7 +568,7 @@ app.listen(PORT, () => {
   console.log('   ✅ CORS configured');
   console.log('   ✅ Static file serving enabled');
   console.log('   ✅ Import Excel routes enabled');
-  console.log('   ✅ Reports routes enabled (NEW)');
+  console.log('   ✅ Certificate routes enabled (NEW)');
   console.log('   ✅ Route handlers registered');
   console.log('   ✅ Error handlers configured');
   console.log('🎉 All systems ready!');

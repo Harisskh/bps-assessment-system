@@ -1,0 +1,1078 @@
+// src/styles/ComprehensiveReport.scss - ENHANCED UI/UX VERSION
+// Untuk digunakan dengan ComprehensiveReportPage.js yang existing
+
+// 1. Variabel Warna (Same as PeriodManagement)
+$primary: #2c549c;
+$success: #198754;
+$danger: #dc3545;
+$warning: #ffc107;
+$info: #0dcaf0;
+$light: #f8f9fa;
+$gray-100: #f8f9fa;
+$gray-200: #e9ecef;
+$gray-300: #ced4da;
+$gray-400: #babfc5;
+$gray-500: #92979b;
+$gray-600: #6c757d;
+$gray-700: #5b5d5f;
+$gray-800: #343a40;
+$white: #fff;
+
+// Mixins
+@mixin transition($property: all, $duration: 0.3s) {
+  transition: $property $duration ease-in-out;
+}
+
+@mixin card-shadow {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+}
+
+@mixin hover-lift {
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
+  }
+}
+
+// Scroll yang lebih halus
+html {
+  scroll-behavior: smooth;
+}
+
+// 🔥 Main container - target existing class dari ComprehensiveReportPage.js
+.container-fluid {
+  // Override default Bootstrap jika diperlukan untuk halaman ini
+  &:has(.comprehensive-report-container) {
+    padding: 1.5rem;
+  }
+}
+
+// 🔥 Enhanced Header - Consistent with other pages (Blue BPS theme)
+.d-flex.justify-content-between.align-items-center.mb-4:not(.p-4) {
+  background: linear-gradient(135deg, $primary 0%, lighten($primary, 10%) 100%) !important;
+  color: white !important;
+  padding: 2rem !important;
+  border-radius: 1rem !important;
+  margin-bottom: 2rem !important;
+  position: relative;
+  overflow: hidden;
+
+  // Decorative elements
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    animation: float 6s ease-in-out infinite;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -10%;
+    width: 150px;
+    height: 150px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    animation: float 8s ease-in-out infinite reverse;
+  }
+
+  // Content positioning
+  > div {
+    position: relative;
+    z-index: 2;
+  }
+
+  h1, .h3 {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 0.5rem !important;
+    color: white !important;
+
+    i.fas {
+      font-size: 2rem !important;
+      color: rgba(255, 255, 255, 0.9) !important;
+    }
+  }
+
+  p, .text-muted {
+    opacity: 0.9 !important;
+    margin-bottom: 0 !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+  }
+}
+
+// 🔥 Enhanced Section Title (untuk .section-title class)
+.section-title {
+  background: linear-gradient(135deg, lighten($primary, 45%) 0%, lighten($primary, 50%) 100%);
+  color: $primary !important;
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  margin: 2rem 0 1rem 0;
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-left: 4px solid $primary;
+  @include card-shadow;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, $primary 0%, lighten($primary, 20%) 100%);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, $primary 50%, transparent 100%);
+  }
+
+  // Variants untuk berbagai jenis section
+  &:contains("LEADERBOARD"),
+  &[class*="leaderboard"] {
+    background: linear-gradient(135deg, lighten($primary, 45%) 0%, lighten($primary, 50%) 100%);
+    color: $primary !important;
+    border-left-color: $primary;
+    
+    &::before {
+      background: linear-gradient(90deg, $primary 0%, lighten($primary, 20%) 100%);
+    }
+  }
+
+  &:contains("BERAKHLAK"),
+  &[class*="berakhlak"] {
+    background: linear-gradient(135deg, lighten($success, 45%) 0%, lighten($success, 50%) 100%);
+    color: darken($success, 15%) !important;
+    border-left-color: $success;
+    
+    &::before {
+      background: linear-gradient(90deg, $success 0%, lighten($success, 20%) 100%);
+    }
+  }
+
+  &:contains("PRESENSI"),
+  &[class*="presensi"] {
+    background: linear-gradient(135deg, lighten($warning, 35%) 0%, lighten($warning, 40%) 100%);
+    color: darken($warning, 30%) !important;
+    border-left-color: darken($warning, 10%);
+    
+    &::before {
+      background: linear-gradient(90deg, darken($warning, 10%) 0%, $warning 100%);
+    }
+  }
+
+  &:contains("CKP"),
+  &[class*="ckp"] {
+    background: linear-gradient(135deg, lighten($info, 35%) 0%, lighten($info, 40%) 100%);
+    color: darken($info, 25%) !important;
+    border-left-color: $info;
+    
+    &::before {
+      background: linear-gradient(90deg, $info 0%, lighten($info, 20%) 100%);
+    }
+  }
+}
+
+// 🔥 Alternative targeting untuk section headers
+.section {
+  .section-title {
+    background: linear-gradient(135deg, lighten($primary, 45%) 0%, lighten($primary, 50%) 100%);
+    color: $primary !important;
+    padding: 1rem 1.5rem;
+    border-radius: 0.75rem;
+    margin: 2rem 0 1rem 0;
+    font-weight: 700;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-left: 4px solid $primary;
+    @include card-shadow;
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, $primary 0%, lighten($primary, 20%) 100%);
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, $primary 50%, transparent 100%);
+    }
+  }
+
+  // Section variants
+  &.leaderboard-section .section-title {
+    background: linear-gradient(135deg, lighten($primary, 45%) 0%, lighten($primary, 50%) 100%);
+    color: $primary !important;
+    border-left-color: $primary;
+    
+    &::before {
+      background: linear-gradient(90deg, $primary 0%, lighten($primary, 20%) 100%);
+    }
+  }
+
+  &.berakhlak-section .section-title {
+    background: linear-gradient(135deg, lighten($success, 45%) 0%, lighten($success, 50%) 100%);
+    color: darken($success, 15%) !important;
+    border-left-color: $success;
+    
+    &::before {
+      background: linear-gradient(90deg, $success 0%, lighten($success, 20%) 100%);
+    }
+  }
+
+  &.presensi-section .section-title {
+    background: linear-gradient(135deg, lighten($warning, 35%) 0%, lighten($warning, 40%) 100%);
+    color: darken($warning, 30%) !important;
+    border-left-color: darken($warning, 10%);
+    
+    &::before {
+      background: linear-gradient(90deg, darken($warning, 10%) 0%, $warning 100%);
+    }
+  }
+
+  &.ckp-section .section-title {
+    background: linear-gradient(135deg, lighten($info, 35%) 0%, lighten($info, 40%) 100%);
+    color: darken($info, 25%) !important;
+    border-left-color: $info;
+    
+    &::before {
+      background: linear-gradient(90deg, $info 0%, lighten($info, 20%) 100%);
+    }
+  }
+}
+
+// 🔥 Enhanced Configuration/Filter Section
+.card.border-info {
+  background: linear-gradient(135deg, $white 0%, $light 100%) !important;
+  border: 1px solid $gray-200 !important;
+  border-radius: 1rem !important;
+  @include card-shadow;
+  @include hover-lift;
+
+  .card-header {
+    background: linear-gradient(135deg, $info 0%, lighten($info, 5%) 100%) !important;
+    border-radius: 1rem 1rem 0 0 !important;
+    border-bottom: none !important;
+    color: white !important;
+
+    h6 {
+      font-weight: 600;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      i {
+        font-size: 1.2rem;
+      }
+    }
+  }
+
+  .card-body {
+    padding: 2rem;
+
+    .form-select {
+      border: 2px solid $gray-300;
+      border-radius: 0.75rem;
+      min-height: 48px;
+      background: white;
+      @include transition;
+
+      &:hover {
+        border-color: $primary;
+      }
+
+      &:focus {
+        border-color: $primary;
+        box-shadow: 0 0 0 3px rgba($primary, 0.1);
+      }
+    }
+
+    .btn {
+      border-radius: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      font-weight: 600;
+      @include transition;
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+
+      &.btn-success {
+        background: linear-gradient(135deg, $success 0%, lighten($success, 5%) 100%);
+        border: none;
+        box-shadow: 0 4px 15px rgba($success, 0.3);
+
+        &:hover {
+          background: linear-gradient(135deg, darken($success, 5%) 0%, $success 100%);
+          box-shadow: 0 6px 20px rgba($success, 0.4);
+        }
+      }
+    }
+  }
+}
+
+// 🔥 Enhanced Report Preview Section
+.card:not(.border-info) {
+  border-radius: 1rem !important;
+  @include card-shadow;
+  border: 1px solid $gray-200 !important;
+
+  // Report content cards
+  &:has(.table-responsive) {
+    overflow: hidden;
+
+    .card-header {
+      background: linear-gradient(135deg, $primary 0%, lighten($primary, 5%) 100%) !important;
+      color: white !important;
+      border-bottom: none !important;
+      padding: 1.5rem 2rem;
+
+      h5, h6 {
+        margin: 0;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        i {
+          font-size: 1.2rem;
+        }
+      }
+    }
+
+    .card-body {
+      padding: 0;
+    }
+  }
+
+  // Best Employee card styling
+  &.border-warning {
+    background: linear-gradient(135deg, $warning 0%, lighten($warning, 10%) 100%) !important;
+    border: none !important;
+    color: $gray-800 !important;
+
+    .card-header {
+      background: transparent !important;
+      color: $gray-800 !important;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+
+      h5 {
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        i {
+          font-size: 1.5rem;
+          color: rgba(0, 0, 0, 0.7);
+        }
+      }
+    }
+
+    .badge {
+      background: rgba(255, 255, 255, 0.2) !important;
+      color: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50px;
+      padding: 0.5rem 1rem;
+      font-weight: 600;
+    }
+  }
+}
+
+// 🔥 Enhanced Tables
+.table-responsive {
+  border-radius: 0 !important;
+
+  .table {
+    margin: 0;
+
+    thead th {
+      background: $gray-100 !important;
+      color: $gray-800 !important;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      padding: 1rem 1.5rem;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid $gray-200;
+      border-top: none;
+    }
+
+    tbody tr {
+      @include transition;
+
+      td {
+        padding: 1.25rem 1.5rem;
+        vertical-align: middle;
+        border-bottom: 1px solid $gray-200;
+      }
+
+      &:hover {
+        background: lighten($primary, 52%) !important;
+      }
+
+      &:last-child td {
+        border-bottom: none;
+      }
+
+      // Special row styles
+      &.table-warning {
+        background: rgba($warning, 0.15) !important;
+        
+        &:hover {
+          background: rgba($warning, 0.25) !important;
+        }
+      }
+
+      &.table-info {
+        background: rgba($info, 0.1) !important;
+        
+        &:hover {
+          background: rgba($info, 0.2) !important;
+        }
+      }
+    }
+
+    // Badge improvements
+    .badge {
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.75rem;
+
+      &.bg-warning {
+        background: linear-gradient(135deg, $warning 0%, lighten($warning, 5%) 100%) !important;
+        color: $gray-800 !important;
+      }
+
+      &.bg-success {
+        background: linear-gradient(135deg, $success 0%, lighten($success, 5%) 100%) !important;
+      }
+
+      &.bg-info {
+        background: linear-gradient(135deg, $info 0%, lighten($info, 5%) 100%) !important;
+      }
+
+      &.bg-primary {
+        background: linear-gradient(135deg, $primary 0%, lighten($primary, 5%) 100%) !important;
+      }
+
+      &.bg-secondary {
+        background: linear-gradient(135deg, $gray-600 0%, lighten($gray-600, 5%) 100%) !important;
+      }
+
+      &.bg-light {
+        background: $gray-200 !important;
+        color: $gray-800 !important;
+      }
+
+      &.bg-dark {
+        background: $gray-800 !important;
+      }
+    }
+  }
+}
+
+// 🔥 Enhanced Statistics Cards with Different Colors
+.row.text-center.mb-2,
+.row.text-center.mb-4 {
+  .col-3,
+  .col-6,
+  .col-md-3 {
+    margin-bottom: 1.5rem;
+
+    // Wrapper untuk setiap stat card
+    > div {
+      background: white;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      @include card-shadow;
+      @include hover-lift;
+      @include transition;
+      border: 1px solid $gray-200;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+
+      // Decorative top border untuk setiap card
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        border-radius: 1rem 1rem 0 0;
+      }
+
+      // Total Pegawai - Blue
+      &:has(.text-primary) {
+        &::before {
+          background: linear-gradient(135deg, $primary 0%, lighten($primary, 10%) 100%);
+        }
+
+        .text-primary strong {
+          color: $primary !important;
+          font-size: 2.5rem;
+          font-weight: 700;
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+
+        small {
+          color: $gray-600;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 0.875rem;
+        }
+      }
+
+      // Kandidat Terbaik - Green
+      &:has(.text-success) {
+        &::before {
+          background: linear-gradient(135deg, $success 0%, lighten($success, 10%) 100%);
+        }
+
+        .text-success strong {
+          color: $success !important;
+          font-size: 2.5rem;
+          font-weight: 700;
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+
+        small {
+          color: $gray-600;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 0.875rem;
+        }
+      }
+
+      // Rata-rata CKP - Info/Cyan
+      &:has(.text-info) {
+        &::before {
+          background: linear-gradient(135deg, $info 0%, lighten($info, 10%) 100%);
+        }
+
+        .text-info strong {
+          color: $info !important;
+          font-size: 2.5rem;
+          font-weight: 700;
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+
+        small {
+          color: $gray-600;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 0.875rem;
+        }
+      }
+
+      // Rata-rata Presensi - Warning/Orange
+      &:has(.text-warning) {
+        &::before {
+          background: linear-gradient(135deg, $warning 0%, lighten($warning, 10%) 100%);
+        }
+
+        .text-warning strong {
+          color: darken($warning, 20%) !important;
+          font-size: 2.5rem;
+          font-weight: 700;
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+
+        small {
+          color: $gray-600;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 0.875rem;
+        }
+      }
+    }
+  }
+}
+
+// 🔥 Enhanced Download Button with Highlight Animation
+.btn.btn-outline-primary,
+.btn-danger {
+  border-radius: 50px !important;
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 600 !important;
+  @include transition;
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &.btn-danger {
+    background: linear-gradient(135deg, $danger 0%, lighten($danger, 5%) 100%) !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba($danger, 0.3);
+    animation: pulseGlow 2s infinite;
+
+    // Shimmer effect
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+      );
+      animation: shimmer 3s infinite;
+    }
+
+    &:hover {
+      background: linear-gradient(135deg, darken($danger, 5%) 0%, $danger 100%) !important;
+      box-shadow: 0 8px 25px rgba($danger, 0.5);
+      animation: pulseGlowHover 0.8s infinite;
+      transform: translateY(-2px) scale(1.02);
+    }
+
+    &:active {
+      animation: buttonPress 0.2s ease-out;
+    }
+  }
+}
+
+// 🔥 Mobile-specific Download Button Styling
+@media (max-width: 768px) {
+  .btn-danger {
+    padding: 0.6rem 1.25rem !important;
+    font-size: 0.875rem !important;
+    border-radius: 40px !important;
+    
+    // Reduce animation intensity on mobile
+    animation: pulseGlowMobile 3s infinite;
+
+    &:hover {
+      animation: pulseGlowMobileHover 1s infinite;
+      transform: translateY(-1px) scale(1.01);
+    }
+
+    // Smaller shimmer on mobile
+    &::before {
+      animation: shimmerMobile 4s infinite;
+    }
+  }
+
+  // Adjust card header spacing on mobile
+  .card-header {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    text-align: center;
+
+    h5 {
+      font-size: 1.1rem !important;
+    }
+  }
+}
+
+// 🔥 Enhanced Alerts
+.alert {
+  border-radius: 1rem !important;
+  padding: 1rem 1.5rem !important;
+  border: none !important;
+  @include card-shadow;
+
+  &.alert-success {
+    background: linear-gradient(135deg, rgba($success, 0.1) 0%, rgba($success, 0.05) 100%) !important;
+    border-left: 4px solid $success !important;
+    color: darken($success, 20%) !important;
+  }
+
+  &.alert-danger {
+    background: linear-gradient(135deg, rgba($danger, 0.1) 0%, rgba($danger, 0.05) 100%) !important;
+    border-left: 4px solid $danger !important;
+    color: darken($danger, 20%) !important;
+  }
+
+  &.alert-info {
+    background: linear-gradient(135deg, rgba($info, 0.1) 0%, rgba($info, 0.05) 100%) !important;
+    border-left: 4px solid $info !important;
+    color: darken($info, 30%) !important;
+
+    .alert-heading {
+      color: darken($info, 30%) !important;
+      font-weight: 600;
+    }
+
+    ul {
+      margin-bottom: 0;
+      padding-left: 1.5rem;
+
+      li {
+        margin-bottom: 0.5rem;
+        color: darken($info, 25%);
+      }
+    }
+  }
+
+  i {
+    font-size: 1.1rem;
+  }
+}
+
+// 🔥 Enhanced Empty State
+.card-body.text-center.py-5 {
+  padding: 4rem 2rem !important;
+
+  i.fa-3x {
+    font-size: 4rem !important;
+    color: $gray-300 !important;
+    margin-bottom: 1.5rem;
+  }
+
+  h5 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: $gray-600;
+    margin-bottom: 1rem;
+  }
+
+  p {
+    color: $gray-500;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+
+  .list-unstyled {
+    background: $light;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin: 2rem auto;
+    max-width: 600px;
+    text-align: left !important;
+
+    li {
+      padding: 0.5rem 0;
+      color: $gray-600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      &::before {
+        content: '✅';
+        font-size: 1rem;
+      }
+    }
+  }
+}
+
+// 🔥 Enhanced Spinner/Loading States
+.spinner-border {
+  &.text-primary {
+    color: $primary !important;
+  }
+}
+
+.text-muted {
+  color: $gray-600 !important;
+}
+
+// 🔥 Mobile Responsive Design
+@media (max-width: 768px) {
+  .container-fluid {
+    padding: 1rem !important;
+  }
+
+  .d-flex.justify-content-between.align-items-center.mb-4.p-4.text-white {
+    padding: 1.5rem !important;
+    text-align: center;
+    flex-direction: column !important;
+    gap: 1rem;
+
+    h2 {
+      font-size: 1.5rem !important;
+    }
+
+    p {
+      font-size: 0.875rem !important;
+    }
+
+    i.fas {
+      font-size: 2rem !important;
+    }
+  }
+
+  .card {
+    .card-header {
+      padding: 1rem !important;
+    }
+
+    .card-body {
+      padding: 1rem !important;
+    }
+  }
+
+  .table-responsive {
+    .table {
+      font-size: 0.875rem;
+
+      thead th {
+        padding: 0.75rem 0.5rem !important;
+        font-size: 0.7rem !important;
+      }
+
+      tbody td {
+        padding: 0.75rem 0.5rem !important;
+      }
+    }
+  }
+
+  .row.text-center.mb-2 {
+    .col-3,
+    .col-4 {
+      margin-bottom: 1rem;
+
+      .text-primary,
+      .text-success,
+      .text-warning,
+      .text-info {
+        strong {
+          font-size: 1.5rem !important;
+        }
+
+        small {
+          font-size: 0.75rem !important;
+        }
+      }
+    }
+  }
+}
+
+// 🔥 Tablet Responsive
+@media (min-width: 769px) and (max-width: 1024px) {
+  .row.text-center.mb-2 {
+    .col-3,
+    .col-4 {
+      .text-primary,
+      .text-success,
+      .text-warning,
+      .text-info {
+        strong {
+          font-size: 2rem;
+        }
+      }
+    }
+  }
+}
+
+// 🔥 Print Styles for PDF Generation
+@media print {
+  .d-flex.justify-content-between.align-items-center.mb-4.p-4.text-white,
+  .card.border-info,
+  .alert {
+    display: none !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid $gray-300 !important;
+
+    .card-header {
+      background: $gray-100 !important;
+      color: $gray-800 !important;
+      -webkit-print-color-adjust: exact;
+    }
+
+    &.border-warning {
+      background: $gray-100 !important;
+      -webkit-print-color-adjust: exact;
+    }
+  }
+
+  .table {
+    .badge {
+      border: 1px solid $gray-400 !important;
+      background: $white !important;
+      color: $gray-800 !important;
+    }
+  }
+}
+
+// 🔥 Animations (Enhanced with button animations)
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+// 🔥 Download Button Highlight Animations
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 4px 15px rgba($danger, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 25px rgba($danger, 0.6), 0 0 0 4px rgba($danger, 0.1);
+  }
+}
+
+@keyframes pulseGlowHover {
+  0%, 100% {
+    box-shadow: 0 8px 25px rgba($danger, 0.5);
+  }
+  50% {
+    box-shadow: 0 8px 35px rgba($danger, 0.8), 0 0 0 6px rgba($danger, 0.2);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  50%, 100% {
+    left: 100%;
+  }
+}
+
+@keyframes buttonPress {
+  0% {
+    transform: translateY(-2px) scale(1.02);
+  }
+  50% {
+    transform: translateY(0) scale(0.98);
+  }
+  100% {
+    transform: translateY(-2px) scale(1.02);
+  }
+}
+
+// 🔥 Mobile-specific button animations
+@keyframes pulseGlowMobile {
+  0%, 100% {
+    box-shadow: 0 3px 12px rgba($danger, 0.3);
+  }
+  50% {
+    box-shadow: 0 3px 20px rgba($danger, 0.5), 0 0 0 3px rgba($danger, 0.1);
+  }
+}
+
+@keyframes pulseGlowMobileHover {
+  0%, 100% {
+    box-shadow: 0 5px 20px rgba($danger, 0.5);
+  }
+  50% {
+    box-shadow: 0 5px 28px rgba($danger, 0.7), 0 0 0 4px rgba($danger, 0.15);
+  }
+}
+
+@keyframes shimmerMobile {
+  0% {
+    left: -100%;
+  }
+  50%, 100% {
+    left: 100%;
+  }
+}
+
+// 🔥 Statistics Cards Hover Animation
+@keyframes cardFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+// 🔥 Loading States
+.loading-overlay {
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 10;
+    border-radius: inherit;
+  }
+  
+  .spinner-border {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 11;
+  }
+}
+
+// 🔥 Text Color Utilities Enhancement
+.text-success {
+  color: $success !important;
+}
+
+.text-primary {
+  color: $primary !important;
+}
+
+.text-warning {
+  color: darken($warning, 20%) !important;
+}
+
+.text-danger {
+  color: $danger !important;
+}
+
+.text-info {
+  color: $info !important;
+}

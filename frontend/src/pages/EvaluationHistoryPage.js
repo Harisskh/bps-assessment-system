@@ -228,9 +228,9 @@ const EvaluationHistoryPage = () => {
       3: { class: 'bg-info', icon: 'fa-award', text: 'Tokoh 3' }
     };
     if (ranking === undefined || ranking === null) {
-      return { class: 'bg-success', icon: 'fa-star', text: 'Tokoh BerAKHLAK' };
+      return { class: 'bg-success', color:'whitesmoke   ', icon: 'fa-star', text: 'Tokoh BerAKHLAK' };
     }
-    return badges[ranking] || { class: 'bg-secondary', icon: 'fa-star', text: `Tokoh ${ranking}` };
+    return badges[ranking] || { class: 'bg-secondary',color:'#ffffff', icon: 'fa-star', text: `Tokoh ${ranking}` };
   };
 
   const formatDate = (dateString) => {
@@ -306,9 +306,6 @@ const EvaluationHistoryPage = () => {
               </h2>
           <p className="page-subtitle">
                 Lihat seluruh riwayat penilaian yang telah Anda berikan
-                {user?.role === 'STAFF' && (
-                  <span className="badge bg-info ms-2">Mode Staff</span>
-                )}
               </p>
             </div>
 

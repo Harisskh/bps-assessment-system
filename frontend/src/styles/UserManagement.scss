@@ -1,0 +1,1061 @@
+// src/styles/UserManagement.scss - ENHANCED UI/UX VERSION
+
+// 1. Variabel Warna
+$primary: #2c549c;
+$success: #198754;
+$danger: #dc3545;
+$warning: #ffc107;
+$info: #0dcaf0;
+$light: #f8f9fa;
+$gray-100: #f8f9fa;
+$gray-200: #e9ecef;
+$gray-300: #ced4da;
+$gray-400: #b6babf;
+$gray-500: #9fa3a7;
+$gray-600: #6c757d;
+$gray-700: #4b5257;
+$gray-800: #343a40;
+$white: #fff;
+
+// Mixins
+@mixin transition($property: all, $duration: 0.3s) {
+  transition: $property $duration ease-in-out;
+}
+
+@mixin card-shadow {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+}
+
+@mixin hover-lift {
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
+  }
+}
+
+// Scroll yang lebih halus
+html {
+  scroll-behavior: smooth;
+}
+
+.user-management-page {
+  // 🔥 Enhanced Header dengan gradient background
+  .page-header {
+    background: linear-gradient(135deg, $primary 0%, lighten($primary, 10%) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+
+    // Decorative elements
+    &::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 200px;
+      height: 200px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -30%;
+      left: -10%;
+      width: 150px;
+      height: 150px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      animation: float 8s ease-in-out infinite reverse;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+
+      .header-title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .header-icon {
+          font-size: 2.5rem;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .title-section {
+          h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+          }
+
+          .header-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin: 0;
+          }
+        }
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+
+        .dropdown-toggle {
+          background: rgba(40, 167, 69, 0.9); // Green background
+          border: 2px solid rgba(40, 167, 69, 0.3);
+          color: white;
+          font-weight: 600;
+          padding: 0.75rem 2rem;
+          border-radius: 50px;
+          backdrop-filter: blur(10px);
+          @include transition;
+
+          &:hover {
+            background: rgba(40, 167, 69, 1);
+            border-color: rgba(40, 167, 69, 0.8);
+            color: white;
+            transform: translateY(-2px);
+          }
+
+          &::after {
+            margin-left: 0.5rem;
+          }
+        }
+
+        .btn-add-user {
+          background: rgba(255, 255, 255, 0.9);
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          color: $primary;
+          font-weight: 600;
+          padding: 0.75rem 2rem;
+          border-radius: 50px;
+          backdrop-filter: blur(10px);
+          @include transition;
+
+          &:hover {
+            background: rgba(255, 255, 255, 1);
+            border-color: rgba(255, 255, 255, 0.8);
+            color: $primary;
+            transform: translateY(-2px);
+          }
+        }
+
+        .dropdown-menu {
+          border: none;
+          border-radius: 0.75rem;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+          padding: 0.5rem;
+          margin-top: 0.5rem;
+
+          .dropdown-item {
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            @include transition;
+
+            &:hover {
+              background: $light;
+              color: $primary;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 🔥 Enhanced Filter Section dengan highlight
+  .filter-section {
+    background: linear-gradient(135deg, $white 0%, $light 100%);
+    padding: 2rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+    @include card-shadow;
+    @include hover-lift;
+    border: 1px solid $gray-200;
+
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+
+      h5 {
+        margin: 0;
+        color: $gray-800;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        i {
+          color: $primary;
+          font-size: 1.2rem;
+        }
+      }
+
+      .total-users-badge {
+        background: linear-gradient(135deg, $info 0%, lighten($info, 10%) 100%);
+        color: white;
+        padding: 0.5rem 1.5rem;
+        border-radius: 50px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 15px rgba($info, 0.3);
+        animation: pulse 2s infinite;
+
+        i {
+          font-size: 1rem;
+        }
+      }
+    }
+
+    .filter-form {
+      .filter-row {
+        display: flex;
+        gap: 1.5rem;
+        align-items: end;
+        flex-wrap: wrap;
+
+        .filter-group {
+          flex: 1;
+          min-width: 200px;
+          position: relative;
+
+          label {
+            font-weight: 600;
+            color: $gray-800;
+            margin-bottom: 0.5rem;
+            display: block;
+          }
+
+          .form-control,
+          .form-select {
+            border: 2px solid $gray-300;
+            border-radius: 0.75rem;
+            min-height: 48px;
+            background: white;
+            @include transition;
+
+            &:hover {
+              border-color: $primary;
+            }
+
+            &:focus {
+              border-color: $primary;
+              box-shadow: 0 0 0 3px rgba($primary, 0.1);
+            }
+
+            &.has-clear {
+              padding-right: 45px; // Space for clear button
+            }
+          }
+
+          .clear-input {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: $gray-500;
+            cursor: pointer;
+            font-size: 0.875rem;
+            padding: 0.25rem;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            @include transition;
+
+            &:hover {
+              background: $gray-200;
+              color: $gray-800;
+            }
+          }
+        }
+
+        .filter-actions {
+          display: flex;
+          gap: 0.5rem;
+
+          .btn-reset {
+            background: $gray-400;
+            color: $gray-800;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            @include transition;
+
+            &:hover {
+              background: $gray-500;
+              color: $gray-800;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 🔥 Enhanced Table Section
+  .table-section {
+    background: white;
+    border-radius: 1rem;
+    @include card-shadow;
+    overflow: hidden;
+    border: 1px solid $gray-200;
+
+    .table-header {
+      background: linear-gradient(135deg, $primary 0%, lighten($primary, 5%) 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      border-bottom: none;
+
+      h5 {
+        margin: 0;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        i {
+          font-size: 1.2rem;
+        }
+      }
+    }
+
+    .table-responsive {
+      border-radius: 0;
+      
+      // Custom scrollbar for horizontal scroll
+      &::-webkit-scrollbar {
+        height: 8px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: $gray-100;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: $gray-300;
+        border-radius: 4px;
+      }
+
+      &::-webkit-scrollbar-thumb:hover {
+        background: $gray-600;
+      }
+    }
+
+    .users-table {
+      margin: 0;
+
+      thead th {
+        background: $gray-100;
+        color: $gray-800;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        padding: 1rem 1.5rem;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid $gray-200;
+        border-top: none;
+        white-space: nowrap;
+      }
+
+      tbody tr {
+        @include transition;
+
+        td {
+          padding: 1.25rem 1.5rem;
+          vertical-align: middle;
+          border-bottom: 1px solid $gray-200;
+        }
+
+        &:hover {
+          background: lighten($primary, 52%);
+        }
+
+        &:last-child td {
+          border-bottom: none;
+        }
+      }
+
+      .user-info {
+        .user-name {
+          font-weight: 600;
+          color: $gray-800;
+          margin-bottom: 0.25rem;
+        }
+
+        .user-contact {
+          font-size: 0.875rem;
+          color: $gray-600;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.25rem;
+
+          i {
+            width: 14px;
+            text-align: center;
+          }
+        }
+
+        .user-id {
+          font-size: 0.75rem;
+          color: $gray-500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+      }
+
+      .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        @include transition;
+
+        &.role-admin {
+          background: linear-gradient(135deg, $danger 0%, lighten($danger, 5%) 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba($danger, 0.2);
+        }
+
+        &.role-pimpinan {
+          background: linear-gradient(135deg, $warning 0%, lighten($warning, 5%) 100%);
+          color: $gray-800;
+          box-shadow: 0 2px 8px rgba($warning, 0.2);
+        }
+
+        &.role-staff {
+          background: linear-gradient(135deg, $primary 0%, lighten($primary, 5%) 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba($primary, 0.2);
+        }
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        @include transition;
+
+        &.status-active {
+          background: linear-gradient(135deg, $success 0%, lighten($success, 5%) 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba($success, 0.2);
+        }
+
+        &.status-inactive {
+          background: $gray-200;
+          color: $gray-600;
+        }
+
+        &.status-pns {
+          background: linear-gradient(135deg, $primary 0%, lighten($primary, 5%) 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba($primary, 0.2);
+        }
+
+        &.status-pppk {
+          background: linear-gradient(135deg, $info 0%, lighten($info, 5%) 100%);
+          color: white;
+          box-shadow: 0 2px 8px rgba($info, 0.2);
+        }
+      }
+
+      .job-info {
+        .job-title {
+          font-weight: 600;
+          color: $gray-800;
+          margin-bottom: 0.25rem;
+        }
+
+        .job-grade {
+          font-size: 0.875rem;
+          color: $gray-600;
+        }
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+        max-width: 100px;
+
+        .btn-action {
+          border-radius: 0.375rem;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          @include transition;
+          border: none;
+          font-size: 0.75rem;
+          position: relative;
+
+          // Tooltip on hover
+          &:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            z-index: 1000;
+          }
+
+          &.action-view {
+            background: $info;
+            color: white;
+            &:hover {
+              background: darken($info, 10%);
+              transform: scale(1.05);
+            }
+          }
+
+          &.action-edit {
+            background: $primary;
+            color: white;
+            &:hover {
+              background: darken($primary, 10%);
+              transform: scale(1.05);
+            }
+          }
+
+          &.action-activate {
+            background: $success;
+            color: white;
+            &:hover {
+              background: darken($success, 10%);
+              transform: scale(1.05);
+            }
+          }
+
+          &.action-deactivate {
+            background: $warning;
+            color: $gray-800;
+            &:hover {
+              background: darken($warning, 10%);
+              transform: scale(1.05);
+            }
+          }
+
+          &.action-reset {
+            background: $gray-600;
+            color: white;
+            &:hover {
+              background: darken($gray-600, 10%);
+              transform: scale(1.05);
+            }
+          }
+
+          &.action-delete {
+            background: $danger;
+            color: white;
+            &:hover {
+              background: darken($danger, 10%);
+              transform: scale(1.05);
+            }
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+          }
+        }
+      }
+    }
+  }
+
+  // 🔥 Enhanced Pagination
+  .pagination {
+    .page-item {
+      margin: 0 0.25rem;
+
+      .page-link {
+        border: 2px solid $gray-300;
+        color: $gray-600;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        @include transition;
+
+        &:hover {
+          background: $light;
+          border-color: $primary;
+          color: $primary;
+        }
+      }
+
+      &.active .page-link {
+        background: $primary;
+        border-color: $primary;
+        color: white;
+      }
+
+      &.disabled .page-link {
+        background: $gray-200;
+        border-color: $gray-200;
+        color: $gray-600;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  // 🔥 Mobile Responsive Design
+  @media (max-width: 768px) {
+    padding: 1rem;
+
+    .page-header {
+      padding: 1.5rem;
+
+      .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+
+        .header-title {
+          flex-direction: column;
+          text-align: center;
+
+          .header-icon {
+            font-size: 2rem;
+          }
+
+          .title-section h1 {
+            font-size: 1.5rem;
+          }
+
+          .title-section .header-subtitle {
+            font-size: 0.875rem;
+          }
+        }
+
+        .header-actions {
+          width: 100%;
+          justify-content: center;
+          flex-direction: column;
+          gap: 0.5rem;
+
+          .dropdown,
+          .btn-add-user {
+            width: 100%;
+          }
+
+          .dropdown-toggle,
+          .btn-add-user {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+          }
+        }
+      }
+    }
+
+    // Mobile action buttons remain vertical
+    .action-buttons {
+      flex-direction: column;
+      gap: 0.25rem;
+      max-width: 36px;
+
+      .btn-action {
+        width: 36px;
+        height: 36px;
+        font-size: 0.75rem;
+      }
+    }
+
+    .filter-section {
+      padding: 1.5rem;
+
+      .filter-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+
+        .total-users-badge {
+          align-self: center;
+        }
+      }
+
+      .filter-form .filter-row {
+        flex-direction: column;
+        gap: 1rem;
+
+        .filter-group {
+          min-width: 100%;
+        }
+
+        .filter-actions {
+          justify-content: center;
+          width: 100%;
+
+          .btn-reset {
+            flex: 1;
+          }
+        }
+      }
+    }
+
+    .table-section {
+      .table-header {
+        padding: 1rem;
+      }
+
+      .users-table {
+        font-size: 0.875rem;
+
+        thead th {
+          padding: 0.75rem 0.5rem;
+          font-size: 0.7rem;
+        }
+
+        tbody td {
+          padding: 0.75rem 0.5rem;
+        }
+
+        .user-info {
+          .user-contact {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+          }
+        }
+
+        .role-badge,
+        .status-badge {
+          padding: 0.25rem 0.5rem;
+          font-size: 0.75rem;
+          justify-content: center;
+          
+          .badge-text {
+            display: none;
+          }
+        }
+      }
+    }
+
+    .pagination {
+      .page-item .page-link {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+      }
+    }
+  }
+
+  // 🔥 Tablet Responsive
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .filter-section {
+      .filter-form .filter-row {
+        flex-wrap: wrap;
+
+        .filter-group {
+          flex: 1;
+          min-width: 200px;
+        }
+      }
+    }
+
+    .users-table {
+      .action-buttons {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        max-width: 80px;
+
+        .btn-action {
+          width: 30px;
+          height: 30px;
+        }
+      }
+    }
+  }
+
+  // 🔥 Desktop Responsive - 2x2 Action Layout
+  @media (min-width: 1025px) {
+    .users-table {
+      .action-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.25rem;
+        max-width: 70px;
+
+        .btn-action {
+          width: 32px;
+          height: 32px;
+          font-size: 0.75rem;
+        }
+      }
+    }
+  }
+
+  // 🔥 Large Desktop Responsive
+  @media (min-width: 1400px) {
+    .users-table {
+      .action-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.3rem;
+        max-width: 80px;
+
+        .btn-action {
+          width: 36px;
+          height: 36px;
+          font-size: 0.8rem;
+        }
+      }
+    }
+  }
+}
+
+// 🔥 Enhanced Modal Styles
+.modal-content {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+
+  .modal-header {
+    background: linear-gradient(135deg, $primary 0%, lighten($primary, 5%) 100%);
+    color: white;
+    border-bottom: none;
+    padding: 1.5rem 2rem;
+
+    .modal-title {
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .btn-close {
+      filter: invert(1) grayscale(100%) brightness(200%);
+      opacity: 0.8;
+      @include transition;
+
+      &:hover {
+        opacity: 1;
+        transform: scale(1.1);
+      }
+    }
+  }
+
+  .modal-body {
+    padding: 2rem;
+  }
+
+  .modal-footer {
+    background: $light;
+    border-top: 1px solid $gray-200;
+    padding: 1rem 2rem;
+    
+    .btn {
+      padding: 0.75rem 1.5rem;
+      font-weight: 600;
+      border-radius: 0.5rem;
+      @include transition;
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+    }
+  }
+
+  // Delete Modal specific styles
+  &.delete-modal {
+    .modal-header {
+      background: linear-gradient(135deg, $danger 0%, lighten($danger, 5%) 100%);
+    }
+
+    .alert-warning {
+      background: linear-gradient(135deg, rgba($warning, 0.1) 0%, rgba($warning, 0.05) 100%);
+      border: 1px solid rgba($warning, 0.3);
+      border-radius: 0.75rem;
+      padding: 1rem;
+
+      i {
+        color: $warning;
+        font-size: 1.1rem;
+      }
+    }
+
+    .data-impact-list {
+      background: rgba($danger, 0.05);
+      border: 1px solid rgba($danger, 0.1);
+      border-radius: 0.75rem;
+      padding: 1rem;
+
+      ul {
+        margin: 0;
+        padding-left: 1.5rem;
+
+        li {
+          margin-bottom: 0.5rem;
+          color: $danger;
+          font-weight: 500;
+
+          i {
+            margin-right: 0.5rem;
+          }
+        }
+      }
+    }
+  }
+
+  // View Modal specific styles
+  &.view-modal {
+    .modal-header {
+      background: linear-gradient(135deg, $info 0%, lighten($info, 5%) 100%);
+    }
+
+    .detail-row {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid $gray-200;
+
+      &:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+      }
+
+      .detail-label {
+        font-weight: 600;
+        color: $gray-700;
+        margin-bottom: 0.5rem;
+        display: block;
+      }
+
+      .detail-value {
+        background: $light;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        min-height: 2.5rem;
+        display: flex;
+        align-items: center;
+
+        a {
+          color: $primary;
+          text-decoration: none;
+
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 🔥 Animations
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+// 🔥 Loading States
+.loading-overlay {
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 10;
+    border-radius: inherit;
+  }
+  
+  .spinner-border {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 11;
+  }
+}
+
+// 🔥 Import Excel Modal specific styles
+.import-modal {
+  .modal-dialog {
+    max-width: 600px;
+  }
+
+  .upload-area {
+    border: 2px dashed $gray-300;
+    border-radius: 1rem;
+    padding: 2rem;
+    text-align: center;
+    @include transition;
+
+    &:hover {
+      border-color: $primary;
+      background: lighten($primary, 55%);
+    }
+
+    &.dragover {
+      border-color: $primary;
+      background: lighten($primary, 50%);
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      color: $gray-400;
+      margin-bottom: 1rem;
+    }
+
+    .upload-text {
+      color: $gray-600;
+      margin-bottom: 1rem;
+    }
+  }
+
+  .progress-section {
+    margin-top: 1rem;
+
+    .progress {
+      height: 8px;
+      border-radius: 4px;
+      background: $gray-200;
+
+      .progress-bar {
+        background: linear-gradient(45deg, $primary, lighten($primary, 10%));
+        border-radius: 4px;
+      }
+    }
+  }
+}
+

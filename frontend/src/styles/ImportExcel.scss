@@ -1,0 +1,511 @@
+// src/styles/ImportExcel.scss - Enhanced SCSS untuk Import Components
+
+// 🔥 SCSS Variables
+$primary-color: #007bff;
+$success-color: #28a745;
+$danger-color: #dc3545;
+$warning-color: #ffc107;
+$light-color: #f8f9fa;
+$dark-color: #343a40;
+
+$border-radius-sm: 6px;
+$border-radius: 8px;
+$border-radius-lg: 12px;
+$border-radius-xl: 16px;
+
+$transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-fast: all 0.2s ease;
+
+$shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+$shadow-md: 0 8px 25px rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 12px 35px rgba(0, 0, 0, 0.15);
+
+// 🔥 SCSS Mixins
+@mixin hover-lift($scale: 1.02, $shadow: $shadow-md) {
+  transition: $transition-base;
+  
+  &:hover {
+    transform: translateY(-2px) scale($scale);
+    box-shadow: $shadow;
+  }
+}
+
+@mixin button-gradient($color1, $color2) {
+  background: linear-gradient(135deg, $color1 0%, $color2 100%);
+  border: none;
+  
+  &:hover {
+    background: linear-gradient(135deg, darken($color1, 5%) 0%, darken($color2, 5%) 100%);
+  }
+}
+
+@mixin card-style {
+  border: none;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-sm;
+  transition: $transition-base;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-md;
+  }
+}
+
+// 🔥 Header Actions Enhancement
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .btn-group {
+    box-shadow: $shadow-md;
+    border-radius: $border-radius;
+    overflow: hidden;
+    
+    .btn {
+      font-weight: 500;
+      padding: 0.625rem 1.25rem;
+      border-radius: $border-radius;
+      transition: $transition-fast;
+      
+      &:first-child {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      
+      &:focus {
+        box-shadow: 0 0 0 0.2rem rgba($success-color, 0.25);
+      }
+    }
+    
+    .dropdown-toggle-split {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      
+      &::after {
+        margin-left: 0;
+      }
+    }
+  }
+  
+  .btn {
+    font-weight: 500;
+    padding: 0.625rem 1.25rem;
+    border-radius: $border-radius;
+    
+    &:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    
+    .spinner-border-sm {
+      width: 1rem;
+      height: 1rem;
+      border-width: 0.15em;
+    }
+  }
+}
+
+// 🔥 Enhanced Dropdown
+.dropdown-menu {
+  box-shadow: $shadow-lg;
+  border: none;
+  border-radius: $border-radius-lg;
+  padding: 0.5rem 0;
+  min-width: 280px;
+  
+  .dropdown-header {
+    padding: 0.75rem 1.25rem 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: $dark-color;
+    margin-bottom: 0;
+  }
+  
+  .dropdown-item {
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    transition: $transition-fast;
+    
+    &:hover {
+      background: linear-gradient(135deg, $light-color 0%, darken($light-color, 5%) 100%);
+      transform: translateX(5px);
+    }
+    
+    i {
+      width: 20px;
+      text-align: center;
+      margin-right: 12px;
+    }
+    
+    div {
+      strong {
+        display: block;
+        margin-bottom: 2px;
+      }
+      
+      small {
+        color: #6c757d;
+        font-size: 0.8rem;
+      }
+    }
+  }
+  
+  .dropdown-divider {
+    margin: 0.5rem 1rem;
+  }
+}
+
+// 🔥 Enhanced Modal
+.modal {
+  &-content {
+    border: none;
+    border-radius: $border-radius-xl;
+    overflow: hidden;
+    box-shadow: $shadow-lg;
+  }
+  
+  &-header {
+    &.bg-gradient {
+      @include button-gradient($success-color, #20c997);
+      border: none;
+      
+      .modal-title {
+        font-weight: 600;
+        
+        i {
+          font-size: 1.1em;
+        }
+      }
+    }
+  }
+  
+  &-body {
+    background: #ffffff;
+    padding: 1.5rem;
+  }
+  
+  &-footer {
+    border: none;
+    border-radius: 0 0 $border-radius-xl $border-radius-xl;
+    background: $light-color;
+    padding: 1rem 1.5rem;
+  }
+}
+
+// 🔥 Step Indicators
+.step-indicator {
+  position: relative;
+  
+  .step-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin: 0 auto;
+    @include button-gradient($primary-color, lighten($primary-color, 10%));
+    color: white;
+    transition: $transition-base;
+    
+    &:hover {
+      transform: scale(1.1);
+    }
+  }
+  
+  h6 {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: $dark-color;
+  }
+}
+
+// 🔥 Enhanced Cards
+.card {
+  @include card-style;
+  
+  &.border-0 {
+    border: none !important;
+    
+    &.bg-light {
+      background: linear-gradient(135deg, $light-color 0%, darken($light-color, 2%) 100%) !important;
+    }
+  }
+  
+  .card-body {
+    padding: 1.25rem;
+    
+    .card-title {
+      font-weight: 600;
+      margin-bottom: 1rem;
+      
+      i {
+        margin-right: 0.5rem;
+      }
+    }
+  }
+}
+
+// 🔥 Upload Zone
+.upload-zone {
+  transition: $transition-base;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-md;
+  }
+  
+  &.dragover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 35px rgba($primary-color, 0.2);
+    border-color: $primary-color !important;
+    background: rgba($primary-color, 0.05) !important;
+  }
+  
+  .upload-icon {
+    margin-bottom: 1rem;
+    
+    i {
+      font-size: 3rem;
+      transition: $transition-fast;
+    }
+  }
+  
+  .upload-text {
+    text-align: center;
+    
+    h6 {
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    
+    p {
+      margin-bottom: 0.25rem;
+      color: #6c757d;
+    }
+    
+    small {
+      &.text-success {
+        color: $success-color !important;
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+// 🔥 Enhanced Alerts
+.alert {
+  border-radius: $border-radius-lg;
+  border: none;
+  box-shadow: $shadow-sm;
+  font-weight: 500;
+  
+  &-success {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    
+    i {
+      color: $success-color;
+    }
+  }
+  
+  &-danger {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    color: #721c24;
+    
+    i {
+      color: $danger-color;
+    }
+  }
+  
+  &-info {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+    color: #0c5460;
+    
+    i {
+      color: #17a2b8;
+    }
+  }
+}
+
+// 🔥 Enhanced Progress & Loading
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.3em;
+  
+  &.text-primary {
+    color: $primary-color !important;
+  }
+}
+
+// 🔥 Enhanced Badges
+.badge {
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: $border-radius-sm;
+  font-weight: 500;
+  
+  &.bg-danger {
+    background: $danger-color !important;
+  }
+  
+  &.bg-secondary {
+    background: #6c757d !important;
+  }
+}
+
+// 🔥 File Info Styling
+.file-info {
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  
+  i {
+    margin-right: 0.5rem;
+  }
+  
+  strong {
+    color: $dark-color;
+  }
+  
+  .text-muted {
+    font-size: 0.85rem;
+  }
+}
+
+// 🔥 Enhanced List Styling
+.list-unstyled {
+  li {
+    padding: 0.25rem 0;
+    display: flex;
+    align-items: center;
+    
+    i {
+      margin-right: 0.5rem;
+      width: 16px;
+      text-align: center;
+      
+      &.text-success {
+        color: $success-color !important;
+      }
+      
+      &.text-muted {
+        color: #6c757d !important;
+      }
+    }
+    
+    strong {
+      margin-right: 0.5rem;
+    }
+    
+    .badge {
+      margin-left: 0.5rem;
+    }
+  }
+}
+
+// 🔥 Utility Classes
+.transition-all {
+  transition: $transition-base;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+// 🔥 Responsive Design
+@media (max-width: 768px) {
+  .modal-lg {
+    max-width: 95%;
+    margin: 0.5rem;
+  }
+  
+  .dropdown-menu {
+    min-width: 250px;
+  }
+  
+  .upload-zone {
+    min-height: 150px;
+    padding: 2rem 1rem;
+  }
+  
+  .step-circle {
+    width: 35px;
+    height: 35px;
+    font-size: 0.875rem;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    
+    .btn-group {
+      width: 100%;
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .modal-body {
+    padding: 1rem;
+  }
+  
+  .card .card-body {
+    padding: 1rem;
+  }
+  
+  .upload-zone {
+    padding: 1.5rem 0.75rem;
+    
+    .upload-icon i {
+      font-size: 2.5rem;
+    }
+  }
+}
+
+// 🔥 Animation Keyframes
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+// 🔥 Loading Animation
+.loading-pulse {
+  animation: pulse 2s infinite;
+}

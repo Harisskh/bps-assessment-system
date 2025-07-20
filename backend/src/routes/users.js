@@ -1,3 +1,4 @@
+// routes/users.js - COMPLETE VERSION WITH CREATE USER
 const express = require('express');
 const router = express.Router();
 
@@ -5,7 +6,8 @@ const router = express.Router();
 const {
   getAllUsers,
   getUserById,
-  createUser,        // 🔥 ADD THIS IMPORT
+  checkUserData,     // 🔥 NEW: Import the check user data function
+  createUser,        // 🔥 NEW: Import create user function
   updateUser,
   deleteUser,
   permanentDeleteUser,
@@ -29,8 +31,9 @@ router.use(authenticateToken);
 router.get('/', requirePimpinan, getAllUsers);           
 router.get('/stats', requireAdmin, getUserStats);       
 router.get('/:id', requireStaffOrAbove, getUserById);   
+router.get('/:id/check-data', requireAdmin, checkUserData); // 🔥 NEW: Check user data route
 
-// POST routes - 🔥 ADD THIS LINE
+// POST routes
 router.post('/', requireAdmin, createUser);             // 🔥 NEW: Create user route
 
 // PUT routes  

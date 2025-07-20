@@ -1,4 +1,4 @@
-// File: prisma/schema.prisma - UPDATED FOR MULTI-ROLE SYSTEM
+// File: prisma/schema.prisma - COMPLETE VERSION WITH CERTIFICATE SYSTEM
 
 generator client {
   provider = "prisma-client-js"
@@ -50,6 +50,10 @@ model User {
   attendances         Attendance[]
   ckpScores          CkpScore[]
   finalEvaluations   FinalEvaluation[]
+  
+  // 🔥 NEW: Certificate relations
+  certificates      CertificateLog[] @relation("CertificateRecipient")
+  generatedCerts    CertificateLog[] @relation("CertificateGenerator")
 
   @@map("users")
 }
@@ -85,6 +89,9 @@ model Period {
   attendances      Attendance[]
   ckpScores       CkpScore[]
   finalEvaluations FinalEvaluation[]
+  
+  // 🔥 NEW: Certificate relation
+  certificates      CertificateLog[]
 
   @@unique([tahun, bulan])
   @@map("periods")
@@ -264,6 +271,26 @@ model FinalEvaluation {
 
   @@unique([userId, periodId])
   @@map("final_evaluations")
+}
+
+// =====================
+// CERTIFICATE SYSTEM - NEW
+// =====================
+
+model CertificateLog {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  periodId          String   @map("period_id")
+  certificateNumber String   @map("certificate_number") @db.VarChar(100)
+  generatedAt       DateTime @default(now()) @map("generated_at")
+  generatedBy       String   @map("generated_by")
+  
+  // Relations
+  user              User     @relation("CertificateRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  period            Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  generatedByUser   User     @relation("CertificateGenerator", fields: [generatedBy], references: [id])
+  
+  @@map("certificate_logs")
 }
 
 // =====================

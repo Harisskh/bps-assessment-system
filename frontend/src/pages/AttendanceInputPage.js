@@ -1,9 +1,10 @@
-// src/pages/AttendanceInputPage.js - UPDATED WITH NEW CALCULATION SYSTEM
-import React, { useState, useEffect } from 'react';
+// src/pages/AttendanceInputPage.js - WITH AUTO SCROLL LOGIC
+import React, { useState, useEffect, useRef } from 'react';
 import Select from 'react-select';
 import { attendanceAPI, periodAPI, userAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import SearchableUserSelect from '../components/SearchableUserSelect';
+import '../styles/AttendanceInput.scss';
 
 const AttendanceInputPage = () => {
   const { user } = useAuth();
@@ -30,6 +31,10 @@ const AttendanceInputPage = () => {
   const [attendanceToDelete, setAttendanceToDelete] = useState(null);
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   
+  // 🔥 NEW: Auto scroll states
+  const [hasPerformedAutoScroll, setHasPerformedAutoScroll] = useState(false);
+  const emptyStateRef = useRef(null);
+  
   // Form data
   const [formData, setFormData] = useState({
     userId: '',
@@ -52,7 +57,37 @@ const AttendanceInputPage = () => {
     }
   }, [selectedPeriod, violationFilter]);
 
-  // 🔥 NEW: Calculate preview score with new rules
+  // 🔥 NEW: Auto scroll effect when no data exists
+  useEffect(() => {
+    if (
+      !loading && 
+      !hasPerformedAutoScroll && 
+      selectedPeriod && 
+      attendanceRecords && 
+      attendanceRecords.length === 0 && 
+      emptyStateRef.current
+    ) {
+      console.log('🔥 Auto scrolling to empty state section...');
+      
+      // Small delay to ensure DOM is fully rendered
+      setTimeout(() => {
+        emptyStateRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+        setHasPerformedAutoScroll(true);
+      }, 500);
+    }
+  }, [loading, selectedPeriod, attendanceRecords, hasPerformedAutoScroll]);
+
+  // 🔥 NEW: Reset auto scroll flag when period changes
+  useEffect(() => {
+    if (selectedPeriod) {
+      setHasPerformedAutoScroll(false);
+    }
+  }, [selectedPeriod]);
+
+  // Calculate preview score with new rules
   const calculatePreviewScore = (tk, psw, tlt, apel, ct) => {
     const jumlahTK = parseInt(tk) || 0;
     const jumlahPSW = parseInt(psw) || 0;
@@ -95,27 +130,27 @@ const AttendanceInputPage = () => {
       setLoading(true);
       setError('');
       
-      console.log('🔄 Loading initial data...');
-      
       const [periodsRes, usersRes] = await Promise.all([
         periodAPI.getAll({ limit: 50 }),
         userAPI.getAll({ limit: 100, role: '', status: '' })
       ]);
 
-      console.log('📥 Periods received:', periodsRes.data.data.periods?.length || 0);
-      console.log('👥 Users received:', usersRes.data.data.users?.length || 0);
-
       setPeriods(periodsRes.data.data.periods || []);
       
-      const activeUsers = (usersRes.data.data.users || []).filter(u => u.isActive && u.nama && u.nip);
+      // Filter out Administrator System
+      const activeUsers = (usersRes.data.data.users || []).filter(u => 
+        u.isActive && 
+        u.nama && 
+        u.nip &&
+        u.nama !== 'Administrator System' &&
+        u.username !== 'admin' &&
+        u.role !== 'ADMIN'
+      );
       setUsers(activeUsers);
-      
-      console.log('✅ Active users set:', activeUsers.length);
 
       const activePeriod = periodsRes.data.data.periods?.find(p => p.isActive);
       if (activePeriod) {
         setSelectedPeriod(activePeriod.id);
-        console.log('📅 Active period set:', activePeriod.namaPeriode);
       }
 
     } catch (error) {
@@ -135,12 +170,15 @@ const AttendanceInputPage = () => {
         limit: 100
       };
 
-      console.log('🔄 Loading attendance records with params:', params);
-
       const response = await attendanceAPI.getAll(params);
       let records = response.data.data.attendances || [];
 
-      console.log('📥 Attendance records received:', records.length);
+      // Filter out Administrator System from results
+      records = records.filter(record => 
+        record.user.nama !== 'Administrator System' &&
+        record.user.username !== 'admin' &&
+        record.user.role !== 'ADMIN'
+      );
 
       // Apply violation filter
       if (violationFilter === 'clean') {
@@ -160,7 +198,6 @@ const AttendanceInputPage = () => {
         records = records.filter(record => record.adaCuti);
       }
       
-      console.log('✅ Final records after filters:', records.length);
       setAttendanceRecords(records);
       
     } catch (error) {
@@ -227,15 +264,11 @@ const AttendanceInputPage = () => {
         keterangan: formData.keterangan
       };
 
-      console.log('💾 Submitting data:', submitData);
-
       const response = await attendanceAPI.upsert(submitData);
       
-      console.log('✅ Response:', response.data);
-      
       setSuccess(modalMode === 'create' ? 
-        'Data ketidakhadiran berhasil ditambahkan dengan sistem perhitungan baru' : 
-        'Data ketidakhadiran berhasil diperbarui dengan sistem perhitungan baru');
+        'Data ketidakhadiran berhasil ditambahkan' : 
+        'Data ketidakhadiran berhasil diperbarui');
       
       setShowModal(false);
       setFormData({
@@ -308,13 +341,13 @@ const AttendanceInputPage = () => {
         jumlahTelat: 0,
         jumlahAbsenApel: 0,
         jumlahCuti: 0,
-        keterangan: 'Tidak Ada Keterangan'
+        keterangan: 'Data Awal'
       }));
 
       const createPromises = bulkData.map(data => attendanceAPI.upsert(data));
       await Promise.all(createPromises);
       
-      setSuccess(`Berhasil membuat ${eligibleUsers.length} data ketidakhadiran dengan sistem perhitungan baru.`);
+      setSuccess(`Berhasil membuat ${eligibleUsers.length} data ketidakhadiran.`);
       loadAttendanceRecords();
       
     } catch (error) {
@@ -354,13 +387,13 @@ const AttendanceInputPage = () => {
 
   const getDetailPelanggaran = (attendance) => {
     const violations = [];
-    if (attendance.adaTidakKerja) violations.push(`TK: ${attendance.jumlahTidakKerja || 1}`);
-    if (attendance.adaPulangAwal) violations.push(`PSW: ${attendance.jumlahPulangAwal || 1}`);
-    if (attendance.adaTelat) violations.push(`TLT: ${attendance.jumlahTelat || 1}`);
-    if (attendance.adaAbsenApel) violations.push(`APEL: ${attendance.jumlahAbsenApel || 1}`);
-    if (attendance.adaCuti) violations.push(`CT: ${attendance.jumlahCuti || 1}`);
+    if (attendance.adaTidakKerja) violations.push({ type: 'TK', count: attendance.jumlahTidakKerja || 1 });
+    if (attendance.adaPulangAwal) violations.push({ type: 'PSW', count: attendance.jumlahPulangAwal || 1 });
+    if (attendance.adaTelat) violations.push({ type: 'TLT', count: attendance.jumlahTelat || 1 });
+    if (attendance.adaAbsenApel) violations.push({ type: 'APEL', count: attendance.jumlahAbsenApel || 1 });
+    if (attendance.adaCuti) violations.push({ type: 'CT', count: attendance.jumlahCuti || 1 });
     
-    return violations.length > 0 ? violations.join(', ') : 'Tidak ada pelanggaran';
+    return violations;
   };
 
   const getFilteredRecords = () => {
@@ -374,6 +407,7 @@ const AttendanceInputPage = () => {
   };
 
   const filteredRecords = getFilteredRecords();
+  const hasRecords = filteredRecords && filteredRecords.length > 0;
 
   if (loading) {
     return (
@@ -386,376 +420,369 @@ const AttendanceInputPage = () => {
   }
 
   return (
-    <div className="container-fluid">
-      <div className="row">
-        <div className="col-12">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div>
-              <h2>Rekap Data Ketidakhadiran</h2>
-              <p className="text-muted">Kelola data ketidakhadiran pegawai per periode (Bobot: 40%) - Sistem Perhitungan Baru</p>
+    <div className="container-fluid p-4 attendance-input-page">
+      {/* 🔥 Enhanced Header */}
+      <div className="page-header">
+        <div className="header-content">
+          <div className="header-title">
+            <i className="fas fa-calendar-check header-icon"></i>
+            <div className="title-section">
+              <h2>Rekap  Ketidakhadiran</h2>
+              <p className="header-subtitle">Kelola data ketidakhadiran pegawai per periode (Bobot: 40%)</p>
             </div>
-            <div className="d-flex gap-2">
-              {selectedPeriod && filteredRecords && filteredRecords.length > 0 && (
+          </div>
+          <div className="header-actions">
+            {hasRecords && (
+              <>
                 <button 
-                  className="btn btn-outline-danger" 
+                  className="btn btn-outline-light" 
                   onClick={() => setShowDeleteAllModal(true)}
                   title="Hapus semua data ketidakhadiran untuk periode ini"
                 >
                   <i className="fas fa-trash-alt me-2"></i>Hapus Semua
                 </button>
-              )}
-              <button className="btn btn-primary" onClick={handleCreateAttendance}>
-                <i className="fas fa-plus me-2"></i>Rekap Ketidakhadiran
-              </button>
-            </div>
+                <button className="btn btn-light" onClick={handleCreateAttendance}>
+                  <i className="fas fa-plus me-2"></i>Tambah Data
+                </button>
+              </>
+            )}
           </div>
-
-          {/* Alert Messages */}
-          {error && (
-            <div className="alert alert-danger alert-dismissible fade show" role="alert">
-              {error}
-              <button type="button" className="btn-close" onClick={() => setError('')}></button>
-            </div>
-          )}
-          
-          {success && (
-            <div className="alert alert-success alert-dismissible fade show" role="alert">
-              {success}
-              <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
-            </div>
-          )}
-
-          {/* 🔥 MODIFIKASI: Updated Info Card with New Calculation Rules */}
-          <div className="card border-info mb-4">
-            <div className="card-body">
-              <h6 className="card-title text-info">
-                <i className="fas fa-info-circle me-2"></i>
-                Sistem Penilaian Ketidakhadiran - Perhitungan Baru
-              </h6>
-              <div className="row">
-                <div className="col-md-12">
-                  <p className="card-text text-muted mb-4">
-                    Penilaian ketidakhadiran menggunakan sistem pengurangan progresif dari 100% berdasarkan jumlah dan jenis pelanggaran.
-                  </p>
-                  <div className="row g-3"> {/* Gunakan g-3 untuk gap antar kolom */}
-                    {/* Tidak Kerja (TK) */}
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light rounded border border-danger"> {/* Card-like style */}
-                        <h6 className="d-flex align-items-center mb-2">
-                          <span className="badge bg-danger me-2">TK</span>
-                          <i className="fas fa-times-circle text-danger me-2"></i> {/* Icon */}
-                          Tanpa Keterangan
-                        </h6>
-                        <ul className="list-unstyled mb-0 small text-muted">
-                          <li><i className="fas fa-circle-check text-success me-1"></i> 1 kali: -20%</li>
-                          <li><i className="fas fa-circle-check text-success me-1"></i> Lebih dari 1 kali: -30%</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Cuti (CT) */}
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light rounded border border-secondary">
-                        <h6 className="d-flex align-items-center mb-2">
-                          <span className="badge bg-secondary me-2">CT</span>
-                          <i className="fas fa-suitcase-rolling text-secondary me-2"></i> {/* Icon */}
-                          Cuti (hari)
-                        </h6>
-                        <ul className="list-unstyled mb-0 small text-muted">
-                          <li><i className="fas fa-circle-check text-success me-1"></i> Kurang dari 3 hari: -2.5%</li>
-                          <li><i className="fas fa-circle-check text-success me-1"></i> 3 hari atau lebih: -5%</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Pulang Sebelum Waktunya (PSW) */}
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light rounded border border-warning">
-                        <h6 className="d-flex align-items-center mb-2">
-                          <span className="badge bg-warning text-dark me-2">PSW</span>
-                          <i className="fas fa-hourglass-end text-warning me-2"></i> {/* Icon */}
-                          Pulang Sebelum Waktunya
-                        </h6>
-                        <ul className="list-unstyled mb-0 small text-muted">
-                          <li><i className="fas fa-circle-check text-success me-1"></i> 1 kali: -5%</li>
-                          <li><i className="fas fa-circle-check text-success me-1"></i> Lebih dari 1 kali: -10%</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Telat (TLT) */}
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light rounded border border-warning">
-                        <h6 className="d-flex align-items-center mb-2">
-                          <span className="badge bg-warning text-dark me-2">TLT</span>
-                          <i className="fas fa-clock text-warning me-2"></i> {/* Icon */}
-                          Telat
-                        </h6>
-                        <ul className="list-unstyled mb-0 small text-muted">
-                          <li><i className="fas fa-circle-check text-success me-1"></i> 1 kali: -5%</li>
-                          <li><i className="fas fa-circle-check text-success me-1"></i> Lebih dari 1 kali: -10%</li>
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Absen APEL */}
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light rounded border border-info">
-                        <h6 className="d-flex align-items-center mb-2">
-                          <span className="badge bg-info me-2">APEL</span>
-                          <i className="fas fa-user-minus text-info me-2"></i> {/* Icon */}
-                          Absen APEL
-                        </h6>
-                        <ul className="list-unstyled mb-0 small text-muted">
-                          <li><i className="fas fa-circle-check text-success me-1"></i> Berapapun jumlahnya: -10%</li>
-                        </ul>
-                      </div>
-                    </div>
-                    
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="card mb-4">
-            <div className="card-body">
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <label className="form-label">Periode Penilaian *</label>
-                  <select 
-                    className="form-select"
-                    value={selectedPeriod}
-                    onChange={(e) => setSelectedPeriod(e.target.value)}
-                  >
-                    <option value="">-- Pilih Periode --</option>
-                    {periods.map(period => (
-                      <option key={period.id} value={period.id}>
-                        {period.namaPeriode} {period.isActive && '(Aktif)'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="col-md-4">
-                  <label className="form-label">Filter Pelanggaran</label>
-                  <select 
-                    className="form-select"
-                    value={violationFilter}
-                    onChange={(e) => setViolationFilter(e.target.value)}
-                  >
-                    <option value="">Semua Data</option>
-                    <option value="clean">Tanpa Pelanggaran</option>
-                    <option value="tk">Tidak Kerja</option>
-                    <option value="psw">Pulang Sebelum Waktunya</option>
-                    <option value="tlt">Telat</option>
-                    <option value="apel">Absen APEL</option>
-                    <option value="cuti">Cuti</option>
-                  </select>
-                </div>
-                
-                <div className="col-md-4">
-                  <label className="form-label">Cari Pegawai</label>
-                  <Select
-                    value={selectedUserFilter}
-                    onChange={setSelectedUserFilter}
-                    options={[
-                      { value: null, label: 'Semua Pegawai' },
-                      ...users.map(user => ({
-                        value: user.id,
-                        label: `${user.nama} (${user.nip})`,
-                        user: user
-                      }))
-                    ]}
-                    placeholder="Pilih pegawai..."
-                    isClearable={true}
-                    isSearchable={true}
-                    noOptionsMessage={() => "Tidak ada pegawai ditemukan"}
-                    styles={{
-                      control: (provided, state) => ({
-                        ...provided,
-                        minHeight: '38px',
-                        borderColor: state.isFocused ? '#0d6efd' : '#ced4da',
-                        boxShadow: state.isFocused ? '0 0 0 0.25rem rgba(13, 110, 253, 0.25)' : 'none',
-                        '&:hover': {
-                          borderColor: state.isFocused ? '#0d6efd' : '#adb5bd'
-                        }
-                      }),
-                      menu: (provided) => ({
-                        ...provided,
-                        zIndex: 9999
-                      }),
-                      menuPortal: (provided) => ({
-                        ...provided,
-                        zIndex: 9999
-                      })
-                    }}
-                    menuPortalTarget={document.body}
-                    components={{
-                      Option: ({ innerProps, label, data }) => (
-                        <div {...innerProps} style={{ padding: '0.5rem 0.75rem', cursor: 'pointer' }}>
-                          {data.user ? (
-                            <div>
-                              <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>
-                                {data.user.nama}
-                              </div>
-                              <div style={{ fontSize: '0.75rem', color: '#6c757d' }}>
-                                NIP: {data.user.nip} • {data.user.jabatan || 'Staff'}
-                              </div>
-                            </div>
-                          ) : (
-                            <div style={{ fontStyle: 'italic', color: '#6c757d' }}>
-                              {label}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Data Table */}
-          {!selectedPeriod ? (
-            <div className="text-center py-5">
-              <i className="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
-              <h5 className="text-muted">Pilih periode untuk melihat data ketidakhadiran</h5>
-            </div>
-          ) : filteredRecords && filteredRecords.length === 0 ? (
-            <div className="text-center py-5">
-              <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
-              <h5 className="text-muted">Belum ada data ketidakhadiran untuk periode ini</h5>
-              <p className="text-muted">Klik tombol di bawah untuk membuat data ketidakhadiran untuk semua pegawai dengan nilai default 100%</p>
-              <p className="text-muted"><small><i className="fas fa-info-circle me-1"></i>Administrator dan akun sistem akan dikecualikan dari pembuatan bulk data</small></p>
-              <button className="btn btn-primary mt-3" onClick={handleCreateBulkData}>
-                <i className="fas fa-magic me-2"></i>Buat Data Awal
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="bg-white border-bottom mb-3 pb-2">
-                <h5 className="mb-0">
-                  <i className="fas fa-table me-2 text-primary"></i>
-                  Data Ketidakhadiran - {periods.find(p => p.id === selectedPeriod)?.namaPeriode}
-                  <span className="badge bg-primary ms-2">{filteredRecords.length} pegawai</span>
-                </h5>
-              </div>
-
-              <div className="table-responsive">
-                <table className="table table-hover table-striped">
-                  <thead className="table-dark">
-                    <tr>
-                      <th>NIP</th>
-                      <th>Nama Pegawai</th>
-                      <th>Jabatan</th>
-                      <th>Detail Pelanggaran</th>
-                      <th>Nilai Ketidakhadiran</th>
-                      <th>Keterangan</th>
-                      <th>Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRecords && filteredRecords.map((attendance) => (
-                      <tr key={attendance.id}>
-                        <td className='text-dark'>{attendance.user.nip}</td>
-                        <td className="text-dark fw-semibold">{attendance.user.nama}</td>
-                        <td><small>{attendance.user.jabatan}</small></td>
-                        <td>
-                          <small className="text-muted">
-                            {getDetailPelanggaran(attendance)}
-                          </small>
-                        </td>
-                        <td>
-                          <span className={`badge fs-6 ${calculatePresensiScore(attendance) >= 90 ? 
-                            'bg-success' : calculatePresensiScore(attendance) >= 80 ? 'bg-warning text-dark' : 'bg-danger'}`}>
-                            {calculatePresensiScore(attendance)}%
-                          </span>
-                        </td>
-                        <td><small>{attendance.keterangan}</small></td>
-                        <td>
-                          <div className="d-flex gap-1">
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              onClick={() => handleEditAttendance(attendance)}
-                              title="Edit"
-                            >
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-danger"
-                              onClick={() => {
-                                setAttendanceToDelete(attendance);
-                                setShowDeleteModal(true);
-                              }}
-                              title="Hapus"
-                            >
-                              <i className="fas fa-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
         </div>
       </div>
 
-      {/* UPDATED: Input Modal with New Calculation System */}
+      {/* Alert Messages */}
+      {error && (
+        <div className="alert alert-danger alert-dismissible fade show" role="alert">
+          <i className="fas fa-exclamation-triangle me-2"></i>
+          {error}
+          <button type="button" className="btn-close" onClick={() => setError('')}></button>
+        </div>
+      )}
+      
+      {success && (
+        <div className="alert alert-success alert-dismissible fade show" role="alert">
+          <i className="fas fa-check-circle me-2"></i>
+          {success}
+          <button type="button" className="btn-close" onClick={() => setSuccess('')}></button>
+        </div>
+      )}
+
+      {/* 🔥 Enhanced System Info Section */}
+      <div className="system-info-section">
+        <h6>
+          <i className="fas fa-info-circle"></i>
+          Sistem Penilaian Ketidakhadiran
+        </h6>
+        <p>
+          Penilaian menggunakan sistem pengurangan progresif dari 100% berdasarkan jumlah dan jenis pelanggaran.
+          Setiap jenis pelanggaran memiliki dampak pengurangan yang berbeda.
+        </p>
+        <div className="violation-types">
+          <div className="violation-type">
+            <span className="violation-badge tk">TK</span>
+            <span className="violation-label">Tanpa Keterangan</span>
+          </div>
+          <div className="violation-type">
+            <span className="violation-badge psw">PSW</span>
+            <span className="violation-label">Pulang Awal</span>
+          </div>
+          <div className="violation-type">
+            <span className="violation-badge tlt">TLT</span>
+            <span className="violation-label">Telat</span>
+          </div>
+          <div className="violation-type">
+            <span className="violation-badge apel">APEL</span>
+            <span className="violation-label">Absen APEL</span>
+          </div>
+          <div className="violation-type">
+            <span className="violation-badge ct">CT</span>
+            <span className="violation-label">Cuti</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 🔥 Enhanced Filter Section */}
+      <div className="filter-section">
+        <div className="filter-header">
+          <h6>
+            <i className="fas fa-filter"></i>
+            Filter & Pencarian Data
+          </h6>
+        </div>
+        <div className="filter-controls">
+          <div className="filter-row">
+            <div className="filter-group">
+              <label>Periode Penilaian *</label>
+              <select 
+                className="form-select"
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+              >
+                <option value="">-- Pilih Periode --</option>
+                {periods.map(period => (
+                  <option key={period.id} value={period.id}>
+                    {period.namaPeriode} {period.isActive && '(Aktif)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label>Filter Pelanggaran</label>
+              <select 
+                className="form-select"
+                value={violationFilter}
+                onChange={(e) => setViolationFilter(e.target.value)}
+              >
+                <option value="">Semua Data</option>
+                <option value="clean">Tanpa Pelanggaran</option>
+                <option value="tk">Tanpa Keterangan</option>
+                <option value="psw">Pulang Sebelum Waktunya</option>
+                <option value="tlt">Telat</option>
+                <option value="apel">Absen APEL</option>
+                <option value="cuti">Cuti</option>
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label>Cari Pegawai</label>
+              <Select
+                value={selectedUserFilter}
+                onChange={setSelectedUserFilter}
+                options={[
+                  { value: null, label: 'Semua Pegawai' },
+                  ...users.map(user => ({
+                    value: user.id,
+                    label: `${user.nama} (${user.nip})`,
+                    user: user
+                  }))
+                ]}
+                placeholder="Pilih pegawai..."
+                isClearable={true}
+                isSearchable={true}
+                noOptionsMessage={() => "Tidak ada pegawai ditemukan"}
+                className="react-select-container"
+                classNamePrefix="react-select"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      {!selectedPeriod ? (
+        <div className="empty-state">
+          <div className="empty-icon">
+            <i className="fas fa-calendar-alt"></i>
+          </div>
+          <h5>Pilih periode untuk melihat data ketidakhadiran</h5>
+          <p>Gunakan dropdown periode di atas untuk memulai</p>
+        </div>
+      ) : !hasRecords ? (
+        // 🔥 Enhanced Empty State with Auto Scroll Reference
+        <div className="card border-0 shadow-sm" ref={emptyStateRef}>
+          <div className="card-body empty-state empty-state-highlighted">
+            <div className="empty-icon">
+              <i className="fas fa-inbox"></i>
+            </div>
+            <h5>Belum ada data ketidakhadiran untuk periode ini</h5>
+            <div className="alert alert-warning mt-3 mb-3">
+              <i className="fas fa-exclamation-triangle me-2"></i>
+              <strong>Perhatian Admin!</strong> Sistem memerlukan data awal untuk dapat beroperasi dengan optimal.
+            </div>
+            <p>
+              Sistem akan membuat data awal untuk semua pegawai dengan nilai default 100%.
+              <br />
+              <small className="text-info">
+                <i className="fas fa-info-circle me-1"></i>
+                Administrator sistem akan dikecualikan dari pembuatan data
+              </small>
+            </p>
+            <button 
+              className="btn btn-primary-enhanced pulse-effect"
+              onClick={handleCreateBulkData}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                  Membuat Data...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-magic me-2"></i>
+                  Buat Data Awal Semua Pegawai
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 🔥 Enhanced Table Section (UserManagement Style) */}
+          <div className="table-section">
+            <div className="table-header">
+              <h5>
+                <i className="fas fa-table"></i>
+                Data Ketidakhadiran - {periods.find(p => p.id === selectedPeriod)?.namaPeriode}
+              </h5>
+              <div className="table-actions">
+                <div className="total-badge">
+                  <i className="fas fa-users"></i>
+                  <span>Total: {filteredRecords.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="table-responsive">
+              <table className="table attendance-table">
+                <thead>
+                  <tr>
+                    <th className="d-none d-md-table-cell">No.</th>
+                    <th>Informasi Pegawai</th>
+                    <th className="d-none d-lg-table-cell">Jabatan</th>
+                    <th>Detail Pelanggaran</th>
+                    <th>Nilai Ketidakhadiran</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRecords.map((attendance, index) => (
+                    <tr key={attendance.id}>
+                      <td className="d-none d-md-table-cell text-center fw-bold text-muted">
+                        {index + 1}
+                      </td>
+                      <td>
+                        <div className="employee-info">
+                          <div className="employee-name">{attendance.user.nama}</div>
+                          <div className="employee-contact">
+                            <i className="fas fa-id-card"></i>
+                            <span>NIP: {attendance.user.nip}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="d-none d-lg-table-cell">
+                        <span className="position-badge">
+                          {attendance.user.jabatan}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="violation-info">
+                          <div className="violation-summary">
+                            {getDetailPelanggaran(attendance).length > 0 ? (
+                              getDetailPelanggaran(attendance).map((violation, index) => (
+                                <div 
+                                  key={index}
+                                  className={`violation-item violation-${violation.type.toLowerCase()}`}
+                                >
+                                  <span className="violation-code">{violation.type}</span>
+                                  <span className="violation-count">{violation.count}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="no-violations">
+                                <span>Tidak ada pelanggaran</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`score-badge ${
+                          calculatePresensiScore(attendance) >= 95 ? 'score-excellent' :
+                          calculatePresensiScore(attendance) >= 90 ? 'score-good' :
+                          calculatePresensiScore(attendance) >= 80 ? 'score-fair' : 'score-poor'
+                        }`}>
+                          <span>{calculatePresensiScore(attendance)}%</span>
+                        </span>
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="btn-action action-edit"
+                            onClick={() => handleEditAttendance(attendance)}
+                            title="Edit Data"
+                          >
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button
+                            className="btn-action action-delete"
+                            onClick={() => {
+                              setAttendanceToDelete(attendance);
+                              setShowDeleteModal(true);
+                            }}
+                            title="Hapus Data"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Rest of the modals remain the same... */}
+      {/* Enhanced Input Modal */}
       {showModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block modal-enhanced" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-xl">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
+                  <i className="fas fa-clipboard-list me-2"></i>
                   {modalMode === 'create' ? 'Input Data Ketidakhadiran' : 'Edit Data Ketidakhadiran'}
-                  <small className="text-muted d-block">Sistem Perhitungan Baru</small>
+                  <small>Sistem Perhitungan Progresif</small>
                 </h5>
                 <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
               </div>
               <form onSubmit={handleFormSubmit}>
                 <div className="modal-body">
-                  <div className="row g-3">
+                  <div className="row g-4">
                     <div className="col-12">
-                      <label className="form-label">Pegawai *</label>
-                      <SearchableUserSelect
-                        users={users}
-                        value={formData.userId}
-                        onChange={(userId) => {
-                          console.log('🔄 User selected:', userId);
-                          setFormData({...formData, userId});
-                        }}
-                        placeholder="-- Pilih Pegawai --"
-                        disabled={modalMode === 'edit'}
-                        required={true}
-                        className="mb-2"
-                      />
-                      {modalMode === 'edit' && selectedAttendance && (
-                        <small className="text-info">
-                          <i className="fas fa-info-circle me-1"></i>
-                          Pegawai tidak dapat diubah saat edit data
-                        </small>
-                      )}
+                      <div className="form-group">
+                        <label className="form-label">Pegawai *</label>
+                        <SearchableUserSelect
+                          users={users}
+                          value={formData.userId}
+                          onChange={(userId) => {
+                            setFormData({...formData, userId});
+                          }}
+                          placeholder="-- Pilih Pegawai --"
+                          disabled={modalMode === 'edit'}
+                          required={true}
+                          className="mb-2"
+                        />
+                        {modalMode === 'edit' && selectedAttendance && (
+                          <small className="text-info">
+                            <i className="fas fa-info-circle me-1"></i>
+                            Pegawai tidak dapat diubah saat edit data
+                          </small>
+                        )}
+                      </div>
                     </div>
 
+                    {/* Enhanced System Info */}
                     <div className="col-12">
-                      <h6 className="text-primary">Sistem Perhitungan Ketidakhadiran Baru</h6>
                       <div className="alert alert-info">
-                        <p className="mb-2"><small>Masukkan jumlah pelanggaran. Sistem akan menghitung pengurangan secara progresif:</small></p>
-                        <div className="row">
+                        <h6 className="alert-heading">
+                          <i className="fas fa-calculator me-2"></i>
+                          Sistem Perhitungan Ketidakhadiran Progresif
+                        </h6>
+                        <p>Masukkan jumlah pelanggaran. Sistem akan menghitung pengurangan secara progresif:</p>
+                        <div className="row g-2">
                           <div className="col-md-6">
-                            <ul className="list-unstyled mb-0">
-                              <li><strong>Tidak Kerja:</strong> 1x = -20%, lebih dari 1x = -30%</li>
-                              <li><strong>Cuti:</strong> kurang dari 3 hari = -2.5%, {'\u22653'} hari = -5%</li>
+                            <ul className="list-unstyled mb-0 small">
+                              <li><strong>Tanpa Keterangan:</strong> 1x = -20%, lebih dari 1x = -30%</li>
+                              <li><strong>Cuti:</strong> kurang dari 3 hari = -2.5%, ≥3 hari = -5%</li>
                             </ul>
                           </div>
                           <div className="col-md-6">
-                            <ul className="list-unstyled mb-0">
+                            <ul className="list-unstyled mb-0 small">
                               <li><strong>Pulang Awal/Telat:</strong> 1x = -5%, lebih dari 1x = -10%</li>
                               <li><strong>Absen APEL:</strong> Berapapun = -10%</li>
                             </ul>
@@ -764,202 +791,193 @@ const AttendanceInputPage = () => {
                       </div>
                     </div>
 
-                    {/* Updated input fields with new labels and previews */}
+                    {/* Input Fields with Enhanced Design */}
                     <div className="col-md-6">
-                      <label className="form-label text-danger">
-                        <span className="badge bg-danger me-2">TK</span>
-                        Jumlah Tidak Kerja
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="form-control"
-                        value={formData.jumlahTidakKerja}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          const numValue = parseInt(value) || 0;
-                          if (numValue <= 31) {
-                            setFormData({...formData, jumlahTidakKerja: value});
-                          }
-                        }}
-                        placeholder="0"
-                        maxLength="2"
-                        onWheel={(e) => e.target.blur()}
-                      />
-                      <small className="text-muted">1 kali = -20%, lebih dari 1 kali = -30%</small>
+                      <div className="form-group">
+                        <label className="form-label">
+                          <span className="badge bg-danger me-2">TK</span>
+                          Jumlah Tanpa Keterangan
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="31"
+                          className="form-control"
+                          value={formData.jumlahTidakKerja}
+                          onChange={(e) => {
+                            const value = Math.max(0, Math.min(31, parseInt(e.target.value) || 0));
+                            setFormData({...formData, jumlahTidakKerja: value.toString()});
+                          }}
+                          placeholder="0"
+                        />
+                        <small className="text-muted">1 kali = -20%, lebih dari 1 kali = -30%</small>
+                      </div>
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label text-secondary">
-                        <span className="badge bg-secondary me-2">CT</span>
-                        Jumlah Cuti (hari)
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="form-control"
-                        value={formData.jumlahCuti}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          const numValue = parseInt(value) || 0;
-                          if (numValue <= 31) {
-                            setFormData({...formData, jumlahCuti: value});
-                          }
-                        }}
-                        placeholder="0"
-                        maxLength="2"
-                        onWheel={(e) => e.target.blur()}
-                      />
-                      <small className="text-muted">Kurang dari 3 hari = -2.5%, 3 hari atau lebih = -5%</small>
+                      <div className="form-group">
+                        <label className="form-label">
+                          <span className="badge bg-secondary me-2">CT</span>
+                          Jumlah Cuti (hari)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="31"
+                          className="form-control"
+                          value={formData.jumlahCuti}
+                          onChange={(e) => {
+                            const value = Math.max(0, Math.min(31, parseInt(e.target.value) || 0));
+                            setFormData({...formData, jumlahCuti: value.toString()});
+                          }}
+                          placeholder="0"
+                        />
+                        <small className="text-muted">Kurang dari 3 hari = -2.5%, 3 hari atau lebih = -5%</small>
+                      </div>
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label text-warning">
-                        <span className="badge bg-warning text-dark me-2">PSW</span>
-                        Jumlah Pulang Sebelum Waktunya
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="form-control"
-                        value={formData.jumlahPulangAwal}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          const numValue = parseInt(value) || 0;
-                          if (numValue <= 31) {
-                            setFormData({...formData, jumlahPulangAwal: value});
-                          }
-                        }}
-                        placeholder="0"
-                        maxLength="2"
-                        onWheel={(e) => e.target.blur()}
-                      />
-                      <small className="text-muted">1 kali = -5%, lebih dari 1 kali = -10%</small>
+                      <div className="form-group">
+                        <label className="form-label">
+                          <span className="badge bg-warning text-dark me-2">PSW</span>
+                          Jumlah Pulang Sebelum Waktunya
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="31"
+                          className="form-control"
+                          value={formData.jumlahPulangAwal}
+                          onChange={(e) => {
+                            const value = Math.max(0, Math.min(31, parseInt(e.target.value) || 0));
+                            setFormData({...formData, jumlahPulangAwal: value.toString()});
+                          }}
+                          placeholder="0"
+                        />
+                        <small className="text-muted">1 kali = -5%, lebih dari 1 kali = -10%</small>
+                      </div>
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label text-warning">
-                        <span className="badge bg-warning text-dark me-2">TLT</span>
-                        Jumlah Telat
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="form-control"
-                        value={formData.jumlahTelat}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          const numValue = parseInt(value) || 0;
-                          if (numValue <= 31) {
-                            setFormData({...formData, jumlahTelat: value});
-                          }
-                        }}
-                        placeholder="0"
-                        maxLength="2"
-                        onWheel={(e) => e.target.blur()}
-                      />
-                      <small className="text-muted">1 kali = -5%, lebih dari 1 kali = -10%</small>
+                      <div className="form-group">
+                        <label className="form-label">
+                          <span className="badge bg-warning text-dark me-2">TLT</span>
+                          Jumlah Telat
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="31"
+                          className="form-control"
+                          value={formData.jumlahTelat}
+                          onChange={(e) => {
+                            const value = Math.max(0, Math.min(31, parseInt(e.target.value) || 0));
+                            setFormData({...formData, jumlahTelat: value.toString()});
+                          }}
+                          placeholder="0"
+                        />
+                        <small className="text-muted">1 kali = -5%, lebih dari 1 kali = -10%</small>
+                      </div>
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label text-info">
-                        <span className="badge bg-info me-2">APEL</span>
-                        Jumlah Absen APEL
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="form-control"
-                        value={formData.jumlahAbsenApel}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          const numValue = parseInt(value) || 0;
-                          if (numValue <= 31) {
-                            setFormData({...formData, jumlahAbsenApel: value});
-                          }
-                        }}
-                        placeholder="0"
-                        maxLength="2"
-                        onWheel={(e) => e.target.blur()}
-                      />
-                      <small className="text-muted">Berapapun jumlahnya = -10%</small>
+                      <div className="form-group">
+                        <label className="form-label">
+                          <span className="badge bg-info me-2">APEL</span>
+                          Jumlah Absen APEL
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="31"
+                          className="form-control"
+                          value={formData.jumlahAbsenApel}
+                          onChange={(e) => {
+                            const value = Math.max(0, Math.min(31, parseInt(e.target.value) || 0));
+                            setFormData({...formData, jumlahAbsenApel: value.toString()});
+                          }}
+                          placeholder="0"
+                        />
+                        <small className="text-muted">Berapapun jumlahnya = -10%</small>
+                      </div>
                     </div>
 
-                    <div className="col-12">
-                      <label className="form-label">Keterangan</label>
-                      <textarea
-                        className="form-control"
-                        rows="3"
-                        value={formData.keterangan}
-                        onChange={(e) => setFormData({...formData, keterangan: e.target.value})}
-                        placeholder="Keterangan tambahan..."
-                      />
-                    </div>
 
-                    {/* NEW: Preview with New Calculation */}
+
+                    {/* Preview Calculation */}
                     <div className="col-12">
                       <div className="alert alert-success">
-                        <h6><i className="fas fa-calculator me-2"></i>Preview Nilai Ketidakhadiran (Sistem Baru)</h6>
-                        <div className="d-flex align-items-center flex-wrap">
-                          <span className="me-3 fw-bold">100%</span>
+                        <h6>
+                          <i className="fas fa-calculator me-2"></i>
+                          Preview Nilai Ketidakhadiran (Sistem Progresif)
+                        </h6>
+                        <div className="preview-calculation">
+                          <span className="badge bg-light text-dark">Start: 100%</span>
                           
                           {parseInt(formData.jumlahTidakKerja) > 0 && (
-                            <span className="me-2 mb-1">
-                              <span className="badge bg-danger me-1">
-                                -{parseInt(formData.jumlahTidakKerja) === 1 ? '20%' : '30%'}
-                              </span>
-                              TK ({parseInt(formData.jumlahTidakKerja)}x)
+                            <span className="badge bg-danger">
+                              -{parseInt(formData.jumlahTidakKerja) === 1 ? '20%' : '30%'} TK
                             </span>
                           )}
                           
                           {parseInt(formData.jumlahCuti) > 0 && (
-                            <span className="me-2 mb-1">
-                              <span className="badge bg-secondary me-1">
-                                -{parseInt(formData.jumlahCuti) < 3 ? '2.5%' : '5%'}
-                              </span>
-                              CT ({parseInt(formData.jumlahCuti)} hari)
+                            <span className="badge bg-secondary">
+                              -{parseInt(formData.jumlahCuti) < 3 ? '2.5%' : '5%'} CT
                             </span>
                           )}
                           
                           {parseInt(formData.jumlahPulangAwal) > 0 && (
-                            <span className="me-2 mb-1">
-                              <span className="badge bg-warning text-dark me-1">
-                                -{parseInt(formData.jumlahPulangAwal) === 1 ? '5%' : '10%'}
-                              </span>
-                              PSW ({parseInt(formData.jumlahPulangAwal)}x)
+                            <span className="badge bg-warning">
+                              -{parseInt(formData.jumlahPulangAwal) === 1 ? '5%' : '10%'} PSW
                             </span>
                           )}
                           
                           {parseInt(formData.jumlahTelat) > 0 && (
-                            <span className="me-2 mb-1">
-                              <span className="badge bg-warning text-dark me-1">
-                                -{parseInt(formData.jumlahTelat) === 1 ? '5%' : '10%'}
-                              </span>
-                              TLT ({parseInt(formData.jumlahTelat)}x)
+                            <span className="badge bg-warning">
+                              -{parseInt(formData.jumlahTelat) === 1 ? '5%' : '10%'} TLT
                             </span>
                           )}
                           
                           {parseInt(formData.jumlahAbsenApel) > 0 && (
-                            <span className="me-2 mb-1">
-                              <span className="badge bg-info me-1">-10%</span>
-                              APEL ({parseInt(formData.jumlahAbsenApel)}x)
+                            <span className="badge bg-info">
+                              -10% APEL
                             </span>
                           )}
                           
-                          <span className="fw-bold text-success ms-auto fs-5">
-                            = {calculatePreviewScore(
-                              formData.jumlahTidakKerja,
-                              formData.jumlahPulangAwal,
-                              formData.jumlahTelat,
-                              formData.jumlahAbsenApel,
-                              formData.jumlahCuti
-                            )}%
-                          </span>
+                          <div className="ms-auto">
+                            <i className="fas fa-arrow-right me-2"></i>
+                            <span className={`badge fs-5 ${
+                              calculatePreviewScore(
+                                formData.jumlahTidakKerja,
+                                formData.jumlahPulangAwal,
+                                formData.jumlahTelat,
+                                formData.jumlahAbsenApel,
+                                formData.jumlahCuti
+                              ) >= 95 ? 'bg-success' :
+                              calculatePreviewScore(
+                                formData.jumlahTidakKerja,
+                                formData.jumlahPulangAwal,
+                                formData.jumlahTelat,
+                                formData.jumlahAbsenApel,
+                                formData.jumlahCuti
+                              ) >= 90 ? 'bg-primary' :
+                              calculatePreviewScore(
+                                formData.jumlahTidakKerja,
+                                formData.jumlahPulangAwal,
+                                formData.jumlahTelat,
+                                formData.jumlahAbsenApel,
+                                formData.jumlahCuti
+                              ) >= 80 ? 'bg-warning' : 'bg-danger'
+                            }`}>
+                              {calculatePreviewScore(
+                                formData.jumlahTidakKerja,
+                                formData.jumlahPulangAwal,
+                                formData.jumlahTelat,
+                                formData.jumlahAbsenApel,
+                                formData.jumlahCuti
+                              )}%
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -967,7 +985,7 @@ const AttendanceInputPage = () => {
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                    Batal
+                    <i className="fas fa-times me-2"></i>Batal
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={submitting || !formData.userId}>
                     {submitting ? (
@@ -976,7 +994,10 @@ const AttendanceInputPage = () => {
                         Menyimpan...
                       </>
                     ) : (
-                      modalMode === 'create' ? 'Simpan' : 'Update'
+                      <>
+                        <i className="fas fa-save me-2"></i>
+                        {modalMode === 'create' ? 'Simpan Data' : 'Update Data'}
+                      </>
                     )}
                   </button>
                 </div>
@@ -986,19 +1007,17 @@ const AttendanceInputPage = () => {
         </div>
       )}
 
-      {/* Delete Modals - Same as before */}
+      {/* Enhanced Delete All Modal */}
       {showDeleteAllModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block modal-enhanced" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header bg-danger text-white">
+            <div className="modal-content delete-modal">
+              <div className="modal-header">
                 <h5 className="modal-title">
                   <i className="fas fa-exclamation-triangle me-2"></i>
                   Konfirmasi Hapus Semua Data
                 </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => {
-                  setShowDeleteAllModal(false);
-                }}></button>
+                <button type="button" className="btn-close" onClick={() => setShowDeleteAllModal(false)}></button>
               </div>
               <div className="modal-body">
                 <div className="alert alert-warning">
@@ -1006,12 +1025,21 @@ const AttendanceInputPage = () => {
                   <strong>Peringatan!</strong> Tindakan ini akan menghapus SEMUA data ketidakhadiran untuk periode ini dan tidak dapat dibatalkan.
                 </div>
 
-                <p>Apakah Anda yakin ingin menghapus <strong>SEMUA DATA KETIDAKHADIRAN</strong> untuk periode ini?</p>
+                <p className="mb-3">Apakah Anda yakin ingin menghapus <strong>SEMUA DATA KETIDAKHADIRAN</strong> untuk periode ini?</p>
 
                 <div className="bg-light p-3 rounded">
-                  <strong>Periode:</strong> {periods.find(p => p.id === selectedPeriod)?.namaPeriode}<br/>
-                  <strong>Total Record:</strong> {filteredRecords ? filteredRecords.length : 0} data ketidakhadiran<br/>
-                  <strong>Pegawai Terdampak:</strong> {filteredRecords ? filteredRecords.length : 0} pegawai
+                  <div className="row">
+                    <div className="col-sm-4"><strong>Periode:</strong></div>
+                    <div className="col-sm-8">{periods.find(p => p.id === selectedPeriod)?.namaPeriode}</div>
+                  </div>
+                  <div className="row">
+                    <div className="col-sm-4"><strong>Total Record:</strong></div>
+                    <div className="col-sm-8">{filteredRecords ? filteredRecords.length : 0} data ketidakhadiran</div>
+                  </div>
+                  <div className="row">
+                    <div className="col-sm-4"><strong>Pegawai Terdampak:</strong></div>
+                    <div className="col-sm-8">{filteredRecords ? filteredRecords.length : 0} pegawai</div>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
@@ -1021,7 +1049,7 @@ const AttendanceInputPage = () => {
                   onClick={() => setShowDeleteAllModal(false)}
                   disabled={submitting}
                 >
-                  Batal
+                  <i className="fas fa-times me-2"></i>Batal
                 </button>
                 <button 
                   type="button" 
@@ -1047,14 +1075,17 @@ const AttendanceInputPage = () => {
         </div>
       )}
 
-      {/* Delete Single Modal - Same as before */}
+      {/* Enhanced Delete Single Modal */}
       {showDeleteModal && attendanceToDelete && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block modal-enhanced" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header bg-danger text-white">
-                <h5 className="modal-title">Konfirmasi Hapus Data</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => {
+            <div className="modal-content delete-modal">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="fas fa-trash me-2"></i>
+                  Konfirmasi Hapus Data
+                </h5>
+                <button type="button" className="btn-close" onClick={() => {
                   setShowDeleteModal(false);
                   setAttendanceToDelete(null);
                 }}></button>
@@ -1065,13 +1096,27 @@ const AttendanceInputPage = () => {
                   <strong>Peringatan!</strong> Tindakan ini akan menghapus data ketidakhadiran pegawai dan tidak dapat dibatalkan.
                 </div>
 
-                <p>Apakah Anda yakin ingin menghapus data ketidakhadiran untuk:</p>
+                <p className="mb-3">Apakah Anda yakin ingin menghapus data ketidakhadiran untuk:</p>
 
                 <div className="bg-light p-3 rounded">
-                  <strong>Nama:</strong> {attendanceToDelete.user.nama}<br/>
-                  <strong>NIP:</strong> {attendanceToDelete.user.nip}<br/>
-                  <strong>Periode:</strong> {attendanceToDelete.period?.namaPeriode}<br/>
-                  <strong>Nilai Ketidakhadiran:</strong> {attendanceToDelete.nilaiPresensi}%
+                  <div className="row">
+                    <div className="col-sm-4"><strong>Nama:</strong></div>
+                    <div className="col-sm-8">{attendanceToDelete.user.nama}</div>
+                  </div>
+                  <div className="row">
+                    <div className="col-sm-4"><strong>NIP:</strong></div>
+                    <div className="col-sm-8">{attendanceToDelete.user.nip}</div>
+                  </div>
+                  <div className="row">
+                    <div className="col-sm-4"><strong>Periode:</strong></div>
+                    <div className="col-sm-8">{attendanceToDelete.period?.namaPeriode}</div>
+                  </div>
+                  <div className="row">
+                    <div className="col-sm-4"><strong>Nilai Ketidakhadiran:</strong></div>
+                    <div className="col-sm-8">
+                      <span className="badge bg-primary">{attendanceToDelete.nilaiPresensi}%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
@@ -1084,7 +1129,7 @@ const AttendanceInputPage = () => {
                   }}
                   disabled={submitting}
                 >
-                  Batal
+                  <i className="fas fa-times me-2"></i>Batal
                 </button>
                 <button 
                   type="button" 
@@ -1098,7 +1143,10 @@ const AttendanceInputPage = () => {
                       Menghapus...
                     </>
                   ) : (
-                    'Ya, Hapus Data'
+                    <>
+                      <i className="fas fa-trash me-2"></i>
+                      Ya, Hapus Data
+                    </>
                   )}
                 </button>
               </div>

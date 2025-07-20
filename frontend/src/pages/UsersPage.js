@@ -1,8 +1,10 @@
-// src/pages/UsersPage.js - MODIFIED WITH IMPORT EXCEL FEATURE
+// src/pages/UsersPage.js - COMPLETE ENHANCED UI/UX VERSION WITH DOUBLE CONFIRMATION DELETE
 import React, { useState, useEffect } from 'react';
-import { userAPI, authAPI } from '../services/api';
+import { userAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import ImportExcelModal from '../components/ImportExcelModal'; // Import komponen yang sudah dibuat
+import ImportExcelModal from '../components/ImportExcelModal';
+import '../styles/ImportExcel.scss';
+import '../styles/UserManagement.scss';
 
 const UsersPage = () => {
   const { user } = useAuth();
@@ -19,20 +21,26 @@ const UsersPage = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  // 🔥 NEW STATE: Untuk menyimpan semua user setelah difilter dan diurutkan, sebelum paginasi frontend
   const [allFilteredAndSortedUsers, setAllFilteredAndSortedUsers] = useState([]);
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('create'); // 'create', 'edit', 'view'
+  const [modalMode, setModalMode] = useState('create');
   const [selectedUser, setSelectedUser] = useState(null);
+  
+  // 🔥 Enhanced Delete States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(1); // 1 = first warning, 2 = final confirmation
   const [userToDelete, setUserToDelete] = useState(null);
+  const [userHasData, setUserHasData] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [userToDeactivate, setUserToDeactivate] = useState(null);
   
-  // 🔥 NEW STATE: Import Excel Modal
+  // 🔥 IMPORT EXCEL STATE
   const [showImportModal, setShowImportModal] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -56,7 +64,6 @@ const UsersPage = () => {
     loadUsers();
   }, [search, roleFilter, statusFilter]);
 
-  // 🔥 NEW useEffect untuk paginasi frontend setelah allFilteredAndSortedUsers berubah atau currentPage berubah
   useEffect(() => {
     const applyFrontendPagination = () => {
       const usersPerPage = 10;
@@ -80,7 +87,7 @@ const UsersPage = () => {
       setError('');
       
       const params = {
-        limit: 9999, // Ambil semua user yang cocok dengan filter lain
+        limit: 9999,
         search: search.trim(),
         role: roleFilter,
         status: statusFilter
@@ -89,7 +96,7 @@ const UsersPage = () => {
       const response = await userAPI.getAll(params);
       let fetchedUsers = response.data.data.users;
       
-      // 🔥 MODIFIKASI: Implementasi sorting kustom berdasarkan role dan nama
+      // Custom sorting
       const roleOrder = { 'ADMIN': 1, 'PIMPINAN': 2, 'STAFF': 3 };
 
       fetchedUsers.sort((a, b) => {
@@ -134,40 +141,89 @@ const UsersPage = () => {
     setShowModal(true);
   };
 
-  // 🔥 NEW FUNCTION: Handle Import Excel Success
-  const handleImportSuccess = () => {
-    setSuccess('Import Excel berhasil! Data pegawai telah ditambahkan.');
-    loadUsers(); // Refresh data setelah import
-  };
+  // 🔥 FIXED: Import Success Handler
+  const handleImportSuccess = (result) => {
+  console.log('✅ Import success:', result);
+  setSuccess(`Import berhasil! ${result.successfulImports || 0} pegawai ditambahkan.`);
+  setTimeout(() => setSuccess(''), 5000);
+  loadUsers(); // Reload data
+};
 
-  // 🔥 NEW FUNCTION: Download Template Excel
-  const handleDownloadTemplate = async () => {
+  // 🔥 NEW: Test Import System
+  const testImportSystem = async () => {
     try {
-      const response = await fetch('/api/import/template', {
+      console.log('🧪 Testing import system...');
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/import/debug', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`,
         }
       });
 
       if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'template_import_pegawai_bps.xlsx';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        const data = await response.json();
+        console.log('✅ Import system test:', data);
+        setSuccess('Import system berfungsi dengan baik!');
       } else {
-        setError('Gagal mendownload template');
+        throw new Error(`Test failed: ${response.status}`);
       }
     } catch (error) {
-      console.error('Download template error:', error);
-      setError('Error saat mendownload template');
+      console.error('❌ Import system test failed:', error);
+      setError('Import system tidak dapat diakses: ' + error.message);
     }
   };
+
+
+  // 🔥 FIXED: Download Template Handler
+const handleDownloadTemplate = async () => {
+  try {
+    setDownloading(true);
+    setError('');
+    
+    console.log('📥 Starting download template...');
+    
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:5000/api/import/template', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'template_import_pegawai.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    setSuccess('Template Excel berhasil didownload!');
+    setTimeout(() => setSuccess(''), 3000);
+    
+  } catch (error) {
+    console.error('❌ Download error:', error);
+    setError('Gagal download template: ' + error.message);
+  } finally {
+    setDownloading(false);
+  }
+};
+
+// 🔥 NEW: Show Import Modal Handler
+const handleShowImportModal = () => {
+  console.log('📤 Opening import modal...');
+  setShowImportModal(true);
+};
+
+
 
   const handleEditUser = (userData) => {
     if (user?.role === 'PIMPINAN') {
@@ -283,7 +339,49 @@ const UsersPage = () => {
     }
   };
 
-  const handlePermanentDelete = async () => {
+  // 🔥 Enhanced Delete Handler with Data Check
+  const handleDeleteUserClick = async (userData) => {
+    setUserToDelete(userData);
+    setDeleteStep(1);
+    setDeleteConfirmText('');
+    
+    try {
+      // Check if user has related data using the new API endpoint
+      const response = await userAPI.checkData(userData.id);
+      const hasData = response.data.data.hasData;
+      
+      setUserHasData(hasData);
+      setShowDeleteModal(true);
+      
+    } catch (error) {
+      console.error('Check user data error:', error);
+      // If we can't check, assume they have data for safety
+      setUserHasData(true);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (userHasData) {
+      if (deleteStep === 1) {
+        // First confirmation - show second warning
+        setDeleteStep(2);
+      } else {
+        // Second confirmation - check text input
+        const expectedText = `hapus ${userToDelete.nama}`;
+        if (deleteConfirmText.toLowerCase() === expectedText.toLowerCase()) {
+          performDelete();
+        } else {
+          setError('Teks konfirmasi tidak sesuai. Ketik persis: ' + expectedText);
+        }
+      }
+    } else {
+      // No data - single confirmation
+      performDelete();
+    }
+  };
+
+  const performDelete = async () => {
     if (!userToDelete) return;
     
     try {
@@ -292,16 +390,24 @@ const UsersPage = () => {
       setSuccess(`User ${userToDelete.nama} berhasil dihapus permanen`);
       setShowDeleteModal(false);
       setUserToDelete(null);
+      setDeleteStep(1);
+      setDeleteConfirmText('');
+      loadUsers();
       
-      setTimeout(() => {
-        loadUsers();
-      }, 500);
     } catch (error) {
-      console.error('Permanent delete user error:', error);
-      setError(error.response?.data?.message || 'Gagal menghapus user permanen');
+      console.error('Delete user error:', error);
+      setError(error.response?.data?.message || 'Gagal menghapus user');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setUserToDelete(null);
+    setDeleteStep(1);
+    setDeleteConfirmText('');
+    setUserHasData(false);
   };
 
   const handleActivateUser = async (userData) => {
@@ -336,88 +442,79 @@ const UsersPage = () => {
 
   const getRoleBadge = (role) => {
     const badges = {
-      ADMIN: 'bg-danger',
-      PIMPINAN: 'bg-warning text-dark',
-      STAFF: 'bg-primary'
+      ADMIN: 'role-admin',
+      PIMPINAN: 'role-pimpinan',
+      STAFF: 'role-staff'
     };
-    return badges[role] || 'bg-secondary';
+    return badges[role] || 'role-staff';
   };
 
   const getStatusBadge = (isActive) => {
-    return isActive ? 'bg-success' : 'bg-secondary';
+    return isActive ? 'status-active' : 'status-inactive';
+  };
+
+  const getEmployeeStatusBadge = (status) => {
+    const badges = {
+      PNS: 'status-pns',
+      PPPK: 'status-pppk',
+      HONORER: 'status-inactive'
+    };
+    return badges[status] || 'status-inactive';
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setRoleFilter('');
+    setStatusFilter('');
+    setCurrentPage(1);
   };
 
   const isAdmin = user?.role === 'ADMIN';
   const isPimpinan = user?.role === 'PIMPINAN';
 
   return (
-    <div className="container-fluid">
-      {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h1 className="h3 mb-1">
-            {isPimpinan ? 'Data Pegawai' : 'Kelola User'}
-          </h1>
-          <p className="text-muted">
-            {isPimpinan 
-              ? 'Lihat data pegawai dan informasi lengkap'
-              : 'Kelola data pegawai dan pengguna sistem'
-            }
-          </p>
-        </div>
-        {isAdmin && (
-          <div className="d-flex gap-2">
-            {/* 🔥 NEW: Import Excel Button */}
-            <div className="btn-group">
+    <div className="container-fluid p-4 user-management-page">
+      {/* 🔥 Enhanced Header */}
+      <div className="page-header">
+        <div className="header-content">
+          <div className="header-title">
+            <i className="fas fa-users header-icon"></i>
+            <div className="title-section">
+              <h1>{isPimpinan ? 'Data Pegawai' : 'Kelola User'}</h1>
+              <p className="header-subtitle">
+                {isPimpinan 
+                  ? 'Lihat data pegawai dan informasi lengkap'
+                  : 'Kelola data pegawai dan pengguna sistem'
+                }
+              </p>
+            </div>
+          </div>
+          {isAdmin && (
+            <div className="header-actions">
+              {/* 🔥 SIMPLIFIED: Tombol-tombol terpisah tanpa dropdown */}              
               <button 
-                className="btn btn-success"
-                onClick={() => setShowImportModal(true)}
+                className="btn btn-success me-2"
+                onClick={handleShowImportModal}
+                title="Import Data dari Excel"
               >
                 <i className="fas fa-file-excel me-2"></i>
                 Import Excel
               </button>
-              <button
-                type="button"
-                className="btn btn-success dropdown-toggle dropdown-toggle-split"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
+              
+              <button 
+                className="btn btn-primary"
+                onClick={handleCreateUser}
+                title="Tambah User Manual"
               >
-                <span className="visually-hidden">Toggle Dropdown</span>
+                <i className="fas fa-plus me-2"></i>
+                Tambah User
               </button>
-              <ul className="dropdown-menu">
-                <li>
-                  <button 
-                    className="dropdown-item"
-                    onClick={handleDownloadTemplate}
-                  >
-                    <i className="fas fa-download me-2"></i>
-                    Download Template
-                  </button>
-                </li>
-                <li>
-                  <button 
-                    className="dropdown-item"
-                    onClick={() => setShowImportModal(true)}
-                  >
-                    <i className="fas fa-upload me-2"></i>
-                    Import Data
-                  </button>
-                </li>
-              </ul>
             </div>
-            
-            <button 
-              className="btn btn-primary"
-              onClick={handleCreateUser}
-            >
-              <i className="fas fa-plus me-2"></i>
-              Tambah User
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Alerts */}
+      {/* Alert Messages */}
       {error && (
         <div className="alert alert-danger alert-dismissible fade show">
           <i className="fas fa-exclamation-triangle me-2"></i>
@@ -434,279 +531,346 @@ const UsersPage = () => {
         </div>
       )}
 
-      {/* Filter & Search */}
-      <div className="card mb-4">
-        <div className="card-body">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              loadUsers();
-            }}
-          >
-            <div className="row g-3">
-              <div className="col-md-4">
-                <label className="form-label">Cari</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Nama, NIP, atau username..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">Role</label>
-                <select
-                  className="form-select"
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                >
-                  <option value="">Semua Role</option>
-                  <option value="ADMIN">Admin</option>
-                  <option value="PIMPINAN">Pimpinan</option>
-                  <option value="STAFF">Staff</option>
-                </select>
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="">Semua Status</option>
-                  <option value="PNS">PNS</option>
-                  <option value="PPPK">PPPK</option>
-                  <option value="HONORER">Honorer</option>
-                </select>
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">&nbsp;</label>
+      {/* 🔥 Enhanced Filter Section */}
+      <div className="filter-section">
+        <div className="filter-header">
+          <h5>
+            <i className="fas fa-filter"></i>
+            Filter & Pencarian Data
+          </h5>
+          <div className="total-users-badge">
+            <i className="fas fa-users"></i>
+            <span>Total User: <strong>{allFilteredAndSortedUsers.length}</strong></span>
+          </div>
+        </div>
+        
+        <form className="filter-form" onSubmit={(e) => {
+          e.preventDefault();
+            loadUsers();
+          }}>
+            <div className="filter-row">
+            <div className="filter-group">
+              <label>Cari Pegawai</label>
+              <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                className={`form-control ${search ? 'has-clear' : ''}`}
+                placeholder="Nama, NIP, atau username..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
                 <button
-                  type="button"
-                  className="btn btn-outline-secondary w-100"
-                  onClick={() => {
-                    setSearch('');
-                    setRoleFilter('');
-                    setStatusFilter('');
-                  }}
+                type="button"
+                className="clear-input"
+                onClick={() => setSearch('')}
+                title="Hapus pencarian"
                 >
-                  Reset
+                <i className="fas fa-times"></i>
                 </button>
+              )}
               </div>
             </div>
+            
+            <div className="filter-group">
+              <label>Role Sistem</label>
+              <div style={{ position: 'relative' }}>
+              <select
+                className={`form-select ${roleFilter ? 'has-clear' : ''}`}
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="">Semua Role</option>
+                <option value="ADMIN">Admin</option>
+                <option value="PIMPINAN">Pimpinan</option>
+                <option value="STAFF">Staff</option>
+              </select>
+              {roleFilter && (
+                <button
+                type="button"
+                className="clear-input"
+                onClick={() => setRoleFilter('')}
+                title="Hapus filter role"
+                >
+                <i className="fas fa-times"></i>
+                </button>
+              )}
+              </div>
+            </div>
+            
+            <div className="filter-group">
+              <label>Jabatan</label>
+              <div style={{ position: 'relative' }}>
+              <select
+                className={`form-select ${statusFilter ? 'has-clear' : ''}`}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">Semua Jabatan</option>
+                {/* Render jabatan dari database */}
+                {allFilteredAndSortedUsers
+                .map(u => u.jabatan)
+                .filter((v, i, arr) => v && arr.indexOf(v) === i)
+                .sort((a, b) => a.localeCompare(b))
+                .map(jabatan => (
+                  <option key={jabatan} value={jabatan}>{jabatan}</option>
+                ))}
+              </select>
+              {statusFilter && (
+                <button
+                type="button"
+                className="clear-input"
+                onClick={() => setStatusFilter('')}
+                title="Hapus filter jabatan"
+                >
+                <i className="fas fa-times"></i>
+                </button>
+              )}
+              </div>
+            </div>
+            
+            <div className="filter-actions">
+              {(search || roleFilter || statusFilter) && (
+              <button
+                type="button"
+                className="btn btn-reset"
+                onClick={clearFilters}
+              >
+                <i className="fas fa-times me-2"></i>
+                Reset Filter
+              </button>
+              )}
+            </div>
+            </div>
           </form>
-        </div>
-      </div>
+          </div>
 
-      {/* Users Table */}
-      <div className="card">
-        <div className="card-body">
+          {/* 🔥 Enhanced Table Section */}
+      <div className="table-section">
+        <div className="table-header">
+          <h5>
+            <i className="fas fa-table"></i>
+            Daftar Pegawai & Pengguna Sistem
+          </h5>
+        </div>
+        
+        <div className="table-responsive">
           {loading ? (
-            <div className="text-center py-4">
+            <div className="text-center py-5">
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading...</span>
               </div>
-              <p className="mt-2 text-muted">Memuat data user...</p>
+              <p className="mt-3 text-muted">Memuat data user...</p>
             </div>
           ) : (
-            <>
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead className="table-light">
-                    <tr>
-                      <th>NIP</th>
-                      <th>Nama & Kontak</th>
-                      <th>Username</th>
-                      <th>Role</th>
-                      <th>Jabatan</th>
-                      <th>Status</th>
-                      <th>Aktif</th>
-                      <th width="220">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.length === 0 ? (
-                      <tr>
-                        <td colSpan="8" className="text-center py-4 text-muted">
-                          Tidak ada data user
-                        </td>
-                      </tr>
-                    ) : (
-                      users.map((userData) => (
-                        <tr key={userData.id}>
-                          <td>
-                            <span className="fw-bold">{userData.nip}</span>
-                          </td>
-                          <td>
-                            <div>
-                              <strong>{userData.nama}</strong>
-                              {userData.email && (
-                                <small className="d-block text-muted">
-                                  <i className="fas fa-envelope me-1"></i>
-                                  {userData.email}
-                                </small>
-                              )}
-                              {userData.mobilePhone && (
-                                <small className="d-block text-muted">
-                                  <i className="fas fa-phone me-1"></i>
-                                  {userData.mobilePhone}
-                                </small>
-                              )}
+            <table className="table users-table">
+              <thead>
+                <tr>
+                  <th className="d-none d-lg-table-cell">No.</th>
+                  <th>Informasi Pegawai</th>
+                  <th className="d-none d-md-table-cell">Username</th>
+                  <th>Role</th>
+                  <th className="d-none d-lg-table-cell">Jabatan</th>
+                  <th className="d-none d-md-table-cell">Status Pegawai</th>
+                  <th>Status Akun</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="text-center py-5 text-muted">
+                      <i className="fas fa-inbox fa-3x mb-3 d-block"></i>
+                      {search || roleFilter || statusFilter ? 
+                        'Tidak ada data user yang sesuai dengan filter' :
+                        'Belum ada data user'
+                      }
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((userData, index) => (
+                    <tr key={userData.id}>
+                      <td className="d-none d-lg-table-cell text-center">
+                        <span className="fw-bold text-muted">
+                          {((currentPage - 1) * 10) + index + 1}
+                        </span>
+                      </td>
+                      
+                      <td>
+                        <div className="user-info">
+                          <div className="user-name">{userData.nama}</div>
+                          {userData.email && (
+                            <div className="user-contact">
+                              <i className="fas fa-envelope"></i>
+                              <span>{userData.email}</span>
                             </div>
-                          </td>
-                          <td>
-                            <span className="badge bg-light text-dark">
-                              {userData.username}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`badge ${getRoleBadge(userData.role)}`}>
-                              {userData.role}
-                            </span>
-                          </td>
-                          <td>
-                            <div>
-                              <span className="fw-bold">{userData.jabatan || '-'}</span>
-                              {userData.golongan && (
-                                <small className="d-block text-muted">
-                                  Gol. {userData.golongan}
-                                </small>
-                              )}
+                          )}
+                          {userData.mobilePhone && (
+                            <div className="user-contact">
+                              <i className="fas fa-phone"></i>
+                              <span>{userData.mobilePhone}</span>
                             </div>
-                          </td>
-                          <td>
-                            <span className="badge bg-secondary">
-                              {userData.status}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`badge ${getStatusBadge(userData.isActive)}`}>
-                              {userData.isActive ? 'Aktif' : 'Nonaktif'}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="btn-group btn-group-sm">
+                          )}
+                          <div className="user-id">NIP: {userData.nip}</div>
+                        </div>
+                      </td>
+                      
+                      <td className="d-none d-md-table-cell">
+                        <span className="badge bg-light text-dark fs-6">
+                          {userData.username}
+                        </span>
+                      </td>
+                      
+                      <td>
+                        <span className={`role-badge ${getRoleBadge(userData.role)}`}>
+                          <i className="fas fa-user-tag"></i>
+                          <span className="badge-text d-none d-sm-inline">{userData.role}</span>
+                        </span>
+                      </td>
+                      
+                      <td className="d-none d-lg-table-cell">
+                        <div className="job-info">
+                          <div className="job-title">{userData.jabatan || '-'}</div>
+                          {userData.golongan && (
+                            <div className="job-grade">Gol. {userData.golongan}</div>
+                          )}
+                        </div>
+                      </td>
+                      
+                      <td className="d-none d-md-table-cell">
+                        <span className={`status-badge ${getEmployeeStatusBadge(userData.status)}`}>
+                          <i className="fas fa-id-card"></i>
+                          <span className="badge-text d-none d-lg-inline">{userData.status}</span>
+                        </span>
+                      </td>
+                      
+                      <td>
+                        <span className={`status-badge ${getStatusBadge(userData.isActive)}`}>
+                          <i className={`fas ${userData.isActive ? 'fa-check-circle' : 'fa-pause-circle'}`}></i>
+                          <span className="badge-text d-none d-lg-inline">{userData.isActive ? 'Aktif' : 'Nonaktif'}</span>
+                        </span>
+                      </td>
+                      
+                      <td>
+                        <div className="action-buttons">
+                          <button 
+                            className={`btn btn-action ${isPimpinan ? 'action-view' : 'action-edit'}`}
+                            onClick={() => handleEditUser(userData)}
+                            title={isPimpinan ? 'Lihat Detail Pegawai' : 'Edit Data User'}
+                          >
+                            <i className={`fas ${isPimpinan ? 'fa-eye' : 'fa-edit'}`}></i>
+                          </button>
+                          
+                          {isAdmin && (
+                            <>
+                              {userData.isActive ? (
+                                <button 
+                                  className="btn btn-action action-deactivate"
+                                  onClick={() => {
+                                    setUserToDeactivate(userData);
+                                    setShowDeactivateModal(true);
+                                  }}
+                                  title="Nonaktifkan User"
+                                  disabled={userData.id === user.id}
+                                >
+                                  <i className="fas fa-user-slash"></i>
+                                </button>
+                              ) : (
+                                <button 
+                                  className="btn btn-action action-activate"
+                                  onClick={() => handleActivateUser(userData)}
+                                  title="Aktifkan User"
+                                >
+                                  <i className="fas fa-user-check"></i>
+                                </button>
+                              )}
+                              
                               <button 
-                                className={`btn ${isPimpinan ? 'btn-outline-info' : 'btn-outline-primary'}`}
-                                onClick={() => handleEditUser(userData)}
-                                title={isPimpinan ? 'Lihat Detail' : 'Edit User'}
+                                className="btn btn-action action-reset"
+                                onClick={() => handleResetPassword(userData)}
+                                title="Reset Password ke Default"
                               >
-                                <i className={`fas ${isPimpinan ? 'fa-eye' : 'fa-edit'}`}></i>
+                                <i className="fas fa-key"></i>
                               </button>
                               
-                              {isAdmin && (
-                                <>
-                                  {userData.isActive ? (
-                                    <button 
-                                      className="btn btn-outline-warning"
-                                      onClick={() => {
-                                        setUserToDeactivate(userData);
-                                        setShowDeactivateModal(true);
-                                      }}
-                                      title="Nonaktifkan User"
-                                      disabled={userData.id === user.id}
-                                    >
-                                      <i className="fas fa-user-slash"></i>
-                                    </button>
-                                  ) : (
-                                    <button 
-                                      className="btn btn-outline-success"
-                                      onClick={() => handleActivateUser(userData)}
-                                      title="Aktifkan User"
-                                    >
-                                      <i className="fas fa-user-check"></i>
-                                    </button>
-                                  )}
-                                  
-                                  <button 
-                                    className="btn btn-outline-info"
-                                    onClick={() => handleResetPassword(userData)}
-                                    title="Reset Password"
-                                  >
-                                    <i className="fas fa-key"></i>
-                                  </button>
-                                  
-                                  <button 
-                                    className="btn btn-outline-danger"
-                                    onClick={() => {
-                                      setUserToDelete(userData);
-                                      setShowDeleteModal(true);
-                                    }}
-                                    title="Hapus User Permanen"
-                                    disabled={userData.id === user.id || userData.role === 'ADMIN'}
-                                  >
-                                    <i className="fas fa-trash"></i>
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <nav className="mt-4">
-                  <ul className="pagination justify-content-center">
-                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                      <button 
-                        className="page-link"
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                      >
-                        Previous
-                      </button>
-                    </li>
-                    
-                    {[...Array(totalPages)].map((_, index) => (
-                      <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                        <button 
-                          className="page-link"
-                          onClick={() => setCurrentPage(index + 1)}
-                        >
-                          {index + 1}
-                        </button>
-                      </li>
-                    ))}
-                    
-                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                      <button 
-                        className="page-link"
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                      >
-                        Next
-                      </button>
-                    </li>
-                  </ul>
-                </nav>
-              )}
-            </>
+                              <button 
+                                className="btn btn-action action-delete"
+                                onClick={() => handleDeleteUserClick(userData)}
+                                title="Hapus User Permanen"
+                                disabled={userData.id === user.id || userData.role === 'ADMIN'}
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
 
+      {/* Enhanced Pagination */}
+      {totalPages > 1 && (
+        <nav className="mt-4">
+          <ul className="pagination justify-content-center">
+            <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+              <button 
+                className="page-link"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <i className="fas fa-chevron-left"></i>
+                <span className="d-none d-md-inline ms-1">Previous</span>
+              </button>
+            </li>
+            
+            {[...Array(totalPages)].map((_, index) => (
+              <li key={index + 1} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+                <button 
+                  className="page-link"
+                  onClick={() => setCurrentPage(index + 1)}
+                >
+                  {index + 1}
+                </button>
+              </li>
+            ))}
+            
+            <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+              <button 
+                className="page-link"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                <span className="d-none d-md-inline me-1">Next</span>
+                <i className="fas fa-chevron-right"></i>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      )}
+
       {/* 🔥 NEW: Import Excel Modal */}
       <ImportExcelModal 
-        showModal={showImportModal}
-        setShowModal={setShowImportModal}
-        onImportSuccess={handleImportSuccess}
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
       />
 
-      {/* User Form/Detail Modal */}
+      {/* 🔥 Enhanced User Form/Detail Modal */}
       {showModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-lg">
-            <div className="modal-content">
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className={`modal-content ${modalMode === 'view' ? 'view-modal' : ''}`}>
               <div className="modal-header">
                 <h5 className="modal-title">
+                  <i className={`fas ${modalMode === 'create' ? 'fa-plus' : modalMode === 'edit' ? 'fa-edit' : 'fa-eye'} me-2`}></i>
                   {modalMode === 'create' ? 'Tambah User Baru' : 
-                    modalMode === 'edit' ? 'Edit User' : 
+                    modalMode === 'edit' ? 'Edit Data User' : 
                     'Detail Pegawai'}
                 </h5>
                 <button 
@@ -720,80 +884,111 @@ const UsersPage = () => {
                 <div className="modal-body">
                   <div className="row g-3">
                     <div className="col-md-6">
-                      <label className="form-label"><strong>NIP</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">{formData.nip || '-'}</p>
+                      <div className="detail-row">
+                        <label className="detail-label">NIP</label>
+                        <div className="detail-value">{formData.nip || '-'}</div>
+                      </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label"><strong>Username</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">{formData.username || '-'}</p>
+                      <div className="detail-row">
+                        <label className="detail-label">Username</label>
+                        <div className="detail-value">
+                          <span className="badge bg-primary">{formData.username || '-'}</span>
+                        </div>
+                      </div>
                     </div>
                     <div className="col-md-8">
-                      <label className="form-label"><strong>Nama Lengkap</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">{formData.nama || '-'}</p>
+                      <div className="detail-row">
+                        <label className="detail-label">Nama Lengkap</label>
+                        <div className="detail-value">{formData.nama || '-'}</div>
+                      </div>
                     </div>
                     <div className="col-md-4">
-                      <label className="form-label"><strong>Jenis Kelamin</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">
-                        {formData.jenisKelamin === 'LK' ? 'Laki-laki' : 'Perempuan'}
-                      </p>
+                      <div className="detail-row">
+                        <label className="detail-label">Jenis Kelamin</label>
+                        <div className="detail-value">
+                          {formData.jenisKelamin === 'LK' ? 'Laki-laki' : 'Perempuan'}
+                        </div>
+                      </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label"><strong>Email</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">
-                        {formData.email ? (
-                          <a href={`mailto:${formData.email}`} className="text-decoration-none">
-                            <i className="fas fa-envelope me-1"></i>
-                            {formData.email}
-                          </a>
-                        ) : '-'}
-                      </p>
+                      <div className="detail-row">
+                        <label className="detail-label">Email</label>
+                        <div className="detail-value">
+                          {formData.email ? (
+                            <a href={`mailto:${formData.email}`} className="text-decoration-none">
+                              <i className="fas fa-envelope me-2"></i>
+                              {formData.email}
+                            </a>
+                          ) : '-'}
+                        </div>
+                      </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label"><strong>No. HP</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">
-                        {formData.mobilePhone ? (
-                          <a href={`tel:${formData.mobilePhone}`} className="text-decoration-none">
-                            <i className="fas fa-phone me-1"></i>
-                            {formData.mobilePhone}
-                          </a>
-                        ) : '-'}
-                      </p>
+                      <div className="detail-row">
+                        <label className="detail-label">No. HP</label>
+                        <div className="detail-value">
+                          {formData.mobilePhone ? (
+                            <a href={`tel:${formData.mobilePhone}`} className="text-decoration-none">
+                              <i className="fas fa-phone me-2"></i>
+                              {formData.mobilePhone}
+                            </a>
+                          ) : '-'}
+                        </div>
+                      </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label"><strong>Jabatan</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">{formData.jabatan || '-'}</p>
+                      <div className="detail-row">
+                        <label className="detail-label">Jabatan</label>
+                        <div className="detail-value">{formData.jabatan || '-'}</div>
+                      </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label"><strong>Golongan</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded">{formData.golongan || '-'}</p>
+                      <div className="detail-row">
+                        <label className="detail-label">Golongan</label>
+                        <div className="detail-value">{formData.golongan || '-'}</div>
+                      </div>
                     </div>
                     <div className="col-md-4">
-                      <label className="form-label"><strong>Status Kepegawaian</strong></label>
-                      <p className="form-control-plaintext">
-                        <span className="badge bg-secondary fs-6">{formData.status}</span>
-                      </p>
+                      <div className="detail-row">
+                        <label className="detail-label">Jabatan</label>
+                        <div className="detail-value">
+                          <span className={`status-badge ${getEmployeeStatusBadge(formData.status)}`}>
+                            <i className="fas fa-id-card me-1"></i>
+                            {formData.status}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div className="col-md-4">
-                      <label className="form-label"><strong>Role Sistem</strong></label>
-                      <p className="form-control-plaintext">
-                        <span className={`badge ${getRoleBadge(formData.role)} fs-6`}>
-                          {formData.role}
-                        </span>
-                      </p>
+                      <div className="detail-row">
+                        <label className="detail-label">Role Sistem</label>
+                        <div className="detail-value">
+                          <span className={`role-badge ${getRoleBadge(formData.role)}`}>
+                            <i className="fas fa-user-tag me-1"></i>
+                            {formData.role}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div className="col-md-4">
-                      <label className="form-label"><strong>Status Akun</strong></label>
-                      <p className="form-control-plaintext">
-                        <span className={`badge ${getStatusBadge(formData.isActive)} fs-6`}>
-                          {formData.isActive ? 'Aktif' : 'Nonaktif'}
-                        </span>
-                      </p>
+                      <div className="detail-row">
+                        <label className="detail-label">Status Akun</label>
+                        <div className="detail-value">
+                          <span className={`status-badge ${getStatusBadge(formData.isActive)}`}>
+                            <i className={`fas ${formData.isActive ? 'fa-check-circle' : 'fa-pause-circle'} me-1`}></i>
+                            {formData.isActive ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div className="col-12">
-                      <label className="form-label"><strong>Alamat</strong></label>
-                      <p className="form-control-plaintext bg-light p-2 rounded" style={{ minHeight: '60px' }}>
-                        {formData.alamat || '-'}
-                      </p>
+                      <div className="detail-row">
+                        <label className="detail-label">Alamat</label>
+                        <div className="detail-value" style={{ minHeight: '60px' }}>
+                          {formData.alamat || '-'}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -812,6 +1007,7 @@ const UsersPage = () => {
                           maxLength="18"
                           pattern="[0-9]{18}"
                           title="NIP harus 18 digit angka"
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         />
                         <small className="text-muted">18 digit angka</small>
                       </div>
@@ -823,6 +1019,7 @@ const UsersPage = () => {
                           value={formData.username}
                           onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                           required
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         />
                       </div>
                       <div className="col-md-8">
@@ -833,6 +1030,7 @@ const UsersPage = () => {
                           value={formData.nama}
                           onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
                           required
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         />
                       </div>
                       <div className="col-md-4">
@@ -842,6 +1040,7 @@ const UsersPage = () => {
                           value={formData.jenisKelamin}
                           onChange={(e) => setFormData({ ...formData, jenisKelamin: e.target.value })}
                           required
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         >
                           <option value="LK">Laki-laki</option>
                           <option value="PR">Perempuan</option>
@@ -854,6 +1053,7 @@ const UsersPage = () => {
                           className="form-control"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         />
                       </div>
                       <div className="col-md-6">
@@ -864,6 +1064,7 @@ const UsersPage = () => {
                           value={formData.mobilePhone}
                           onChange={(e) => setFormData({ ...formData, mobilePhone: e.target.value })}
                           placeholder="08123456789"
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         />
                       </div>
                       <div className="col-md-6">
@@ -874,6 +1075,7 @@ const UsersPage = () => {
                           value={formData.jabatan}
                           onChange={(e) => setFormData({ ...formData, jabatan: e.target.value })}
                           placeholder="Statistisi, Kasubbag, dll"
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         />
                       </div>
                       <div className="col-md-6">
@@ -884,14 +1086,16 @@ const UsersPage = () => {
                           value={formData.golongan}
                           onChange={(e) => setFormData({ ...formData, golongan: e.target.value })}
                           placeholder="IV/b, III/a, dll"
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         />
                       </div>
                       <div className="col-md-4">
-                        <label className="form-label">Status Kepegawaian</label>
+                        <label className="form-label">Jabatan</label>
                         <select
                           className="form-select"
                           value={formData.status}
                           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                         >
                           <option value="PNS">PNS</option>
                           <option value="PPPK">PPPK</option>
@@ -905,13 +1109,18 @@ const UsersPage = () => {
                           value={formData.role}
                           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                           required
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                          disabled={selectedUser?.role === 'ADMIN'}
                         >
                           <option value="STAFF">Staff</option>
                           <option value="PIMPINAN">Pimpinan</option>
-                          {user?.role === 'ADMIN' && (
+                          {user?.role === 'ADMIN' && selectedUser?.role !== 'ADMIN' && (
                             <option value="ADMIN">Admin</option>
                           )}
                         </select>
+                        {selectedUser?.role === 'ADMIN' && (
+                          <small className="text-muted">Role Admin tidak dapat diubah</small>
+                        )}
                       </div>
                       {modalMode === 'create' && (
                         <div className="col-md-4">
@@ -922,6 +1131,7 @@ const UsersPage = () => {
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             placeholder="Default: bps1810"
+                            style={{ minHeight: '48px', borderRadius: '0.75rem' }}
                           />
                         </div>
                       )}
@@ -933,6 +1143,7 @@ const UsersPage = () => {
                           value={formData.alamat}
                           onChange={(e) => setFormData({ ...formData, alamat: e.target.value })}
                           placeholder="Alamat lengkap pegawai..."
+                          style={{ borderRadius: '0.75rem' }}
                         ></textarea>
                       </div>
                     </div>
@@ -943,6 +1154,7 @@ const UsersPage = () => {
                       className="btn btn-secondary"
                       onClick={() => setShowModal(false)}
                     >
+                      <i className="fas fa-times me-2"></i>
                       Batal
                     </button>
                     <button 
@@ -956,7 +1168,10 @@ const UsersPage = () => {
                           Menyimpan...
                         </>
                       ) : (
-                        modalMode === 'create' ? 'Tambah User' : 'Simpan Perubahan'
+                        <>
+                          <i className="fas fa-save me-2"></i>
+                          {modalMode === 'create' ? 'Tambah User' : 'Simpan Perubahan'}
+                        </>
                       )}
                     </button>
                   </div>
@@ -970,6 +1185,7 @@ const UsersPage = () => {
                     className="btn btn-secondary"
                     onClick={() => setShowModal(false)}
                   >
+                    <i className="fas fa-times me-2"></i>
                     Tutup
                   </button>
                 </div>
@@ -982,7 +1198,7 @@ const UsersPage = () => {
       {/* Deactivate Confirmation Modal */}
       {showDeactivateModal && isAdmin && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog">
+          <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header bg-warning text-dark">
                 <h5 className="modal-title">
@@ -996,8 +1212,19 @@ const UsersPage = () => {
                 ></button>
               </div>
               <div className="modal-body">
-                <p>Apakah Anda yakin ingin <strong>menonaktifkan</strong> user <strong>{userToDeactivate?.nama}</strong>?</p>
-                <div className="alert alert-info">
+                <div className="text-center mb-3">
+                  <i className="fas fa-user-slash text-warning" style={{ fontSize: '3rem' }}></i>
+                </div>
+                <p className="text-center">
+                  Apakah Anda yakin ingin <strong>menonaktifkan</strong> user:
+                </p>
+                <div className="card bg-light text-center">
+                  <div className="card-body">
+                    <h6 className="card-title mb-1">{userToDeactivate?.nama}</h6>
+                    <small className="text-muted">NIP: {userToDeactivate?.nip}</small>
+                  </div>
+                </div>
+                <div className="alert alert-info mt-3">
                   <i className="fas fa-info-circle me-2"></i>
                   <strong>Info:</strong> User yang dinonaktifkan tidak dapat login, tetapi data tetap tersimpan dan dapat diaktifkan kembali.
                 </div>
@@ -1008,6 +1235,7 @@ const UsersPage = () => {
                   className="btn btn-secondary"
                   onClick={() => setShowDeactivateModal(false)}
                 >
+                  <i className="fas fa-times me-2"></i>
                   Batal
                 </button>
                 <button 
@@ -1034,66 +1262,141 @@ const UsersPage = () => {
         </div>
       )}
 
-      {/* Permanent Delete Confirmation Modal */}
+      {/* 🔥 Enhanced Delete Modal with Double Confirmation */}
       {showDeleteModal && isAdmin && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header bg-danger text-white">
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content delete-modal">
+              <div className="modal-header">
                 <h5 className="modal-title">
                   <i className="fas fa-exclamation-triangle me-2"></i>
-                  Hapus User Permanen
+                  {deleteStep === 1 ? 'Peringatan Hapus User' : 'Konfirmasi Final'}
                 </h5>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn-close btn-close-white"
-                  onClick={() => setShowDeleteModal(false)}
+                  onClick={handleDeleteCancel}
                 ></button>
               </div>
               <div className="modal-body">
-                <div className="alert alert-danger">
-                  <i className="fas fa-exclamation-triangle me-2"></i>
-                  <strong>Peringatan!</strong> Tindakan ini tidak dapat dibatalkan.
-                </div>
-                <p>Apakah Anda yakin ingin <strong>menghapus permanen</strong> user:</p>
-                <div className="bg-light p-3 rounded">
-                  <strong>{userToDelete?.nama}</strong><br/>
-                  <small className="text-muted">NIP: {userToDelete?.nip}</small><br/>
-                  <small className="text-muted">Username: {userToDelete?.username}</small>
-                </div>
-                <div className="mt-3">
-                  <h6 className="text-danger">Dampak penghapusan:</h6>
-                  <ul className="small text-muted">
-                    <li>Semua data user akan dihapus permanen</li>
-                    <li>Riwayat evaluasi akan tetap ada tetapi tanpa referensi user</li>
-                    <li>User tidak dapat login lagi ke sistem</li>
-                  </ul>
-                </div>
+                {deleteStep === 1 && (
+                  <>
+                    <div className="alert alert-warning">
+                      <i className="fas fa-exclamation-triangle me-2"></i>
+                      <strong>Perhatian!</strong> Anda akan menghapus user dari sistem.
+                    </div>
+                    
+                    <div className="mb-3">
+                      <h6>User yang akan dihapus:</h6>
+                      <div className="card bg-light">
+                        <div className="card-body py-2">
+                          <strong>{userToDelete?.nama}</strong><br />
+                          <small className="text-muted">
+                            NIP: {userToDelete?.nip} • Username: {userToDelete?.username}
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+
+                    {userHasData && (
+                      <div className="data-impact-list">
+                        <h6 className="text-danger mb-3">
+                          <i className="fas fa-database me-2"></i>
+                          Data yang akan ikut terhapus:
+                        </h6>
+                        <ul>
+                          <li><i className="fas fa-times"></i>Semua evaluasi yang diberikan</li>
+                          <li><i className="fas fa-times"></i>Semua evaluasi yang diterima</li>
+                          <li><i className="fas fa-times"></i>Riwayat penilaian dan aktivitas</li>
+                          <li><i className="fas fa-times"></i>Data presensi dan CKP</li>
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="mt-3">
+                      {userHasData ? (
+                        <>
+                          <strong className="text-danger">User ini memiliki data penilaian!</strong> 
+                          Tindakan ini akan menghapus semua data penilaian terkait dan tidak dapat dibatalkan.
+                        </>
+                      ) : (
+                        <>
+                          <strong className="text-info">User ini belum memiliki data penilaian.</strong> 
+                          Apakah Anda yakin ingin menghapus?
+                        </>
+                      )}
+                    </p>
+                  </>
+                )}
+
+                {deleteStep === 2 && (
+                  <>
+                    <div className="alert alert-danger">
+                      <i className="fas fa-exclamation-triangle me-2"></i>
+                      <strong>KONFIRMASI TERAKHIR!</strong> Tindakan ini tidak dapat dibatalkan.
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="mb-2">
+                        Untuk melanjutkan penghapusan, ketik teks berikut persis:
+                      </p>
+                      <div className="card bg-light">
+                        <div className="card-body text-center">
+                          <code className="text-danger fs-5">
+                            hapus {userToDelete?.nama}
+                          </code>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Konfirmasi Penghapusan:</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="Ketik teks konfirmasi..."
+                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                      />
+                    </div>
+
+                    <p className="text-muted small">
+                      <i className="fas fa-info-circle me-1"></i>
+                      Teks harus diketik persis seperti yang ditampilkan di atas.
+                    </p>
+                  </>
+                )}
               </div>
               <div className="modal-footer">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowDeleteModal(false)}
+                  onClick={handleDeleteCancel}
                 >
                   <i className="fas fa-times me-2"></i>
                   Batal
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-danger"
-                  onClick={handlePermanentDelete}
-                  disabled={submitting}
+                  onClick={handleDeleteConfirm}
+                  disabled={submitting || (deleteStep === 2 && !deleteConfirmText)}
                 >
                   {submitting ? (
                     <>
                       <span className="spinner-border spinner-border-sm me-2"></span>
                       Menghapus...
                     </>
+                  ) : deleteStep === 1 ? (
+                    <>
+                      <i className="fas fa-arrow-right me-2"></i>
+                      {userHasData ? 'Lanjutkan' : 'Ya, Hapus'}
+                    </>
                   ) : (
                     <>
                       <i className="fas fa-trash me-2"></i>
-                      Ya, Hapus Permanen
+                      HAPUS PERMANEN
                     </>
                   )}
                 </button>

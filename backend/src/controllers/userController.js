@@ -1,4 +1,4 @@
-// controllers/userController.js - FIXED DENGAN PERMANENT DELETE
+// controllers/userController.js - ENHANCED WITH DATA CHECK AND IMPROVED DELETE LOGIC
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
@@ -15,11 +15,11 @@ const getAllUsers = async (req, res) => {
     let where = {};
 
     if (search) {
-      // 🔥 MODIFIKASI INI: Tambahkan kondisi OR untuk mencari di nama, nip, atau username
+      // Search di nama, nip, atau username
       where.OR = [
-        { nama: { contains: search, mode: 'insensitive' } }, // Cari berdasarkan nama
-        { nip: { contains: search, mode: 'insensitive' } },  // Cari berdasarkan NIP
-        { username: { contains: search, mode: 'insensitive' } } // Cari berdasarkan username
+        { nama: { contains: search, mode: 'insensitive' } },
+        { nip: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } }
       ];
     }
 
@@ -36,9 +36,9 @@ const getAllUsers = async (req, res) => {
       skip,
       take: limitNum,
       orderBy: {
-        nama: 'asc', // Urutkan berdasarkan nama secara default
+        nama: 'asc',
       },
-      select: { // Pilih kolom yang ingin ditampilkan
+      select: {
         id: true,
         nip: true,
         nama: true,
@@ -84,7 +84,7 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-
+// 🔥 CREATE USER - FIXED AND COMPLETE
 const createUser = async (req, res) => {
   try {
     const {
@@ -108,29 +108,46 @@ const createUser = async (req, res) => {
 
     console.log('📝 Create user attempt:', { nip, nama, email, username, role });
 
-    // Validasi input wajib
-    if (!nip || !nama || !email || !username || !password) {
+    // 🔥 FIXED: Validasi input wajib - Email TIDAK wajib
+    if (!nip || !nama || !username || !password) {
       return res.status(400).json({
         success: false,
-        message: 'NIP, nama, email, username, dan password wajib diisi'
+        message: 'NIP, nama, username, dan password wajib diisi'
       });
     }
 
-    // Validasi email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // 🔥 FIXED: Validasi email format HANYA jika email diisi
+    if (email && email.trim() !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Format email tidak valid'
+        });
+      }
+    }
+
+    // Validasi format NIP (18 digit)
+    if (!/^\d{18}$/.test(nip.toString())) {
       return res.status(400).json({
         success: false,
-        message: 'Format email tidak valid'
+        message: 'NIP harus 18 digit angka'
       });
     }
 
-    // Cek duplikasi
-    const [existingNip, existingUsername, existingEmail] = await Promise.all([
-      prisma.user.findFirst({ where: { nip: nip } }),
-      prisma.user.findFirst({ where: { username: username } }),
-      prisma.user.findFirst({ where: { email: email } })
+    // Cek duplikasi - FIXED: Handling email yang bisa null
+     const duplicateChecks = await Promise.all([
+      // Check NIP
+      prisma.user.findFirst({ where: { nip: nip.toString() } }),
+      // Check Username  
+      prisma.user.findFirst({ where: { username: username.trim() } }),
+      // Check Email HANYA jika email diisi dan tidak kosong
+      (email && email.trim() !== '') 
+        ? prisma.user.findFirst({ where: { email: email.toLowerCase().trim() } })
+        : Promise.resolve(null)
     ]);
+
+    const [existingNip, existingUsername, existingEmail] = duplicateChecks;
 
     if (existingNip) {
       return res.status(400).json({
@@ -171,28 +188,31 @@ const createUser = async (req, res) => {
       }
     }
 
-    // Create user
+    const userData = {
+      nip: nip.toString().trim(),
+      nama: nama.trim(),
+      // 🔥 SOLUTION: Email handling - null jika kosong, lowercase jika ada
+      email: (email && email.trim() !== '') ? email.toLowerCase().trim() : null,
+      jenisKelamin: jenisKelamin || 'LK',
+      tanggalLahir: parsedDate,
+      alamat: alamat?.trim() || null,
+      mobilePhone: mobilePhone?.trim() || null,
+      pendidikanTerakhir: pendidikanTerakhir?.trim() || null,
+      status: status || 'PNS',
+      instansi: instansi?.trim() || 'BPS Kabupaten Pringsewu',
+      kantor: kantor?.trim() || 'BPS Kabupaten Pringsewu',
+      jabatan: jabatan?.trim() || null,
+      golongan: golongan?.trim() || null,
+      username: username.trim(),
+      password: hashedPassword,
+      role: role || 'STAFF',
+      profilePicture: null,
+      isActive: true
+    };
+
+    // Create user - FIXED: Handle email yang bisa null
     const newUser = await prisma.user.create({
-      data: {
-        nip: nip.toString(),
-        nama: nama.trim(),
-        email: email.toLowerCase().trim(),
-        jenisKelamin: jenisKelamin || 'LK',
-        tanggalLahir: parsedDate,
-        alamat: alamat?.trim() || null,
-        mobilePhone: mobilePhone?.trim() || null,
-        pendidikanTerakhir: pendidikanTerakhir?.trim() || null,
-        status: status || 'PNS',
-        instansi: instansi?.trim() || 'BPS Kabupaten Pringsewu',
-        kantor: kantor?.trim() || 'BPS Kabupaten Pringsewu',
-        jabatan: jabatan?.trim() || null,
-        golongan: golongan?.trim() || null,
-        username: username.trim(),
-        password: hashedPassword,
-        role: role || 'STAFF',
-        profilePicture: null,
-        isActive: true
-      },
+      data: userData,
       select: {
         id: true,
         nip: true,
@@ -220,7 +240,8 @@ const createUser = async (req, res) => {
     console.log('✅ User created successfully:', {
       id: newUser.id,
       nama: newUser.nama,
-      username: newUser.username
+      username: newUser.username,
+      email: newUser.email || 'No email'
     });
 
     res.status(201).json({
@@ -247,6 +268,7 @@ const createUser = async (req, res) => {
     });
   }
 };
+
 
 // GET USER BY ID
 const getUserById = async (req, res) => {
@@ -299,7 +321,95 @@ const getUserById = async (req, res) => {
   }
 };
 
-// FIXED: UPDATE USER - Include alamat & mobilePhone
+// 🔥 NEW: CHECK USER DATA - For delete confirmation
+const checkUserData = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nama: true,
+        username: true,
+        role: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User tidak ditemukan'
+      });
+    }
+
+    // Check for related data
+    const dataCounts = await Promise.all([
+      // Count evaluations given by this user
+      prisma.evaluation.count({
+        where: { evaluatorId: id }
+      }),
+      // Count evaluations received by this user
+      prisma.evaluation.count({
+        where: { targetUserId: id }
+      }),
+      // Count attendance records
+      prisma.attendance.count({
+        where: { userId: id }
+      }),
+      // Count CKP scores
+      prisma.ckpScore.count({
+        where: { userId: id }
+      }),
+      // Count final evaluations
+      prisma.finalEvaluation.count({
+        where: { userId: id }
+      })
+    ]);
+
+    const [
+      evaluationsGiven,
+      evaluationsReceived,
+      attendanceRecords,
+      ckpScores,
+      finalEvaluations
+    ] = dataCounts;
+
+    const hasData = evaluationsGiven > 0 || evaluationsReceived > 0 || 
+                   attendanceRecords > 0 || ckpScores > 0 || finalEvaluations > 0;
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          nama: user.nama,
+          username: user.username,
+          role: user.role
+        },
+        hasData,
+        dataCounts: {
+          evaluationsGiven,
+          evaluationsReceived,
+          attendanceRecords,
+          ckpScores,
+          finalEvaluations,
+          total: evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Check user data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server'
+    });
+  }
+};
+
+// UPDATE USER
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -309,8 +419,8 @@ const updateUser = async (req, res) => {
       email,
       jenisKelamin,
       tanggalLahir,
-      alamat, // FIXED: Include alamat
-      mobilePhone, // FIXED: Include mobilePhone
+      alamat,
+      mobilePhone,
       pendidikanTerakhir,
       jabatan,
       golongan,
@@ -323,7 +433,7 @@ const updateUser = async (req, res) => {
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, role: true, nip: true, username: true }
+      select: { id: true, role: true, nip: true, username: true, email: true }
     });
 
     if (!existingUser) {
@@ -344,11 +454,19 @@ const updateUser = async (req, res) => {
       });
     }
 
+    // 🔥 PREVENT ROLE CHANGE FOR ADMIN USERS
+    if (existingUser.role === 'ADMIN' && role && role !== 'ADMIN') {
+      return res.status(400).json({
+        success: false,
+        message: 'Role Admin tidak dapat diubah'
+      });
+    }
+
     // Build update data based on permissions
     const updateData = {};
     
     if (isAdmin) {
-      // Admin can update all fields
+      // Admin can update all fields (except admin role protection above)
       if (nip && nip !== existingUser.nip) {
         // Check NIP uniqueness
         const nipExists = await prisma.user.findFirst({
@@ -378,27 +496,32 @@ const updateUser = async (req, res) => {
       }
       
       if (nama) updateData.nama = nama;
-      if (email) updateData.email = email;
+      if (email !== undefined) updateData.email = email && email.trim() !== '' ? email : null;
       if (jenisKelamin) updateData.jenisKelamin = jenisKelamin;
       if (tanggalLahir) updateData.tanggalLahir = new Date(tanggalLahir);
-      if (alamat !== undefined) updateData.alamat = alamat; // FIXED: Include alamat
-      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone; // FIXED: Include mobilePhone
+      if (alamat !== undefined) updateData.alamat = alamat;
+      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone;
       if (pendidikanTerakhir !== undefined) updateData.pendidikanTerakhir = pendidikanTerakhir;
       if (jabatan !== undefined) updateData.jabatan = jabatan;
       if (golongan !== undefined) updateData.golongan = golongan;
       if (status) updateData.status = status;
-      if (role) updateData.role = role;
+      
+      // Only allow role change if not changing admin role
+      if (role && existingUser.role !== 'ADMIN') {
+        updateData.role = role;
+      }
+      
       if (isActive !== undefined) updateData.isActive = isActive;
     } else {
       // Users can only update limited fields
       if (nama) updateData.nama = nama;
-      if (email) updateData.email = email;
-      if (alamat !== undefined) updateData.alamat = alamat; // FIXED: Allow self-update alamat
-      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone; // FIXED: Allow self-update mobilePhone
+      if (email !== undefined) updateData.email = email && email.trim() !== '' ? email : null;
+      if (alamat !== undefined) updateData.alamat = alamat;
+      if (mobilePhone !== undefined) updateData.mobilePhone = mobilePhone;
     }
 
     // Check email uniqueness if email is being updated
-    if (updateData.email) {
+    if (updateData.email && updateData.email !== existingUser.email) {
       const emailExists = await prisma.user.findFirst({
         where: {
           email: updateData.email,
@@ -426,8 +549,8 @@ const updateUser = async (req, res) => {
         role: true,
         jenisKelamin: true,
         tanggalLahir: true,
-        alamat: true, // FIXED: Return alamat
-        mobilePhone: true, // FIXED: Return mobilePhone
+        alamat: true,
+        mobilePhone: true,
         pendidikanTerakhir: true,
         jabatan: true,
         golongan: true,
@@ -507,20 +630,19 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// FIXED: PERMANENT DELETE USER
+// 🔥 ENHANCED PERMANENT DELETE USER WITH BETTER DATA HANDLING
 const permanentDeleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if user exists
+    // Check if user exists and get related data counts
     const existingUser = await prisma.user.findUnique({
       where: { id },
       select: { 
         id: true, 
         role: true, 
         nama: true,
-        evaluationsGiven: { take: 1 },
-        evaluationsReceived: { take: 1 }
+        username: true
       }
     });
 
@@ -547,45 +669,104 @@ const permanentDeleteUser = async (req, res) => {
       });
     }
 
-    // Check if user has evaluation data
-    if (existingUser.evaluationsGiven.length > 0 || existingUser.evaluationsReceived.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'User yang memiliki data evaluasi tidak dapat dihapus permanen. Gunakan nonaktifkan sebagai gantinya.'
-      });
-    }
+    // Check for related data
+    const dataCounts = await Promise.all([
+      prisma.evaluation.count({ where: { evaluatorId: id } }),
+      prisma.evaluation.count({ where: { targetUserId: id } }),
+      prisma.attendance.count({ where: { userId: id } }),
+      prisma.ckpScore.count({ where: { userId: id } }),
+      prisma.finalEvaluation.count({ where: { userId: id } })
+    ]);
 
-    // Permanent delete using transaction
+    const [evaluationsGiven, evaluationsReceived, attendanceRecords, ckpScores, finalEvaluations] = dataCounts;
+    const totalRelatedData = evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations;
+
+    console.log(`🗑️ Attempting to delete user ${existingUser.nama} with ${totalRelatedData} related records`);
+
+    // Permanent delete using transaction - Handle related data properly
     await prisma.$transaction(async (tx) => {
-      // Delete related records first
-      await tx.attendance.deleteMany({
-        where: { userId: id }
-      });
+      // Delete in correct order to handle foreign key constraints
       
-      await tx.ckpScore.deleteMany({
-        where: { userId: id }
-      });
+      // 1. Delete final evaluations first (depends on other tables)
+      if (finalEvaluations > 0) {
+        await tx.finalEvaluation.deleteMany({
+          where: { userId: id }
+        });
+        console.log(`Deleted ${finalEvaluations} final evaluation records`);
+      }
       
-      await tx.finalEvaluation.deleteMany({
-        where: { userId: id }
-      });
+      // 2. Delete evaluations (both given and received)
+      if (evaluationsGiven > 0) {
+        await tx.evaluation.deleteMany({
+          where: { evaluatorId: id }
+        });
+        console.log(`Deleted ${evaluationsGiven} evaluations given by user`);
+      }
       
-      // Finally delete the user
+      if (evaluationsReceived > 0) {
+        await tx.evaluation.deleteMany({
+          where: { targetUserId: id }
+        });
+        console.log(`Deleted ${evaluationsReceived} evaluations received by user`);
+      }
+      
+      // 3. Delete attendance records
+      if (attendanceRecords > 0) {
+        await tx.attendance.deleteMany({
+          where: { userId: id }
+        });
+        console.log(`Deleted ${attendanceRecords} attendance records`);
+      }
+      
+      // 4. Delete CKP scores
+      if (ckpScores > 0) {
+        await tx.ckpScore.deleteMany({
+          where: { userId: id }
+        });
+        console.log(`Deleted ${ckpScores} CKP score records`);
+      }
+      
+      // 5. Finally delete the user
       await tx.user.delete({
         where: { id }
       });
+      console.log(`Deleted user ${existingUser.nama}`);
     });
 
     res.json({
       success: true,
-      message: `User ${existingUser.nama} berhasil dihapus permanen`
+      message: `User ${existingUser.nama} berhasil dihapus permanen beserta ${totalRelatedData} data terkait`,
+      data: {
+        deletedUser: {
+          nama: existingUser.nama,
+          username: existingUser.username
+        },
+        deletedDataCounts: {
+          evaluationsGiven,
+          evaluationsReceived,
+          attendanceRecords,
+          ckpScores,
+          finalEvaluations,
+          total: totalRelatedData
+        }
+      }
     });
 
   } catch (error) {
     console.error('Permanent delete user error:', error);
+    
+    // Handle specific Prisma errors
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        message: 'Tidak dapat menghapus user karena masih memiliki data terkait yang tidak dapat dihapus'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server saat menghapus user',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -730,16 +911,16 @@ const getUserStats = async (req, res) => {
   }
 };
 
-
-// UPDATE exports di bagian akhir file userController.js:
+// EXPORT MODULE
 module.exports = {
   getAllUsers,
   getUserById,
-  createUser,        // 🔥 ADD THIS LINE
+  checkUserData,      // 🔥 NEW: Export the check user data function
+  createUser,
   updateUser,
   deleteUser,
   permanentDeleteUser,
   activateUser,
   resetUserPassword,
   getUserStats
-}
+};

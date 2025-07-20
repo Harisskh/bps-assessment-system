@@ -130,20 +130,82 @@ export const profileAPI = {
 // USER API
 // =====================
 export const userAPI = {
-  getAll: (params) => api.get('/users', { params }),
-  getById: (id) => api.get(`/users/${id}`),
-  create: (userData) => {
-    console.log('📤 Creating user via /users endpoint:', userData);
-    return api.post('/users', userData);  // 🔥 FIXED: Use /users endpoint instead of auth/register
+  // GET all users with filtering and pagination
+  getAll: (params = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== '') {
+        queryParams.append(key, params[key]);
+      }
+    });
+    
+    return api.get(`/users?${queryParams.toString()}`);
   },
-  update: (id, userData) => api.put(`/users/${id}`, userData),
-  delete: (id) => api.delete(`/users/${id}`),
-  permanentDelete: (id) => api.delete(`/users/${id}/permanent`),
-  activate: (id) => api.put(`/users/${id}/activate`),
-  resetPassword: (id, data) => api.put(`/users/${id}/reset-password`, data),
+
+  // GET user by ID
+  getById: (id) => api.get(`/users/${id}`),
+
+  // 🔥 NEW: Check if user has related data before deletion
+  checkData: (id) => api.get(`/users/${id}/check-data`),
+
+  // GET user statistics
   getStats: () => api.get('/users/stats'),
+
+  // CREATE new user
+  create: (userData) => api.post('/users', userData),
+
+  // UPDATE user
+  update: (id, userData) => api.put(`/users/${id}`, userData),
+
+  // SOFT DELETE user (deactivate)
+  delete: (id) => api.delete(`/users/${id}`),
+
+  // PERMANENT DELETE user
+  permanentDelete: (id) => api.delete(`/users/${id}/permanent`),
+
+  // ACTIVATE user
+  activate: (id) => api.put(`/users/${id}/activate`),
+
+  // RESET user password
+  resetPassword: (id, data) => api.put(`/users/${id}/reset-password`, data),
 };
 
+// 🔥 IMPORT/EXPORT API
+export const importExportAPI = {
+  // Import users from Excel
+  importUsers: (formData) => {
+    return api.post('/import/users', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000, // 1 minute for large imports
+    });
+  },
+
+  // Download template
+  downloadTemplate: () => {
+    return api.get('/import/template', {
+      responseType: 'blob',
+    });
+  },
+
+  // Export users to Excel
+  exportUsers: (params = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== '') {
+        queryParams.append(key, params[key]);
+      }
+    });
+    
+      return api.get(`/export/users?${queryParams.toString()}`, {
+        responseType: 'blob',
+      });
+    }
+  };
+   
 // =====================
 // 🔥 FIXED: EVALUATION API
 // =====================
@@ -501,6 +563,59 @@ const getMonthName = (month) => {
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
   return months[month - 1] || 'Unknown';
+};
+
+// =====================================
+// 🔥 NEW: CERTIFICATE API METHODS
+// =====================================
+
+// Get user's best employee awards (untuk menu sertifikat)
+export const getMyAwards = async () => {
+  try {
+    console.log('🔄 API Call: getMyAwards started');
+    const response = await api.get('/certificate/my-awards');
+    console.log('✅ API Response getMyAwards:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ API Error getMyAwards:', error);
+    console.error('❌ Error details:', error.response?.data);
+    throw error;
+  }
+};
+
+// Preview certificate data before generating
+export const previewCertificate = async (periodId) => {
+  try {
+    const response = await api.get(`/certificate/preview/${periodId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error previewing certificate:', error);
+    throw error;
+  }
+};
+
+// Generate and download certificate
+export const generateCertificate = async (periodId) => {
+  try {
+    const response = await api.post(`/certificate/generate/${periodId}`, {}, {
+      responseType: 'blob' // 🔥 IMPORTANT: responseType blob untuk PDF download
+    });
+    return response;
+  } catch (error) {
+    console.error('Error generating certificate:', error);
+    throw error;
+  }
+};
+
+// Get certificate history (admin/pimpinan only)
+export const getCertificateHistory = async () => {
+  try {
+    const response = await api.get('/certificate/history');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching certificate history:', error);
+    throw error;
+  }
 };
 
 // =====================

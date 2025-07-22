@@ -1,25 +1,24 @@
-// src/styles/CertificatePage.scss - COMPLETE ENHANCED PROFESSIONAL STYLING
-
 // Variables
 $primary: #2c549c;
 $success: #198754;
 $warning: #ffc107;
-$danger: #dc3545;
+$danger:#ff0707;
 $info: #0dcaf0;
 $light: #f8f9fa;
 $dark: #343a40;
+$black: #2b2d2f;
+$gold: #ffd700;
+$gold-light: #fff8dc;
+$white: #fff;
+
 $gray-100: #f8f9fa;
 $gray-200: #e9ecef;
 $gray-300: #ced4da;
+$gray-400: #abafb4;
+$gray-500: #9a9ea2;
 $gray-600: #6c757d;
 $gray-700: #555a5e;
 $gray-800: #343a40;
-$white: #fff;
-
-// Gold colors for awards
-$gold: #ffd700;
-$gold-light: #fff8dc;
-$gold-dark: #b8860b;
 
 // Mixins
 @mixin transition($property: all, $duration: 0.3s) {
@@ -30,57 +29,56 @@ $gold-dark: #b8860b;
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
 }
 
-@mixin hover-lift {
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
-  }
-}
-
 @mixin gradient-bg($color1, $color2) {
   background: linear-gradient(135deg, $color1 0%, $color2 100%);
 }
 
+// ==============================================
+// 🔥 CERTIFICATE PAGE STYLES - MINIMAL UPDATES
+// ==============================================
+
 .certificate-page {
   min-height: 100vh;
+  // 🔥 FIXED: Clean gradient background tanpa orange
   background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 25%, #f8fbff 50%, #e9f4ff 75%, #f5f9ff 100%);
   background-size: 400% 400%;
-  animation: gradientBackground 15s ease infinite;
+  animation: cleanBackground 15s ease infinite;
 
-  // 🔥 Enhanced Header
+  // 🔥 UPDATE 1: Header diperkecil sesuai instruksi
   .page-header {
-    @include gradient-bg($gold, lighten($gold, 10%));
-    color: $dark;
-    padding: 2rem;
-    border-radius: 1rem;
+    @include gradient-bg($primary, lighten($primary, 8%));
+    color: white;
+    padding: 1.8rem; // Dikurangi dari 2.5rem
+    border-radius: 1.2rem; // Dikurangi dari 1.5rem
     margin-bottom: 2rem;
     position: relative;
     overflow: hidden;
     @include card-shadow;
+    border: 1px solid rgba($gold, 0.2);
 
     // Decorative elements
     &::before {
       content: '';
       position: absolute;
-      top: -50%;
-      right: -20%;
-      width: 200px;
-      height: 200px;
-      background: rgba(255, 255, 255, 0.2);
+      top: -30%;
+      right: -15%;
+      width: 180px;
+      height: 180px;
+      background: rgba(255, 255, 255, 0.1);
       border-radius: 50%;
-      animation: float 6s ease-in-out infinite;
+      animation: float 8s ease-in-out infinite;
     }
 
     &::after {
       content: '';
       position: absolute;
-      bottom: -30%;
+      bottom: -20%;
       left: -10%;
-      width: 150px;
-      height: 150px;
-      background: rgba(255, 255, 255, 0.1);
+      width: 140px;
+      height: 140px;
+      background: rgba(255, 255, 255, 0.08);
       border-radius: 50%;
-      animation: float 8s ease-in-out infinite reverse;
+      animation: float 6s ease-in-out infinite reverse;
     }
 
     .header-content {
@@ -90,82 +88,75 @@ $gold-dark: #b8860b;
       position: relative;
       z-index: 2;
 
-      .header-left {
+      .header-title {
         display: flex;
         align-items: center;
         gap: 1.5rem;
 
-        .btn-back {
-          background: rgba(255, 255, 255, 0.3);
-          border: 2px solid rgba(255, 255, 255, 0.4);
-          color: $dark;
-          font-weight: 600;
-          padding: 0.75rem 1.5rem;
-          border-radius: 50px;
-          backdrop-filter: blur(10px);
-          @include transition;
-
-          &:hover {
-            background: rgba(255, 255, 255, 0.5);
-            border-color: rgba(255, 255, 255, 0.6);
-            color: $dark;
-            transform: translateX(-2px);
-          }
+        .header-icon {
+          font-size: 3.5rem;
+          color: $gold;
+          text-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+          animation: gentlePulse 3s ease-in-out infinite;
         }
 
-        .header-title {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-
-          .header-icon {
-            font-size: 2.5rem;
-            color: $gold-dark;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          }
-
+        div {
           h1 {
-            font-size: 2rem;
+            font-size: 2.5rem;
             font-weight: 700;
             margin: 0;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            
+            // 🔥 ENHANCED: Better emoji integration  
+            .award-emoji {
+              font-size: 2.2rem;
+              margin-right: 0.5rem;
+              display: inline-block;
+              animation: trophyBounce 2s ease-in-out infinite;
+            }
           }
 
           .header-subtitle {
-            font-size: 1rem;
-            opacity: 0.8;
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.9);
             margin: 0;
+            opacity: 0.95;
+            font-weight: 500;
           }
         }
       }
 
       .header-stats {
+        // 🔥 UPDATE 2: Stat card diperkecil sesuai instruksi
         .stat-card {
-          background: rgba(255, 255, 255, 0.3);
-          border: 2px solid rgba(255, 255, 255, 0.4);
-          border-radius: 1rem;
-          padding: 1.5rem;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 1rem; // Dikurangi dari 1.2rem
+          padding: 1.5rem; // Dikurangi dari 2rem
           text-align: center;
           backdrop-filter: blur(10px);
           @include transition;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 
           &:hover {
-            background: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 1);
             transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
           }
 
           .stat-number {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: $gold-dark;
+            font-size: 2.2rem; // Dikurangi dari 3rem
+            font-weight: 800;
+            color: $primary;
+            display: block;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           }
 
           .stat-label {
-            font-size: 0.875rem;
+            font-size: 1rem;
+            color: $gray-700;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
             margin-top: 0.5rem;
           }
         }
@@ -173,19 +164,20 @@ $gold-dark: #b8860b;
     }
   }
 
-  // 🔥 Loading Section
-  .loading-section {
-    min-height: 60vh;
+  // Loading Container
+  .loading-container {
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
+    min-height: 60vh;
 
     .loading-content {
       text-align: center;
       background: white;
       padding: 3rem;
-      border-radius: 1rem;
+      border-radius: 1.5rem;
       @include card-shadow;
+      border: 1px solid rgba($primary, 0.1);
 
       .loading-spinner {
         margin-bottom: 2rem;
@@ -194,550 +186,690 @@ $gold-dark: #b8860b;
           width: 4rem;
           height: 4rem;
           border-width: 0.3em;
+          color: $primary;
         }
       }
 
       h4 {
         color: $gray-800;
         margin-bottom: 1rem;
+        font-weight: 600;
       }
 
       p {
+        color: $gray-600;
         margin: 0;
       }
     }
   }
 
-  // 🔥 Awards Section
-  .awards-section {
-    .section-header {
-      background: white;
-      padding: 2rem;
-      border-radius: 1rem;
-      margin-bottom: 2rem;
-      @include card-shadow;
+  // 🔥 ENHANCED: Certificates Grid
+  .certificates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 2.5rem;
+    margin-bottom: 3rem;
+  }
+
+  // 🔥 UPDATE 3: Certificate card dengan background kuning keemasan sesuai instruksi
+  .certificate-card {
+    background: linear-gradient(135deg, $gold-light 0%, lighten($gold, 30%) 50%, rgba(255, 255, 255, 0.9) 100%);
+    border-radius: 1.5rem;
+    overflow: hidden;
+    position: relative;
+    @include transition;
+    @include card-shadow;
+    border: 2px solid rgba($gold, 0.3); // Border emas
+    animation: fadeInUp 0.6s ease-out;
+    animation-fill-mode: both;
+
+    &:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 20px 50px rgba($gold, 0.25); // Shadow emas
+      border-color: rgba($gold, 0.5);
+    }
+
+    &:nth-child(1) { animation-delay: 0.1s; }
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.3s; }
+    &:nth-child(4) { animation-delay: 0.4s; }
+
+    .certificate-ribbon {
+      position: absolute;
+      top: 20px;
+      right: -10px;
+      background: linear-gradient(45deg, $success, lighten($success, 8%));
+      color: white;
+      padding: 0.6rem 1.8rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      transform: rotate(8deg);
+      box-shadow: 0 4px 15px rgba($success, 0.3);
+      border-radius: 6px;
+      z-index: 10;
+      letter-spacing: 0.5px;
+
+      span {
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    .certificate-content {
+      padding: 2.5rem;
       text-align: center;
 
-      h5 {
-        margin: 0 0 1rem 0;
-        color: $gray-800;
-        font-weight: 600;
+      // 🔥 UPDATE 4: Star dengan foto profile sesuai instruksi
+      .certificate-icon {
+        margin-bottom: 2rem;
+        position: relative;
         display: flex;
-        align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-
-        i {
-          color: $gold;
-          font-size: 1.5rem;
-        }
-      }
-
-      .section-subtitle {
-        margin: 0 0 1.5rem 0;
-        font-size: 1.1rem;
-        color: $gray-600;
-
-        .text-warning {
-          color: $gold-dark !important;
-          font-weight: 700;
-        }
-      }
-
-      // 🔥 NEW: Improvement notice
-      .improvement-notice {
-        background: linear-gradient(135deg, rgba($info, 0.1), rgba($info, 0.05));
-        border: 1px solid rgba($info, 0.2);
-        border-radius: 0.75rem;
-        padding: 1rem;
-        color: darken($info, 30%);
-        font-size: 0.9rem;
-        display: flex;
         align-items: center;
-        justify-content: center;
 
-        i {
-          color: $info;
-        }
-      }
-    }
+        // Profile picture overlay
+        .profile-overlay {
+          position: relative;
+          z-index: 2;
+          width: 6rem;
+          height: 6rem;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, $primary, lighten($primary, 10%));
 
-    .awards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-      gap: 2rem;
-    }
+          .profile-picture {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+          }
 
-    .award-card {
-      background: white;
-      border-radius: 1rem;
-      overflow: hidden;
-      @include card-shadow;
-      @include hover-lift;
-      @include transition;
-      position: relative;
-      border: 1px solid $gray-200;
-
-      &.latest {
-        border: 2px solid $gold;
-        
-        .award-badge {
-          position: absolute;
-          top: -8px;
-          right: -8px;
-          background: linear-gradient(135deg, $danger 0%, lighten($danger, 10%) 100%);
-          color: white;
-          padding: 0.5rem 1rem;
-          border-radius: 50px;
-          font-size: 0.75rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          z-index: 10;
-          box-shadow: 0 4px 15px rgba($danger, 0.3);
-          animation: pulse 2s infinite;
-
-          i {
-            margin-right: 0.25rem;
+          .profile-initials {
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
           }
         }
       }
 
-      .award-header {
-        @include gradient-bg($gold, lighten($gold, 5%));
-        color: $dark;
-        padding: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
+      .certificate-info {
+        h5.period-title {
+          font-size: 1.6rem;
+          font-weight: 700;
+          color: $gray-800;
+          margin-bottom: 1.5rem;
+          letter-spacing: 0.5px;
+        }
 
-        .award-icon {
-          width: 60px;
-          height: 60px;
-          background: rgba(255, 255, 255, 0.3);
+        .period-details {
+          color: $primary;
+          font-weight: 600;
+          margin-bottom: 1rem;
+          font-size: 1.1rem;
+          background: rgba($primary, 0.1);
+          padding: 0.75rem 1rem;
+          border-radius: 0.75rem;
+          border: 1px solid rgba($primary, 0.2);
+
+          i {
+            color: $primary;
+            margin-right: 0.5rem;
+          }
+        }
+
+        .cert-number {
+          color: $black;
+          font-weight:600;
+          font-size: 0.95rem;
+          margin-bottom: 1rem;
+          font-family: 'Courier New', monospace;
+          background: $gray-100;
+          padding: 0.75rem;
+          border-radius: 0.75rem;
+          border: 1px solid $gray-200;
+
+          i {
+            color: $gray-500;
+            margin-right: 0.5rem;
+          }
+        }
+
+        .upload-date {
+          color: $black;
+          font-weight:600;
+          font-size: 0.9rem;
+          margin: 0;
+
+          i {
+            color: $info;
+            margin-right: 0.5rem;
+          }
+        }
+      }
+    }
+
+    .certificate-actions {
+      padding: 1.5rem; // Dikurangi dari 2rem
+      background: linear-gradient(135deg, rgba($gold, 0.05), rgba($gold, 0.1)); // Background emas
+      border-top: 1px solid rgba($gold, 0.2); // Border emas
+
+      .btn-download {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: linear-gradient(135deg, $primary, lighten($primary, 5%));
+        border: none;
+        color: white;
+        font-weight: 700;
+        border-radius: 1rem;
+        @include transition;
+        box-shadow: 0 6px 20px rgba($primary, 0.3);
+        font-size: 1rem;
+        letter-spacing: 0.5px;
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, darken($primary, 5%), $primary);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 30px rgba($primary, 0.4);
+        }
+
+        &:disabled {
+          opacity: 0.7;
+          transform: none;
+          cursor: not-allowed;
+        }
+
+        i {
+          margin-right: 0.75rem;
+          font-size: 1.1rem;
+        }
+      }
+    }
+  }
+
+  // 🔥 ENHANCED: Empty State
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: 2rem;
+    @include card-shadow;
+    border: 2px dashed rgba($primary, 0.2);
+
+    .empty-icon {
+      margin-bottom: 2rem;
+
+      i {
+        color: rgba($primary, 0.4);
+        text-shadow: 0 2px 4px rgba($primary, 0.1);
+        animation: gentlePulse 3s ease-in-out infinite;
+      }
+    }
+
+    h3 {
+      color: $gray-800;
+      margin-bottom: 1.5rem;
+      font-weight: 700;
+      font-size: 1.8rem;
+    }
+
+    .empty-description {
+      color: $gray-600;
+      font-size: 1.2rem;
+      line-height: 1.7;
+      margin-bottom: 2.5rem;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .empty-tips {
+      background: rgba($primary, 0.05);
+      border: 1px solid rgba($primary, 0.15);
+      border-radius: 1.5rem;
+      padding: 2.5rem;
+      text-align: left;
+      max-width: 700px;
+      margin: 0 auto;
+
+      h6 {
+        color: $primary;
+        margin-bottom: 1.5rem;
+        font-weight: 700;
+        font-size: 1.2rem;
+        text-align: center;
+      }
+
+      ul {
+        color: $gray-700;
+        margin: 0;
+        padding-left: 2rem;
+        line-height: 1.8;
+
+        li {
+          margin-bottom: 1rem;
+          font-size: 1rem;
+
+          &:last-child {
+            margin-bottom: 0;
+          }
+
+          strong {
+            color: $primary;
+          }
+
+          &::marker {
+            color: $primary;
+          }
+        }
+      }
+    }
+  }
+
+  // 🔥 UPDATE 5: Achievement Timeline diperkecil sesuai instruksi
+  .achievement-timeline {
+    .card {
+      border: none;
+      @include card-shadow;
+      border-radius: 1.2rem; // Dikurangi dari 1.5rem
+      overflow: hidden;
+
+      .card-header {
+        background: linear-gradient(135deg, $primary, lighten($primary, 8%));
+        color: white;
+        border: none;
+        padding: 1.5rem 2rem; // Dikurangi dari 2rem 2.5rem
+
+        h5 {
+          margin: 0;
+          font-weight: 700;
+          font-size: 1.1rem; // Dikurangi dari 1.3rem
+
+          i {
+            margin-right: 0.75rem;
+            color: $gold;
+          }
+        }
+      }
+
+      .card-body {
+        padding: 2rem; // Dikurangi dari 2.5rem
+      }
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 3.5rem;
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 1.25rem;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(to bottom, $primary, lighten($primary, 15%));
+        border-radius: 1.5px;
+      }
+
+      .timeline-item {
+        position: relative;
+        margin-bottom: 2rem; // Dikurangi dari 2.5rem
+        padding-left: 2.5rem;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .timeline-marker {
+          position: absolute;
+          left: -3rem;
+          top: 0;
+          width: 3.5rem;
+          height: 3.5rem;
+          background: linear-gradient(135deg, $primary, lighten($primary, 10%));
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.8rem;
-          color: $gold-dark;
-          backdrop-filter: blur(10px);
-        }
+          box-shadow: 0 6px 20px rgba($primary, 0.3);
+          border: 4px solid white;
 
-        .award-title {
-          h6 {
-            margin: 0 0 0.25rem 0;
-            font-size: 1.1rem;
-            font-weight: 700;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-          }
-
-          p {
-            margin: 0;
-            font-size: 0.9rem;
-            opacity: 0.8;
-            font-weight: 500;
-          }
-        }
-      }
-
-      .award-body {
-        padding: 1.5rem;
-
-        .award-detail {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-          padding-bottom: 0.75rem;
-          border-bottom: 1px solid $gray-200;
-
-          &:last-of-type {
-            border-bottom: none;
-          }
-
-          .label {
-            font-weight: 600;
-            color: $gray-600;
-            font-size: 0.9rem;
-          }
-
-          .value {
-            font-weight: 700;
-
-            &.score {
-              font-size: 1.5rem;
-              color: $primary;
-            }
-
-            &.ranking {
-              background: $success;
-              color: white;
-              padding: 0.25rem 0.75rem;
-              border-radius: 50px;
-              font-size: 0.875rem;
-            }
-
-            &.status {
-              display: flex;
-              align-items: center;
-              gap: 0.5rem;
-              font-size: 0.875rem;
-
-              &.downloaded {
-                color: $success;
-              }
-
-              &.pending {
-                color: $warning;
-              }
-            }
+          i {
+            color: $gold;
+            font-size: 1.4rem;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
           }
         }
 
-        .download-info {
-          background: rgba($info, 0.1);
-          border: 1px solid rgba($info, 0.2);
-          color: darken($info, 30%);
-          padding: 0.75rem;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          margin-top: 1rem;
-        }
-      }
-
-      .award-actions {
-        padding: 1rem 1.5rem;
-        background: $light;
-        display: flex;
-        gap: 0.75rem;
-
-        .btn {
-          flex: 1;
-          padding: 0.75rem 1rem;
-          border-radius: 0.5rem;
-          font-weight: 600;
+        .timeline-content {
+          background: white;
+          padding: 1.8rem; // Dikurangi dari 2rem
+          border-radius: 1rem;
+          border: 1px solid rgba($primary, 0.1);
           @include transition;
 
-          &.btn-preview {
-            background: $primary;
-            border-color: $primary;
-            color: white;
-
-            &:hover {
-              background: darken($primary, 10%);
-              border-color: darken($primary, 10%);
-              transform: translateY(-1px);
-            }
+          &:hover {
+            box-shadow: 0 6px 25px rgba($primary, 0.1);
+            transform: translateX(8px);
+            border-color: rgba($primary, 0.2);
           }
 
-          &.btn-download {
-            background: $success;
-            border-color: $success;
-            color: white;
-
-            &:hover {
-              background: darken($success, 10%);
-              border-color: darken($success, 10%);
-              transform: translateY(-1px);
-            }
-
-            &:disabled {
-              opacity: 0.6;
-              cursor: not-allowed;
-              transform: none !important;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // 🔥 No Awards Section
-  .no-awards-section {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 50vh;
-
-    .no-awards-content {
-      background: white;
-      padding: 3rem;
-      border-radius: 1rem;
-      @include card-shadow;
-      text-align: center;
-      max-width: 600px;
-
-      .no-awards-icon {
-        width: 100px;
-        height: 100px;
-        background: $gray-200;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 2rem auto;
-        font-size: 3rem;
-        color: $gray-600;
-      }
-
-      h4 {
-        color: $gray-800;
-        margin-bottom: 1rem;
-        font-weight: 600;
-      }
-
-      > p {
-        color: $gray-600;
-        margin-bottom: 2rem;
-        line-height: 1.6;
-      }
-
-      .tips-section {
-        background: $light;
-        padding: 2rem;
-        border-radius: 0.75rem;
-        border: 1px solid $gray-200;
-
-        h6 {
-          color: $gray-800;
-          margin-bottom: 1.5rem;
-          font-weight: 600;
-        }
-
-        .tips-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-
-          .tip-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
+          .timeline-date {
             font-size: 0.9rem;
-            color: $gray-700;
-
-            i {
-              color: $primary;
-              font-size: 1.1rem;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // 🔥 Enhanced Modal Styles
-  .modal-content {
-    border: none;
-    border-radius: 1rem;
-    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-
-    .modal-header {
-      @include gradient-bg($primary, lighten($primary, 5%));
-      color: white;
-      border-bottom: none;
-      padding: 1.5rem 2rem;
-
-      .modal-title {
-        font-weight: 600;
-        margin: 0;
-      }
-
-      .btn-close {
-        filter: invert(1) grayscale(100%) brightness(200%);
-        opacity: 0.8;
-        @include transition;
-
-        &:hover {
-          opacity: 1;
-          transform: scale(1.1);
-        }
-      }
-    }
-
-    .modal-body {
-      padding: 2rem;
-
-      .certificate-preview {
-        background: linear-gradient(135deg, $gold-light 0%, lighten($gold-light, 5%) 100%);
-        border: 2px solid $gold;
-        border-radius: 1rem;
-        padding: 2rem;
-        text-align: center;
-        margin-bottom: 2rem;
-
-        .preview-header {
-          margin-bottom: 1.5rem;
-
-          i {
-            font-size: 3rem;
-            color: $gold-dark;
-            margin-bottom: 1rem;
-            display: block;
-          }
-
-          h6 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: $dark;
-            margin-bottom: 0.5rem;
-          }
-
-          p {
-            color: $gray-600;
-            margin: 0;
-          }
-        }
-
-        .preview-content {
-          .employee-name {
-            font-size: 2rem;
-            font-weight: 700;
             color: $primary;
-            margin-bottom: 0.5rem;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          }
-
-          .award-type {
-            font-size: 1rem;
-            color: $gray-600;
-            margin-bottom: 0.5rem;
-          }
-
-          .period {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: $gold-dark;
-          }
-        }
-      }
-
-      .preview-details {
-        .detail-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-          margin-bottom: 1rem;
-
-          .detail-item {
-            background: $light;
-            padding: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            background: rgba($primary, 0.1);
+            padding: 0.5rem 1rem;
             border-radius: 0.5rem;
-            border: 1px solid $gray-200;
+            display: inline-block;
+          }
 
-            .label {
-              font-size: 0.875rem;
-              color: $gray-600;
-              display: block;
-              margin-bottom: 0.5rem;
-            }
+          .timeline-title {
+            color: $gray-800;
+            margin-bottom: 1rem;
+            font-weight: 700;
+            font-size: 1.1rem; // Dikurangi dari 1.2rem
+          }
 
-            .value {
+          .timeline-description {
+            color: $gray-600;
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+            font-size: 0.95rem; // Dikurangi dari 1rem
+            
+            // 🔥 UPDATE 6: Highlight untuk kalimat tertentu sesuai instruksi
+            .achievement-highlight {
+              background: linear-gradient(135deg, rgba($gold, 0.15), rgba($gold, 0.05));
+              padding: 0.5rem 0.75rem;
+              border-radius: 0.5rem;
+              border-left: 3px solid $gold;
+              margin: 0.75rem 0;
               font-weight: 600;
               color: $gray-800;
+            }
+          }
 
-              &.score {
-                font-size: 1.5rem;
+          // 🔥 UPDATE 7: Score details section sesuai instruksi
+          .score-details {
+            background: linear-gradient(135deg, rgba($primary, 0.05), rgba($primary, 0.02));
+            border: 1px solid rgba($primary, 0.15);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin: 1rem 0;
+
+            .score-header {
+              color: $primary;
+              font-weight: 700;
+              font-size: 0.9rem;
+              margin-bottom: 0.75rem;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+
+            .score-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+              gap: 0.75rem;
+            }
+
+            .score-item {
+              text-align: center;
+              background: white;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid rgba($primary, 0.1);
+              @include transition;
+
+              &:hover {
+                border-color: rgba($primary, 0.3);
+                transform: translateY(-2px);
+              }
+
+              .score-label {
+                font-size: 0.75rem;
+                color: $gray-600;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+                text-transform: uppercase;
+              }
+
+              .score-value {
+                font-size: 1.1rem;
+                font-weight: 800;
                 color: $primary;
+              }
+
+              &.voters {
+                .score-value { color: $success; }
+              }
+
+              &.berakhlak {
+                .score-value { color: $info; }
+              }
+
+              &.presensi {
+                .score-value { color: $warning; }
+              }
+
+              &.ckp {
+                .score-value { color: darken($primary, 10%); }
               }
             }
           }
-        }
 
-        .detail-certificate-number {
-          background: $light;
-          padding: 1rem;
-          border-radius: 0.5rem;
-          border: 1px solid $gray-200;
-          margin-bottom: 1rem;
-
-          .label {
-            font-size: 0.875rem;
-            color: $gray-600;
-            display: block;
-            margin-bottom: 0.5rem;
-          }
-
-          .certificate-number {
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: $gray-800;
-            background: white;
-            padding: 0.5rem;
-            border-radius: 0.25rem;
-            border: 1px solid $gray-300;
-            display: inline-block;
+          small {
+            color: $gray-500;
+            font-size: 0.85rem;
           }
         }
+      }
+    }
+  }
 
-        .download-notice {
-          background: rgba($success, 0.1);
-          border: 1px solid rgba($success, 0.2);
-          color: darken($success, 20%);
-          padding: 1rem;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          margin-bottom: 1rem;
-        }
+  // 🔥 ENHANCED: Congratulations Section
+  .congratulations-section {
+    .congratulations-card {
+      border: none;
+      @include card-shadow;
+      border-radius: 2rem;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba($primary, 0.05), rgba($primary, 0.02));
+      border: 2px solid rgba($primary, 0.15);
 
-        // 🔥 NEW: Improvement notice in modal
-        .improvement-notice-modal {
-          background: linear-gradient(135deg, rgba($warning, 0.1), rgba($warning, 0.05));
-          border: 1px solid rgba($warning, 0.2);
-          border-radius: 0.5rem;
-          padding: 1rem;
-          color: darken($warning, 30%);
-          font-size: 0.875rem;
-          display: flex;
-          align-items: center;
+      .card-body {
+        padding: 3.5rem 2.5rem;
+
+        .congratulations-icon {
+          margin-bottom: 2rem;
 
           i {
-            color: $warning;
+            font-size: 5rem;
+            background: linear-gradient(135deg, $gold, darken($gold, 10%));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 4px 8px rgba($gold, 0.3);
+            animation: bounce 2s ease-in-out infinite;
+          }
+        }
+
+        h4 {
+          color: $gray-800;
+          margin-bottom: 1.5rem;
+          font-weight: 800;
+          font-size: 2rem;
+        }
+
+        .lead {
+          font-size: 1.3rem;
+          color: $gray-700;
+          margin-bottom: 1.5rem;
+          line-height: 1.6;
+
+          strong {
+            color: $primary;
+            font-weight: 800;
+          }
+        }
+
+        .text-muted {
+          font-size: 1.1rem;
+          line-height: 1.7;
+          color: $gray-600;
+        }
+
+        .achievement-badge {
+          .badge {
+            font-size: 1rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba($warning, 0.3);
+            animation: gentlePulse 2s ease-in-out infinite;
           }
         }
       }
     }
+  }
 
-    .modal-footer {
-      background: $light;
-      border-top: 1px solid $gray-200;
-      padding: 1rem 2rem;
-      
-      .btn {
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        border-radius: 0.5rem;
-        @include transition;
+  // 🔥 NEW: Motivation Section
+  .motivation-section {
+    .card {
+      border: 2px solid rgba($primary, 0.1);
+      @include card-shadow;
 
-        &:hover {
-          transform: translateY(-1px);
+      .card-body {
+        .fa-quote-left {
+          color: rgba($primary, 0.3);
+        }
+
+        h5 {
+          color: $primary;
+          font-weight: 700;
+          font-style: italic;
         }
       }
     }
   }
 
-  // 🔥 Animations
-  @keyframes gradientBackground {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+  // 🔥 NEW: CTA Section
+  .cta-section {
+    .card {
+      @include card-shadow;
+
+      .card-body {
+        h5 {
+          color: $success;
+          font-weight: 800;
+        }
+
+        h6 {
+          color: $success;
+          font-weight: 700;
+        }
+
+        .list-unstyled {
+          li {
+            padding: 0.25rem 0;
+            color: $gray-600;
+
+            &::before {
+              content: '✓';
+              color: $success;
+              font-weight: bold;
+              margin-right: 0.5rem;
+            }
+          }
+        }
+      }
+    }
   }
 
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-  }
+  // 🔥 ENHANCED: Alert Messages
+  .alert {
+    border: none;
+    border-radius: 1rem;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    @include card-shadow;
 
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-  }
+    &.alert-danger {
+      background: linear-gradient(135deg, rgba($danger, 0.1), rgba($danger, 0.05));
+      border-left: 4px solid $danger;
+      color: darken($danger, 20%);
 
-  // 🔥 Mobile Responsive Design
-  @media (max-width: 768px) {
+      i {
+        color: $danger;
+      }
+    }
+
+    .btn-close {
+      opacity: 0.6;
+      transition: opacity 0.3s ease;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+// ==============================================
+// 🔥 ANIMATIONS
+// ==============================================
+
+@keyframes cleanBackground {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(3deg); }
+}
+
+@keyframes gentlePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.03); opacity: 0.9; }
+}
+
+@keyframes trophyBounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0) rotate(0deg); }
+  40% { transform: translateY(-5px) rotate(5deg); }
+  60% { transform: translateY(-2px) rotate(-2deg); }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-15px); }
+  60% { transform: translateY(-8px); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ==============================================
+// 🔥 RESPONSIVE DESIGN
+// ==============================================
+
+// Mobile (768px and below)
+@media (max-width: 768px) {
+  .certificate-page {
     padding: 1rem;
 
     .page-header {
@@ -745,137 +877,243 @@ $gold-dark: #b8860b;
 
       .header-content {
         flex-direction: column;
-        gap: 1rem;
+        gap: 1.5rem;
         text-align: center;
 
-        .header-left {
+        .header-title {
           flex-direction: column;
-          gap: 1rem;
+          text-align: center;
 
-          .btn-back {
-            align-self: flex-start;
+          .header-icon {
+            font-size: 2.5rem;
           }
 
-          .header-title {
-            flex-direction: column;
-            text-align: center;
+          div h1 {
+            font-size: 1.8rem;
 
-            .header-icon {
-              font-size: 2rem;
-            }
-
-            h1 {
-              font-size: 1.5rem;
-            }
-
-            .header-subtitle {
-              font-size: 0.875rem;
+            .award-emoji {
+              font-size: 1.6rem;
             }
           }
-        }
 
-        .header-stats {
-          .stat-card {
-            padding: 1rem;
-
-            .stat-number {
-              font-size: 2rem;
-            }
-          }
-        }
-      }
-    }
-
-    .awards-section {
-      .awards-grid {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
-
-      .award-card {
-        .award-header {
-          padding: 1rem;
-
-          .award-icon {
-            width: 50px;
-            height: 50px;
-            font-size: 1.5rem;
-          }
-
-          .award-title h6 {
+          .header-subtitle {
             font-size: 1rem;
           }
         }
 
-        .award-body {
-          padding: 1rem;
+        .header-stats .stat-card {
+          padding: 1.2rem;
 
-          .award-detail {
-            .value.score {
-              font-size: 1.25rem;
+          .stat-number {
+            font-size: 2rem;
+          }
+
+          .stat-label {
+            font-size: 0.9rem;
+          }
+        }
+      }
+    }
+
+    .certificates-grid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .achievement-timeline {
+      .timeline {
+        padding-left: 2.5rem;
+
+        &::before {
+          left: 0.75rem;
+        }
+
+        .timeline-item {
+          padding-left: 2rem;
+
+          .timeline-marker {
+            left: -2.5rem;
+            width: 3rem;
+            height: 3rem;
+
+            i {
+              font-size: 1.2rem;
             }
           }
-        }
 
-        .award-actions {
-          padding: 1rem;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-      }
-    }
+          .timeline-content {
+            padding: 1.5rem;
 
-    .no-awards-section {
-      .no-awards-content {
-        padding: 2rem;
-        margin: 1rem;
+            // 🔥 MOBILE: Enhanced achievement highlight responsive
+            .achievement-highlight {
+              padding: 1.5rem;
+              border-radius: 1.2rem;
 
-        .no-awards-icon {
-          width: 80px;
-          height: 80px;
-          font-size: 2.5rem;
-          margin-bottom: 1.5rem;
-        }
+              .highlight-header {
+                font-size: 1rem;
+                margin-bottom: 1rem;
+              }
 
-        .tips-section {
-          padding: 1.5rem;
+              .highlight-content {
+                .highlight-intro {
+                  margin-bottom: 1.5rem;
 
-          .tips-grid {
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
+                  .highlight-text {
+                    font-size: 0.9rem;
+                    line-height: 1.6;
+                  }
+                }
+
+                .comprehensive-scores {
+                  .scores-breakdown {
+                    // 🔥 MOBILE: Hero card responsive
+                    .score-hero-card {
+                      flex-direction: column;
+                      text-align: center;
+                      gap: 1rem;
+                      padding: 1.5rem;
+
+                      .hero-icon {
+                        font-size: 3rem;
+                      }
+
+                      .hero-content {
+                        .hero-value {
+                          font-size: 2.5rem;
+                        }
+                      }
+                    }
+
+                    // 🔥 MOBILE: Score cards responsive
+                    .score-cards-grid {
+                      grid-template-columns: 1fr;
+                      gap: 1rem;
+                    }
+
+                    .score-card {
+                      padding: 1.2rem;
+
+                      .card-header {
+                        gap: 0.5rem;
+                        margin-bottom: 1rem;
+
+                        .card-icon {
+                          font-size: 1.5rem;
+                        }
+
+                        .card-title {
+                          font-size: 0.9rem;
+                        }
+                      }
+
+                      .card-body {
+                        margin-bottom: 1rem;
+
+                        .score-display {
+                          font-size: 2rem;
+                        }
+
+                        .score-weight {
+                          font-size: 0.75rem;
+                        }
+                      }
+                    }
+
+                    // 🔥 MOBILE: Voters card responsive
+                    .voters-card {
+                      flex-direction: column;
+                      text-align: center;
+                      gap: 1rem;
+                      padding: 1.2rem;
+
+                      .voters-icon {
+                        width: 3rem;
+                        height: 3rem;
+                        font-size: 1.2rem;
+                      }
+
+                      .voters-content {
+                        .voters-title {
+                          font-size: 0.9rem;
+                        }
+
+                        .voters-text {
+                          font-size: 0.85rem;
+                        }
+                      }
+
+                      .voters-badge {
+                        .badge-number {
+                          font-size: 1.2rem;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // 🔥 MOBILE: No scores card responsive
+                .no-scores-card {
+                  padding: 2rem;
+
+                  .no-scores-icon i {
+                    font-size: 2.5rem;
+                  }
+
+                  .no-scores-content {
+                    h6 {
+                      font-size: 1.1rem;
+                    }
+
+                    p {
+                      font-size: 0.9rem;
+                    }
+                  }
+                }
+              }
+            }
+
+            .achievement-summary {
+              .achievement-intro,
+              .achievement-closing {
+                font-size: 0.9rem;
+              }
+            }
           }
-        }
-      }
-    }
-
-    .modal-dialog {
-      margin: 1rem;
-    }
-
-    .modal-content {
-      .modal-body {
-        padding: 1.5rem;
-
-        .certificate-preview {
-          padding: 1.5rem;
-
-          .preview-content .employee-name {
-            font-size: 1.5rem;
-          }
-        }
-
-        .preview-details .detail-row {
-          grid-template-columns: 1fr;
         }
       }
     }
   }
+}
 
-  // 🔥 Tablet Responsive
-  @media (min-width: 769px) and (max-width: 1024px) {
-    .awards-section .awards-grid {
+// Tablet (769px to 1024px)
+@media (min-width: 769px) and (max-width: 1024px) {
+  .certificate-page {
+    .certificates-grid {
       grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-      gap: 1.5rem;
+      gap: 2rem;
+    }
+
+    .achievement-timeline {
+      .timeline-content {
+        .achievement-highlight {
+          .comprehensive-scores {
+            .scores-breakdown {
+              .score-cards-grid {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+              }
+
+              .score-hero-card {
+                padding: 1.8rem;
+                gap: 1.2rem;
+
+                .hero-content .hero-value {
+                  font-size: 2.8rem;
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

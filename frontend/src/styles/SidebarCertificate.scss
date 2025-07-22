@@ -1,0 +1,346 @@
+// src/styles/SidebarCertificate.scss - UPDATED WITH CERTIFICATE BADGE STYLES
+
+// Variables
+$primary: #2c549c;
+$success: #198754;
+$warning: #ffc107;
+$info: #0dcaf0;
+$gold: #ffd700;
+$white: #fff;
+$gray-100: #f8f9fa;
+$gray-200: #e9ecef;
+$gray-600: #6c757d;
+
+// ==============================================
+// SIDEBAR CERTIFICATE MENU STYLES
+// ==============================================
+
+.sidebar {
+  // Nav item with badge support
+  .nav-item {
+    position: relative;
+    
+    .nav-link {
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      border-radius: 0.5rem;
+      margin-bottom: 0.25rem;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        transform: translateX(4px);
+      }
+
+      &.active {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border-left: 4px solid $gold;
+        padding-left: 0.75rem;
+        
+        .nav-icon {
+          color: $gold;
+        }
+      }
+
+      .nav-icon {
+        width: 20px;
+        height: 20px;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+      }
+
+      .nav-label {
+        flex: 1;
+        font-weight: 500;
+        font-size: 0.9rem;
+      }
+
+      // 🔥 NEW: Certificate Badge Styles
+      .nav-badge {
+        background: linear-gradient(135deg, $gold 0%, darken($gold, 15%) 100%);
+        color: $primary;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.25rem 0.5rem;
+        border-radius: 50px;
+        min-width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 0.5rem;
+        box-shadow: 0 2px 6px rgba($gold, 0.4);
+        border: 1px solid rgba($white, 0.3);
+        animation: badgePulse 2s ease-in-out infinite;
+        
+        // Gold shine effect
+        &::before {
+          content: '';
+          position: absolute;
+          top: -1px;
+          left: -1px;
+          right: -1px;
+          bottom: -1px;
+          background: linear-gradient(45deg, transparent, rgba($white, 0.3), transparent);
+          border-radius: 50px;
+          animation: shine 3s ease-in-out infinite;
+        }
+      }
+
+      // 🔥 NEW: Loading Spinner for Certificates
+      .nav-loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid rgba(255, 255, 255, 0.8);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-left: 0.5rem;
+      }
+
+      // Special styling for certificate menu
+      &[href="/my-certificates"] {
+        .nav-icon {
+          color: $gold;
+        }
+        
+        &:hover {
+          background: rgba($gold, 0.15);
+          
+          .nav-icon {
+            color: lighten($gold, 10%);
+            transform: scale(1.1);
+          }
+        }
+        
+        &.active {
+          background: rgba($gold, 0.2);
+          border-left-color: $gold;
+          box-shadow: inset 0 0 10px rgba($gold, 0.2);
+          
+          .nav-icon {
+            color: $gold;
+            animation: pulse 2s ease-in-out infinite;
+          }
+          
+          .nav-label {
+            color: $white;
+            font-weight: 600;
+          }
+        }
+      }
+    }
+  }
+
+  // Section titles
+  .nav-section-title {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 1.5rem 1rem 0.75rem 1rem;
+    padding: 0;
+  }
+
+  // Collapsed state adjustments
+  &.collapsed {
+    .nav-link {
+      .nav-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        min-width: 18px;
+        height: 18px;
+        font-size: 0.6rem;
+        padding: 0.2rem 0.4rem;
+      }
+      
+      .nav-loading-spinner {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+}
+
+// ==============================================
+// CERTIFICATE PAGE INTEGRATION STYLES
+// ==============================================
+
+// Additional styles for certificate menu integration
+.sidebar .nav-item .nav-link[href="/my-certificates"] {
+  // Gradient background when certificates are available
+  &:has(.nav-badge) {
+    background: linear-gradient(90deg, rgba($gold, 0.1) 0%, transparent 100%);
+    border: 1px solid rgba($gold, 0.2);
+    
+    &:hover {
+      background: linear-gradient(90deg, rgba($gold, 0.2) 0%, rgba($gold, 0.1) 100%);
+      border-color: rgba($gold, 0.4);
+    }
+  }
+  
+  // Special hover effect for certificate menu
+  &:hover {
+    .nav-badge {
+      background: linear-gradient(135deg, lighten($gold, 5%) 0%, $gold 100%);
+      transform: scale(1.1);
+      box-shadow: 0 3px 8px rgba($gold, 0.5);
+    }
+  }
+}
+
+// ==============================================
+// ANIMATIONS
+// ==============================================
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 6px rgba($gold, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 3px 8px rgba($gold, 0.6);
+  }
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+// ==============================================
+// RESPONSIVE DESIGN
+// ==============================================
+
+// Mobile adjustments
+@media (max-width: 768px) {
+  .sidebar {
+    .nav-link {
+      .nav-badge {
+        font-size: 0.65rem;
+        min-width: 18px;
+        height: 18px;
+        padding: 0.2rem 0.4rem;
+      }
+      
+      .nav-loading-spinner {
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+}
+
+// ==============================================
+// FILTER SECTION STYLES (for Certificate Management Page)
+// ==============================================
+
+.certificate-management-page {
+  .filter-section {
+    .card {
+      border: none;
+      border-radius: 1rem;
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba($primary, 0.1);
+
+      .card-header {
+        background: linear-gradient(135deg, rgba($primary, 0.1), rgba($primary, 0.05));
+        border-bottom: 1px solid rgba($primary, 0.1);
+        border-radius: 1rem 1rem 0 0;
+        
+        h5 {
+          color: $primary;
+          font-weight: 600;
+          
+          i {
+            color: $primary;
+          }
+        }
+      }
+
+      .card-body {
+        padding: 1.5rem;
+
+        .form-label {
+          color: $gray-600;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+
+        .form-select {
+          border-radius: 0.5rem;
+          border: 1px solid rgba($primary, 0.2);
+          padding: 0.75rem;
+          font-size: 0.9rem;
+          transition: all 0.3s ease;
+
+          &:focus {
+            border-color: $primary;
+            box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
+          }
+        }
+
+        .btn-outline-secondary {
+          border-radius: 0.5rem;
+          padding: 0.75rem 1.5rem;
+          font-weight: 500;
+          transition: all 0.3s ease;
+
+          &:hover:not(:disabled) {
+            background: $gray-600;
+            border-color: $gray-600;
+            color: white;
+            transform: translateY(-1px);
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+
+        .filter-info {
+          display: flex;
+          align-items: center;
+          height: 100%;
+          
+          small {
+            background: rgba($info, 0.1);
+            border: 1px solid rgba($info, 0.2);
+            color: darken($info, 30%);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            
+            i {
+              color: $info;
+            }
+          }
+        }
+      }
+    }
+  }
+}

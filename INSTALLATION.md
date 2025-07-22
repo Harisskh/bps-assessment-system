@@ -406,7 +406,7 @@ After running `npm run db:seed`, try logging in with:
 ```bash
 # Check if upload directories exist
 ls -la backend/uploads/
-# Should see: profiles/ temp/ directories
+# Should see: profiles/ temp_excel_user/ directories
 ```
 
 ---

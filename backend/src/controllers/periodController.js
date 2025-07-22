@@ -374,7 +374,11 @@ const deletePeriod = async (req, res) => {
         await tx.ckpScore.deleteMany({
           where: { periodId: id }
         });
-        
+
+        await tx.certificate.deleteMany({
+          where: {period_id: id }
+        })
+
         // 5. Finally delete the period
         await tx.period.delete({
           where: { id }

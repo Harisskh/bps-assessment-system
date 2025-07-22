@@ -373,11 +373,12 @@ const checkUserData = async (req, res) => {
       evaluationsReceived,
       attendanceRecords,
       ckpScores,
+      certificate,
       finalEvaluations
     ] = dataCounts;
 
     const hasData = evaluationsGiven > 0 || evaluationsReceived > 0 || 
-                   attendanceRecords > 0 || ckpScores > 0 || finalEvaluations > 0;
+                   attendanceRecords > 0 || certificate > 0 || ckpScores > 0 || finalEvaluations > 0;
 
     res.json({
       success: true,
@@ -395,7 +396,8 @@ const checkUserData = async (req, res) => {
           attendanceRecords,
           ckpScores,
           finalEvaluations,
-          total: evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations
+          certificate,
+          total: evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations + certificate
         }
       }
     });
@@ -678,8 +680,8 @@ const permanentDeleteUser = async (req, res) => {
       prisma.finalEvaluation.count({ where: { userId: id } })
     ]);
 
-    const [evaluationsGiven, evaluationsReceived, attendanceRecords, ckpScores, finalEvaluations] = dataCounts;
-    const totalRelatedData = evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations;
+    const [evaluationsGiven, certificate, evaluationsReceived, attendanceRecords, ckpScores, finalEvaluations] = dataCounts;
+    const totalRelatedData = evaluationsGiven + certificate + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations;
 
     console.log(`🗑️ Attempting to delete user ${existingUser.nama} with ${totalRelatedData} related records`);
 
@@ -725,6 +727,13 @@ const permanentDeleteUser = async (req, res) => {
         });
         console.log(`Deleted ${ckpScores} CKP score records`);
       }
+
+      if(certificate > 0) {
+        await tx.certificate.deleteMany({
+          where: { user_id: id }
+        });
+        console.log('Deleted ${certificate} certification')
+      }
       
       // 5. Finally delete the user
       await tx.user.delete({
@@ -747,6 +756,7 @@ const permanentDeleteUser = async (req, res) => {
           attendanceRecords,
           ckpScores,
           finalEvaluations,
+          certificate,
           total: totalRelatedData
         }
       }

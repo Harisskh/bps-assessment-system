@@ -46,7 +46,7 @@ app.use(cors({
   ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Preview-Mode']
 }));
 
 // Security middleware
@@ -349,7 +349,7 @@ const periodRoutes = require('./routes/periods');
 const dashboardRoutes = require('./routes/dashboard');
 const monitoringRoutes = require('./routes/monitoring');
 const importRoutes = require('./routes/import');
-const certificateRoutes = require('./routes/certificate'); // 🔥 NEW: Certificate routes
+const certificateRoutes = require('./routes/certificate'); 
 
 // Route definitions
 app.use('/api/auth', authRoutes);
@@ -362,7 +362,7 @@ app.use('/api/periods', periodRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/import', importRoutes);
-app.use('/api/certificate', certificateRoutes); // 🔥 NEW: Certificate routes registration
+app.use('/api/certificate', certificateRoutes);
 
 // =============================================
 // ERROR HANDLERS

@@ -515,16 +515,41 @@ const ComprehensiveReportPage = () => {
             .best-employee-box {
                 background: linear-gradient(135deg, #ffd700, #ffed4e);
                 border: 2px solid #f39c12;
-                border-radius: 10px;
-                padding: 20px;
+                border-radius: 15px;
+                padding: 25px;
                 margin: 20px 0;
                 text-align: center;
+                position: relative;
+                box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
             }
             .best-employee-title {
                 font-size: 16px;
                 font-weight: bold;
                 color: #8B4513;
-                margin-bottom: 10px;
+                margin-bottom: 15px;
+            }
+            .profile-photo {
+                width: 100px;
+                height: 100px;
+                border-radius: 50%;
+                border: 4px solid #f39c12;
+                margin: 0 auto 15px auto;
+                overflow: hidden;
+                background: #f8f9fa;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            }
+            .profile-photo img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            .profile-photo-placeholder {
+                font-size: 36px;
+                color: #007bff;
+                font-weight: bold;
             }
             .best-employee-name {
                 font-size: 20px;
@@ -550,7 +575,8 @@ const ComprehensiveReportPage = () => {
                 font-size: 14px; 
                 font-weight: bold; 
                 margin-bottom: 10px; 
-                background-color:rgb(51, 98, 146); 
+                background-color: #000000; 
+                color: white;
                 padding: 8px; 
                 border-left: 4px solid #007bff;
             }
@@ -562,9 +588,10 @@ const ComprehensiveReportPage = () => {
             }
             th, td { 
                 border: 1px solid #ddd; 
-                padding: 4px; 
+                padding: 4px 3px; 
                 text-align: center; 
                 vertical-align: middle;
+                line-height: 1.2;
             }
             th { 
                 background-color: #f8f9fa; 
@@ -573,13 +600,47 @@ const ComprehensiveReportPage = () => {
             }
             .text-left { text-align: left !important; }
             .text-right { text-align: right !important; }
+            
+            /* 🔥 NEW: Styling untuk Best Employee dan Kandidat */
             .best-employee-row { 
-                background-color: #fff3cd; 
-                font-weight: bold; 
+                background-color: #fff3cd !important;
+                font-weight: bold;
+                color: #8B4513;
             }
             .candidate-row { 
-                background-color: #d4edda; 
+                background-color: #cce7ff !important;
+                font-weight: 500;
+                color: #0c5aa6;
             }
+            
+            /* 🔥 NEW: Badge Styling */
+            .status-badge {
+                display: inline-block;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 8px;
+                font-weight: bold;
+                text-transform: uppercase;
+                white-space: nowrap;
+            }
+            .badge-best-employee {
+                background: linear-gradient(135deg, #ffd700, #ffed4e);
+                color: #8B4513;
+                border: 1px solid #f39c12;
+                box-shadow: 0 2px 4px rgba(243, 156, 18, 0.3);
+            }
+            .badge-kandidat {
+                background: linear-gradient(135deg, #007bff, #0dcaf0);
+                color: white;
+                border: 1px solid #0dcaf0;
+                box-shadow: 0 2px 4px rgba(13, 202, 240, 0.3);
+            }
+            .badge-regular {
+                background: #f8f9fa;
+                color: #6c757d;
+                border: 1px solid #dee2e6;
+            }
+            
             .summary-stats {
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
@@ -614,6 +675,10 @@ const ComprehensiveReportPage = () => {
                 .section { page-break-inside: avoid; }
                 table { font-size: 9px; }
                 th, td { padding: 3px; }
+                .profile-photo {
+                    width: 80px;
+                    height: 80px;
+                }
             }
         </style>
     </head>
@@ -677,13 +742,45 @@ const ComprehensiveReportPage = () => {
             </div>
         </div>
 
-        <!-- Best Employee Box -->
+        <!-- 🔥 NEW: Best Employee Box with Profile Photo -->
         ${reportData.summary.bestEmployee ? `
         <div class="best-employee-box">
-            <div class="best-employee-title">🏆 Best Employee of the Month - ${reportData.period?.namaPeriode}</div>
+            <div class="best-employee-title">🏆 Best Employee of the Month - ${reportData.period?.namaPeriode}</div>            
             <div class="best-employee-name">${reportData.summary.bestEmployee.user.nama}</div>
-            <div class="best-employee-score">Skor Akhir: ${reportData.summary.bestEmployee.finalScore.toFixed(2)}</div>
             <div class="best-employee-position">${reportData.summary.bestEmployee.user.jabatan}</div>
+            <div style="font-size:18px; margin-top: 5px" class="best-employee-score">Skor Akhir: ${reportData.summary.bestEmployee.finalScore.toFixed(2)}</div>
+            
+            <!-- 🔥 NEW: Detail Skor -->
+            <div class="row gx-2 mt-3" style="max-width: 350px; margin: 15px auto 0 auto;">
+                <div class="col-4">
+                    <div style="background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; text-align: center; border: 2px solid #f39c12; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.2);">
+                        <div style="color: #666; font-size: 9px; font-weight: bold; margin-bottom: 3px;">BerAKHLAK</div>
+                        <div style="color: #007bff; font-size: 16px; font-weight: bold; margin-bottom: 2px;">${reportData.summary.bestEmployee.berakhlak.score.toFixed(1)}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div style="background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; text-align: center; border: 2px solid #f39c12; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.2);">
+                        <div style="color: #666; font-size: 9px; font-weight: bold; margin-bottom: 3px;">PRESENSI</div>
+                        <div style="color: #28a745; font-size: 16px; font-weight: bold; margin-bottom: 2px;">${reportData.summary.bestEmployee.attendance.percentage.toFixed(1)}%</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div style="background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; text-align: center; border: 2px solid #f39c12; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.2);">
+                        <div style="color: #666; font-size: 9px; font-weight: bold; margin-bottom: 3px;">CKP</div>
+                        <div style="color: #dc3545; font-size: 16px; font-weight: bold; margin-bottom: 2px;">${reportData.summary.bestEmployee.ckp.score}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 🔥 NEW: Additional Info -->
+            <div class="mt-3" style="background: rgba(255,255,255,0.8); padding: 12px; border-radius: 10px; margin: 15px 20px 0 20px; border: 1px solid #f39c12;">
+                <div class="row gx-2 text-center">
+                    <div class="col-6">
+                        <div style="color: #666; font-size: 9px; font-weight: bold;">Total Pemilih</div>
+                        <div style="color: #007bff; font-size: 14px; font-weight: bold;">${reportData.summary.bestEmployee.berakhlak.voterCount} Orang</div>
+                    </div>
+                </div>
+            </div>
         </div>
         ` : '<div class="best-employee-box"><div class="best-employee-title">Best Employee belum ditentukan</div></div>'}
 
@@ -708,7 +805,9 @@ const ComprehensiveReportPage = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    ${reportData.employees.map((emp, index) => `
+                    ${reportData.employees
+                        .filter(emp => emp.user.jabatan !== 'Administrator System') // 🔥 Filter out Administrator System
+                        .map((emp, index) => `
                     <tr class="${emp.isBestEmployee ? 'best-employee-row' : emp.isCandidate ? 'candidate-row' : ''}">
                         <td><strong>${index + 1}</strong></td>
                         <td class="text-left">${emp.user.nama}</td>
@@ -722,8 +821,11 @@ const ComprehensiveReportPage = () => {
                         <td>${emp.ckp.weightedScore.toFixed(1)}</td>
                         <td><strong>${emp.finalScore.toFixed(2)}</strong></td>
                         <td>
-                            ${emp.isBestEmployee ? 'Best Employee' : 
-                              emp.isCandidate ? 'Kandidat' : 'Regular'}
+                            ${emp.isBestEmployee ? 
+                                '<span class="status-badge badge-best-employee">🏆 Best Employee</span>' : 
+                              emp.isCandidate ? 
+                                '<span class="status-badge badge-kandidat">⭐ Kandidat</span>' : 
+                                '<span class="status-badge badge-regular">Regular</span>'}
                         </td>
                     </tr>
                     `).join('')}
@@ -741,22 +843,32 @@ const ComprehensiveReportPage = () => {
                         <th>Nama</th>
                         <th>Jumlah Pemilih</th>
                         <th>Total Skor BerAKHLAK</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${reportData.berakhlakRecap.map((emp, index) => `
+                    ${reportData.berakhlakRecap
+                        .filter(emp => emp.user.jabatan !== 'Administrator System') // 🔥 Filter out Administrator System
+                        .map((emp, index) => `
                     <tr class="${emp.isBestEmployee ? 'best-employee-row' : emp.berakhlak.isCandidate ? 'candidate-row' : ''}">
                         <td>${index + 1}</td>
                         <td class="text-left">${emp.user.nama}</td>
                         <td><strong>${emp.berakhlak.voterCount}</strong></td>
                         <td>${emp.berakhlak.score.toFixed(2)}</td>
+                        <td>
+                            ${emp.isBestEmployee ? 
+                                '<span class="status-badge badge-best-employee">🏆 Best Employee</span>' : 
+                              emp.berakhlak.isCandidate ? 
+                                '<span class="status-badge badge-kandidat">⭐ Kandidat</span>' : 
+                                '<span class="status-badge badge-regular">Regular</span>'}
+                        </td>
                     </tr>
                     `).join('')}
                 </tbody>
             </table>
         </div>
 
-        <!-- 🔥 FIXED: Rekap Presensi with Individual Violation Counts -->
+        <!-- Rekap Presensi -->
         <div class="section">
             <div class="section-title">REKAP PRESENSI</div>
             <table>
@@ -768,6 +880,7 @@ const ComprehensiveReportPage = () => {
                         <th colspan="5">Detail Pelanggaran</th>
                         <th rowspan="2">Total Minus (%)</th>
                         <th rowspan="2">Total Nilai Presensi (%)</th>
+                        <th rowspan="2">Status</th>
                     </tr>
                     <tr>
                         <th>TK</th>
@@ -778,7 +891,9 @@ const ComprehensiveReportPage = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    ${reportData.employees.map((emp, index) => `
+                    ${reportData.employees
+                        .filter(emp => emp.user.jabatan !== 'Administrator System') // 🔥 Filter out Administrator System
+                        .map((emp, index) => `
                     <tr class="${emp.isBestEmployee ? 'best-employee-row' : emp.isCandidate ? 'candidate-row' : ''}">
                         <td>${index + 1}</td>
                         <td class="text-left">${emp.user.nama}</td>
@@ -790,6 +905,13 @@ const ComprehensiveReportPage = () => {
                         <td>${emp.attendance.cuti || 0}</td>
                         <td>${(100 - emp.attendance.percentage).toFixed(1)}%</td>
                         <td><strong>${emp.attendance.percentage.toFixed(1)}%</strong></td>
+                        <td>
+                            ${emp.isBestEmployee ? 
+                                '<span class="status-badge badge-best-employee">🏆 Best Employee</span>' : 
+                              emp.isCandidate ? 
+                                '<span class="status-badge badge-kandidat">⭐ Kandidat</span>' : 
+                                '<span class="status-badge badge-regular">Regular</span>'}
+                        </td>
                     </tr>
                     `).join('')}
                 </tbody>
@@ -805,34 +927,54 @@ const ComprehensiveReportPage = () => {
                         <th>No</th>
                         <th>Nama</th>
                         <th>Skor CKP</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${reportData.employees.map((emp, index) => `
+                    ${reportData.employees
+                        .filter(emp => emp.user.jabatan !== 'Administrator System') // 🔥 Filter out Administrator System
+                        .map((emp, index) => `
                     <tr class="${emp.isBestEmployee ? 'best-employee-row' : emp.isCandidate ? 'candidate-row' : ''}">
                         <td>${index + 1}</td>
                         <td class="text-left">${emp.user.nama}</td>
                         <td><strong>${emp.ckp.score}</strong></td>
+                        <td>
+                            ${emp.isBestEmployee ? 
+                                '<span class="status-badge badge-best-employee">🏆 Best Employee</span>' : 
+                              emp.isCandidate ? 
+                                '<span class="status-badge badge-kandidat">⭐ Kandidat</span>' : 
+                                '<span class="status-badge badge-regular">Regular</span>'}
+                        </td>
                     </tr>
                     `).join('')}
                 </tbody>
             </table>
         </div>
 
-        <!-- 🔥 FIXED: Footer with Dynamic Kepala BPS Name -->
+        <!-- Footer -->
         <div class="footer">
-            <p>Pringsewu, ${formattedDate}</p>
-            <br><br><br><br>
-            <p style="margin-bottom: 0;"><strong>${reportData.kepalaBpsName || 'Kepala BPS Kabupaten Pringsewu'}</strong></p>
-            <strong>_________________________</strong>
-            <br><br><br>
-            <p style="font-size: 10px; color: #666;">
-                *Laporan ini dicetak pada ${new Date().toLocaleDateString('id-ID', { 
-                    day: '2-digit', month: 'long', year: 'numeric'
-                })} ${new Date().toLocaleTimeString('id-ID')}
-            </p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 50px;">
+                <!-- Kiri: Info Cetak -->
+                <div style="text-align: left; flex: 1;">
+                <br><br><br><br>
+                    <p style="font-size: 10px; color: #666; margin: 0;">
+                        *Laporan ini dicetak pada ${new Date().toLocaleDateString('id-ID', { 
+                            day: '2-digit', month: 'long', year: 'numeric'
+                        })} ${new Date().toLocaleTimeString('id-ID')}
+                    </p>
+                </div>
+                
+                <!-- Kanan: TTD -->
+                <div style="text-align: center; flex: 1;">
+                <br><br><br><br>
+                    <p style="margin: 0; font-size: 12px;">Pringsewu, ${formattedDate}</p>
+                    <br><br><br><br>
+                    <p style="margin-bottom: 0; font-size: 12px;"><strong>${reportData.kepalaBpsName || 'Eko Purnomo, SST., MM'}</strong></p>
+                    <div style="border-bottom: 1px solid #000; width: 200px; margin: 5px auto;"></div>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Kepala BPS Kabupaten Pringsewu</p>
+                </div>
+            </div>
         </div>
-        
         
         <!-- JavaScript untuk Logo Fallback -->
         <script>

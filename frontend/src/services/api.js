@@ -1,4 +1,4 @@
-// src/services/api.js - FIXED PROFILE API
+// src/services/api.js - UPDATED WITH DELETE CERTIFICATE FEATURE
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -14,7 +14,7 @@ const api = axios.create({
   timeout: 30000, // 30 seconds timeout
 });
 
-// 🔥 FIXED: Helper function untuk construct image URL dengan benar
+// Helper function untuk construct image URL dengan benar
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
   const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -107,19 +107,17 @@ export const authAPI = {
 };
 
 // =====================
-// PROFILE API - FIXED VERSION
+// PROFILE API
 // =====================
 export const profileAPI = {
   getProfile: () => api.get('/profile'),
   updateProfile: (formData) => {
-    // 🔥 FIXED: Proper FormData handling
     console.log('📤 Sending profile update with FormData');
     
     return api.put('/profile', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      // Add timeout for file uploads
       timeout: 60000, // 60 seconds for file uploads
     });
   },
@@ -130,7 +128,6 @@ export const profileAPI = {
 // USER API
 // =====================
 export const userAPI = {
-  // GET all users with filtering and pagination
   getAll: (params = {}) => {
     const queryParams = new URLSearchParams();
     
@@ -142,55 +139,34 @@ export const userAPI = {
     
     return api.get(`/users?${queryParams.toString()}`);
   },
-
-  // GET user by ID
   getById: (id) => api.get(`/users/${id}`),
-
-  // 🔥 NEW: Check if user has related data before deletion
   checkData: (id) => api.get(`/users/${id}/check-data`),
-
-  // GET user statistics
   getStats: () => api.get('/users/stats'),
-
-  // CREATE new user
   create: (userData) => api.post('/users', userData),
-
-  // UPDATE user
   update: (id, userData) => api.put(`/users/${id}`, userData),
-
-  // SOFT DELETE user (deactivate)
   delete: (id) => api.delete(`/users/${id}`),
-
-  // PERMANENT DELETE user
   permanentDelete: (id) => api.delete(`/users/${id}/permanent`),
-
-  // ACTIVATE user
   activate: (id) => api.put(`/users/${id}/activate`),
-
-  // RESET user password
   resetPassword: (id, data) => api.put(`/users/${id}/reset-password`, data),
 };
 
-// 🔥 IMPORT/EXPORT API
+// =====================
+// IMPORT/EXPORT API
+// =====================
 export const importExportAPI = {
-  // Import users from Excel
   importUsers: (formData) => {
     return api.post('/import/users', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 60000, // 1 minute for large imports
+      timeout: 60000,
     });
   },
-
-  // Download template
   downloadTemplate: () => {
     return api.get('/import/template', {
       responseType: 'blob',
     });
   },
-
-  // Export users to Excel
   exportUsers: (params = {}) => {
     const queryParams = new URLSearchParams();
     
@@ -200,52 +176,41 @@ export const importExportAPI = {
       }
     });
     
-      return api.get(`/export/users?${queryParams.toString()}`, {
-        responseType: 'blob',
-      });
-    }
-  };
-   
+    return api.get(`/export/users?${queryParams.toString()}`, {
+      responseType: 'blob',
+    });
+  }
+};
+
 // =====================
-// 🔥 FIXED: EVALUATION API
+// EVALUATION API
 // =====================
 export const evaluationAPI = {
-  // GET evaluation parameters (8 BerAKHLAK parameters)
   getParameters: () => {
     console.log('🔄 Getting evaluation parameters...');
     return api.get('/evaluations/parameters');
   },
-  
-  // GET score ranges (80-100 for single category)
   getScoreRanges: () => {
     console.log('🔄 Getting score ranges...');
     return api.get('/evaluations/score-ranges');
   },
-  
-  // GET active period
   getActivePeriod: () => {
     console.log('🔄 Getting active period...');
     return api.get('/evaluations/active-period');
   },
-  
-  // GET eligible users for evaluation
   getEligibleUsers: () => {
     console.log('🔄 Getting eligible users...');
     return api.get('/evaluations/eligible-users');
   },
-  
-  // 🔥 FIXED: Submit evaluation with proper data structure
   submit: (data) => {
     console.log('📤 Submitting evaluation:', data);
     
-    // Validate data structure
     if (!data.periodId || !data.evaluations || !Array.isArray(data.evaluations)) {
       console.error('❌ Invalid evaluation data structure');
       return Promise.reject(new Error('Invalid evaluation data structure'));
     }
     
-    // Transform data for backend compatibility
-    const evaluation = data.evaluations[0]; // Single evaluation now
+    const evaluation = data.evaluations[0];
     const transformedData = {
       periodId: data.periodId,
       targetUserId: evaluation.targetUserId,
@@ -258,20 +223,14 @@ export const evaluationAPI = {
     console.log('📤 Transformed data for backend:', transformedData);
     return api.post('/evaluations/submit', transformedData);
   },
-  
-  // GET user's own evaluations
   getMyEvaluations: (params = {}) => {
     console.log('🔄 Getting my evaluations:', params);
     return api.get('/evaluations/my-evaluations', { params });
   },
-  
-  // GET all evaluations (admin/pimpinan only)
   getAll: (params = {}) => {
     console.log('🔄 Getting all evaluations:', params);
     return api.get('/evaluations/all', { params });
   },
-  
-  // GET evaluation summary for period
   getSummary: (periodId) => {
     console.log('🔄 Getting evaluation summary for period:', periodId);
     return api.get(`/evaluations/summary/${periodId}`);
@@ -279,32 +238,25 @@ export const evaluationAPI = {
 };
 
 // =====================
-// 🔥 FIXED: ATTENDANCE API
+// ATTENDANCE API
 // =====================
 export const attendanceAPI = {
-  // GET all attendance records
   getAll: (params = {}) => {
     console.log('🔄 Getting attendance records:', params);
     return api.get('/attendance', { params });
   },
-  
-  // GET attendance by ID
   getById: (id) => {
     console.log('🔄 Getting attendance by ID:', id);
     return api.get(`/attendance/${id}`);
   },
-  
-  // 🔥 FIXED: Create/Update attendance (upsert)
   upsert: (data) => {
     console.log('💾 Upserting attendance:', data);
     
-    // Validate required fields
     if (!data.userId || !data.periodId) {
       console.error('❌ Missing required fields: userId, periodId');
       return Promise.reject(new Error('Missing required fields: userId, periodId'));
     }
     
-    // Ensure numeric fields are numbers
     const cleanData = {
       ...data,
       jumlahTidakKerja: parseInt(data.jumlahTidakKerja) || 0,
@@ -317,14 +269,10 @@ export const attendanceAPI = {
     console.log('💾 Clean attendance data:', cleanData);
     return api.post('/attendance', cleanData);
   },
-  
-  // DELETE attendance
   delete: (id) => {
     console.log('🗑️ Deleting attendance:', id);
     return api.delete(`/attendance/${id}`);
   },
-  
-  // GET attendance statistics
   getStats: (params = {}) => {
     console.log('📊 Getting attendance stats:', params);
     return api.get('/attendance/stats', { params });
@@ -332,32 +280,25 @@ export const attendanceAPI = {
 };
 
 // =====================
-// 🔥 FIXED: CKP API
+// CKP API
 // =====================
 export const ckpAPI = {
-  // GET all CKP scores
   getAll: (params = {}) => {
     console.log('🔄 Getting CKP scores:', params);
     return api.get('/ckp', { params });
   },
-  
-  // GET CKP by ID
   getById: (id) => {
     console.log('🔄 Getting CKP by ID:', id);
     return api.get(`/ckp/${id}`);
   },
-  
-  // Create/Update CKP score
   upsert: (data) => {
     console.log('💾 Upserting CKP:', data);
     
-    // Validate required fields
     if (!data.userId || !data.periodId || typeof data.score !== 'number') {
       console.error('❌ Missing required fields: userId, periodId, score');
       return Promise.reject(new Error('Missing required fields: userId, periodId, score'));
     }
     
-    // Validate score range
     if (data.score < 0 || data.score > 100) {
       console.error('❌ Score must be between 0-100');
       return Promise.reject(new Error('Score must be between 0-100'));
@@ -365,8 +306,6 @@ export const ckpAPI = {
     
     return api.post('/ckp', data);
   },
-  
-  // DELETE CKP score
   delete: (id) => {
     console.log('🗑️ Deleting CKP:', id);
     return api.delete(`/ckp/${id}`);
@@ -384,25 +323,21 @@ export const periodAPI = {
   update: (id, data) => api.put(`/periods/${id}`, data),
   activate: (id) => api.put(`/periods/${id}/activate`),
   delete: (id) => api.delete(`/periods/${id}`),
-
-  // Smart method to get all periods for any user role
+  
   getAllSmart: async (params = {}) => {
     try {
-      // Try the staff endpoint first (if backend is updated)
       try {
         return await api.get('/periods/staff/all', { params });
       } catch (staffError) {
         console.log('Staff endpoint not available, trying main endpoint...');
       }
       
-      // Try main periods endpoint
       try {
         return await api.get('/periods', { params });
       } catch (mainError) {
         console.log('Main periods endpoint not accessible, using active only...');
       }
       
-      // Fallback to active period only
       const activeResponse = await api.get('/periods/active');
       const activePeriod = activeResponse.data.data?.period || activeResponse.data.period;
       
@@ -424,25 +359,21 @@ export const periodAPI = {
       throw error;
     }
   },
-
-  // 🔥 NEW: Search period by year and month
-getByYearMonth: (tahun, bulan) => {
-  console.log('🔄 Getting period by year month:', tahun, bulan);
-  return api.get('/periods/search', { params: { tahun, bulan, limit: 1 } });
-},
-
-// 🔥 NEW: Get previous period from active period
-getPrevious: () => {
-  console.log('🔄 Getting previous period from active...');
-  return api.get('/periods/previous');
-},
   
-  // Get comprehensive periods from multiple sources
+  getByYearMonth: (tahun, bulan) => {
+    console.log('🔄 Getting period by year month:', tahun, bulan);
+    return api.get('/periods/search', { params: { tahun, bulan, limit: 1 } });
+  },
+  
+  getPrevious: () => {
+    console.log('🔄 Getting previous period from active...');
+    return api.get('/periods/previous');
+  },
+  
   getComprehensivePeriods: async () => {
     try {
       const allPeriods = new Map();
       
-      // Method 1: Try to get all periods
       try {
         const allPeriodsResponse = await periodAPI.getAllSmart({ limit: 100 });
         const periods = allPeriodsResponse.data.data?.periods || allPeriodsResponse.data.periods || [];
@@ -454,7 +385,6 @@ getPrevious: () => {
         console.warn('⚠️ Could not get all periods:', error);
       }
       
-      // Method 2: Get active period
       try {
         const activeResponse = await api.get('/periods/active');
         const activePeriod = activeResponse.data.data?.period || activeResponse.data.period;
@@ -466,7 +396,6 @@ getPrevious: () => {
         console.warn('⚠️ Could not get active period:', error);
       }
       
-      // Method 3: Extract periods from evaluations
       try {
         const evaluationsResponse = await evaluationAPI.getMyEvaluations({ limit: 1000 });
         const evaluations = evaluationsResponse.data.data?.evaluations || evaluationsResponse.data.evaluations || [];
@@ -480,7 +409,6 @@ getPrevious: () => {
         console.warn('⚠️ Could not extract periods from evaluations:', error);
       }
       
-      // Method 4: Generate comprehensive period list
       const periodsArray = Array.from(allPeriods.values());
       const comprehensivePeriods = generateAllPossiblePeriods(periodsArray);
       
@@ -501,18 +429,15 @@ const generateAllPossiblePeriods = (existingPeriods) => {
   const allPeriods = [];
   const existingPeriodsMap = new Map();
   
-  // Map existing periods by year-month key
   existingPeriods.forEach(period => {
     const key = `${period.tahun}-${period.bulan}`;
     existingPeriodsMap.set(key, period);
   });
   
-  // Generate periods for current year and previous 2 years
   const yearsToGenerate = [currentYear - 2, currentYear - 1, currentYear];
   
   yearsToGenerate.forEach(year => {
     for (let month = 1; month <= 12; month++) {
-      // Skip future months for current year
       if (year === currentYear && month > currentMonth) {
         continue;
       }
@@ -522,7 +447,6 @@ const generateAllPossiblePeriods = (existingPeriods) => {
       const periodName = `${monthName} ${year}`;
       
       if (existingPeriodsMap.has(key)) {
-        // Use existing period data
         const existingPeriod = existingPeriodsMap.get(key);
         allPeriods.push({
           ...existingPeriod,
@@ -530,7 +454,6 @@ const generateAllPossiblePeriods = (existingPeriods) => {
           isReal: true
         });
       } else {
-        // Create placeholder period
         allPeriods.push({
           id: `generated-${year}-${month}`,
           namaPeriode: periodName,
@@ -546,7 +469,6 @@ const generateAllPossiblePeriods = (existingPeriods) => {
     }
   });
   
-  // Sort periods (active first, then by year and month desc)
   allPeriods.sort((a, b) => {
     if (a.isActive && !b.isActive) return -1;
     if (!a.isActive && b.isActive) return 1;
@@ -565,56 +487,125 @@ const getMonthName = (month) => {
   return months[month - 1] || 'Unknown';
 };
 
-// =====================================
-// 🔥 NEW: CERTIFICATE API METHODS
-// =====================================
+// =====================
+// 🔥 UPDATED: CERTIFICATE MANAGEMENT API WITH DELETE FEATURE
+// =====================
+export const certificateManagementAPI = {
+  // Get all best employees for certificate management
+  getBestEmployees: (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.tahun) params.append('tahun', filters.tahun);
+    if (filters.bulan) params.append('bulan', filters.bulan);
+    if (filters.status) params.append('status', filters.status);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/certificate/management?${queryString}` : '/certificate/management';
+    
+    return api.get(url);
+  },
 
-// Get user's best employee awards (untuk menu sertifikat)
-export const getMyAwards = async () => {
-  try {
-    console.log('🔄 API Call: getMyAwards started');
-    const response = await api.get('/certificate/my-awards');
-    console.log('✅ API Response getMyAwards:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ API Error getMyAwards:', error);
-    console.error('❌ Error details:', error.response?.data);
-    throw error;
-  }
-};
-
-// Preview certificate data before generating
-export const previewCertificate = async (periodId) => {
-  try {
-    const response = await api.get(`/certificate/preview/${periodId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error previewing certificate:', error);
-    throw error;
-  }
-};
-
-// Generate and download certificate
-export const generateCertificate = async (periodId) => {
-  try {
-    const response = await api.post(`/certificate/generate/${periodId}`, {}, {
-      responseType: 'blob' // 🔥 IMPORTANT: responseType blob untuk PDF download
+  // Generate template with nomor sertifikat
+  generateTemplateWithNomor: (userId, periodId, nomorSertifikat) => {
+    return api.post(`/certificate/generate-template/${userId}/${periodId}`, {
+      nomorSertifikat: nomorSertifikat
     });
-    return response;
-  } catch (error) {
-    console.error('Error generating certificate:', error);
-    throw error;
+  },
+
+  // Update certificate number
+  updateCertificateNumber: (userId, periodId, nomorSertifikat) => {
+    return api.put(`/certificate/update-number/${userId}/${periodId}`, {
+      nomorSertifikat: nomorSertifikat
+    });
+  },
+
+  // 🔥 FIXED: Delete certificate - Reset to beginning
+  deleteCertificate: (userId, periodId) => {
+    console.log('🗑️ Deleting certificate for user:', userId, 'period:', periodId);
+    console.log('🔗 DELETE URL:', `/certificate/delete/${userId}/${periodId}`);
+    
+    return api.delete(`/certificate/delete/${userId}/${periodId}`).then(response => {
+      console.log('✅ Delete response:', response.data);
+      return response;
+    }).catch(error => {
+      console.error('❌ Delete error:', error);
+      console.error('❌ Delete error response:', error.response?.data);
+      console.error('❌ Delete error status:', error.response?.status);
+      throw error;
+    });
+  },
+
+  // Download template with proper authentication
+  downloadTemplate: async (userId, periodId) => {
+    try {
+      console.log('📥 Downloading template for user:', userId, 'period:', periodId);
+      
+      const response = await api.get(`/certificate/download-template/${userId}/${periodId}`, {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/pdf'
+        }
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('❌ Template download API error:', error);
+      throw error;
+    }
+  },
+
+  // Get download URL (for window.open method)
+  getTemplateDownloadUrl: (userId, periodId) => {
+    console.log('📥 Getting template download URL for user:', userId, 'period:', periodId);
+    const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const token = localStorage.getItem('token');
+    return `${baseUrl}/api/certificate/download-template/${userId}/${periodId}?token=${encodeURIComponent(token)}`;
+  },
+  
+  // Upload final certificate
+  uploadCertificate: (userId, periodId, file) => {
+    const formData = new FormData();
+    formData.append('certificate', file);
+    
+    return api.post(`/certificate/upload/${userId}/${periodId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  previewTemplate: (userId, periodId) => {
+    return api.get(`/certificate/preview-template/${userId}/${periodId}`, {
+      responseType: 'blob',
+    });
+  },
+  
+  // Download certificate (Admin/Pimpinan)
+  downloadCertificate: (certificateId) => {
+    return api.get(`/certificate/download/${certificateId}`, {
+      responseType: 'blob',
+    });
   }
 };
 
-// Get certificate history (admin/pimpinan only)
-export const getCertificateHistory = async () => {
-  try {
-    const response = await api.get('/certificate/history');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching certificate history:', error);
-    throw error;
+// User Certificate API (Staff)
+export const userCertificateAPI = {
+  // Get user's own certificates (Staff only)
+  getMyCertificates: () => {
+    console.log('🔄 Getting my certificates...');
+    return api.get('/certificate/my-certificates');
+  },
+
+  getMyCertificatesDetailed: () => {
+    console.log('🔄 Getting my detailed certificates with scores...');
+    return api.get('/certificate/my-certificates-detailed');
+  },
+  
+  // Download user's certificate (Staff)
+  downloadMyCertificate: (certificateId) => {
+    console.log('⬇️ Downloading my certificate:', certificateId);
+    return api.get(`/certificate/download/${certificateId}`, {
+      responseType: 'blob'
+    });
   }
 };
 
@@ -647,9 +638,7 @@ export const finalEvaluationAPI = {
   getLeaderboard: (params) => api.get('/final-evaluation/leaderboard', { params }),
 };
 
-// Alternative endpoints that might be needed
 export const finalEvaluationAPIAlternative = {
-  // If the backend uses different route patterns
   calculate: (data) => api.post('/final-evaluations/calculate', data),
   getFinal: (params) => api.get('/final-evaluations', { params }),
   getBestEmployee: (periodId) => api.get(`/final-evaluations/best-employee/${periodId}`),
@@ -657,49 +646,43 @@ export const finalEvaluationAPIAlternative = {
 };
 
 // =====================
-// 🔥 NEW: REPORTS API
+// REPORTS API
 // =====================
 export const reportsAPI = {
-  // Get comprehensive report data (all-in-one) - FIXED WITH PROPER INTEGRATION
   getComprehensive: (params = {}) => {
     console.log('📊 Getting comprehensive report data:', params);
     return api.get('/reports/comprehensive', { 
       params,
-      timeout: 60000 // 60 seconds for complex report generation
+      timeout: 60000
     });
   },
-  
-  // Get BerAKHLAK report only
   getBerakhlak: (params = {}) => {
     console.log('📊 Getting BerAKHLAK report:', params);
     return api.get('/reports/berakhlak', { params });
   },
-  
-  // Get attendance report only  
   getAttendance: (params = {}) => {
     console.log('📊 Getting attendance report:', params);
     return api.get('/reports/attendance', { params });
   },
-  
-  // Get CKP report only
   getCkp: (params = {}) => {
     console.log('📊 Getting CKP report:', params);
     return api.get('/reports/ckp', { params });
   },
-  
-  // Export report to PDF
   exportToPDF: (data) => {
     console.log('📄 Exporting report to PDF:', data);
     return api.post('/reports/export/pdf', data, {
-      responseType: 'blob', // Important for file downloads
-      timeout: 120000 // 2 minutes for PDF generation
+      responseType: 'blob',
+      timeout: 120000
     });
   }
 };
 
-// 🔥 FIXED: Add CSS fix for cursor pointer issue
+// =====================
+// UTILITY FUNCTIONS
+// =====================
+
+// CSS fix for cursor pointer issue
 export const fixCursorIssue = () => {
-  // Remove any problematic CSS that might cause cursor issues
   const style = document.createElement('style');
   style.textContent = `
     * {
@@ -727,7 +710,6 @@ export const fixCursorIssue = () => {
     }
   `;
   
-  // Remove any existing fix styles
   const existingFix = document.getElementById('cursor-fix');
   if (existingFix) {
     existingFix.remove();
@@ -739,25 +721,22 @@ export const fixCursorIssue = () => {
   console.log('🔧 Applied cursor fix');
 };
 
-
-// 🔥 ENHANCED: Updated comprehensive report API call with better error handling
+// Enhanced comprehensive report API call with better error handling
 export const getComprehensiveReportWithFix = async (params = {}) => {
   try {
     console.log('📊 Getting comprehensive report with cursor fix:', params);
     
-    // Apply cursor fix before API call
     fixCursorIssue();
     
     const response = await api.get('/reports/comprehensive', { 
       params,
-      timeout: 60000, // 60 seconds for complex report generation
+      timeout: 60000,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
     });
     
-    // Apply cursor fix after successful response
     setTimeout(() => {
       fixCursorIssue();
     }, 500);
@@ -767,7 +746,6 @@ export const getComprehensiveReportWithFix = async (params = {}) => {
   } catch (error) {
     console.error('❌ Comprehensive report error:', error);
     
-    // Apply cursor fix on error too
     setTimeout(() => {
       fixCursorIssue();
     }, 500);

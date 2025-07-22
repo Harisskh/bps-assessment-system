@@ -1,4 +1,4 @@
-// src/App.js - UPDATED WITH EVALUATION HISTORY ROUTE
+// src/App.js - FIXED WITH CONSISTENT PROTECTEDROUTE USAGE
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -10,7 +10,7 @@ import EvaluationPage from './pages/EvaluationPage';
 import EvaluationManagementPage from './pages/EvaluationManagementPage';
 import UsersPage from './pages/UsersPage';
 import ProfilePage from './pages/ProfilePage';
-import EvaluationHistoryPage from './pages/EvaluationHistoryPage'; // IMPORT EVALUATION HISTORY
+import EvaluationHistoryPage from './pages/EvaluationHistoryPage';
 
 // NEW PAGES
 import PeriodManagementPage from './pages/PeriodManagementPage';
@@ -19,7 +19,10 @@ import CkpInputPage from './pages/CkpInputPage';
 import EnhancedMonitoringPage from './pages/EnhancedMonitoringPage';
 import FinalCalculationPage from './pages/FinalCalculationPage';
 import ComprehensiveReportPage from './pages/ComprehensiveReportPage';
-import CertificatePage from './pages/CertificatePage'; 
+
+// 🔥 CERTIFICATE PAGES
+import CertificateManagementPage from './pages/CertificateManagementPage';
+import CertificatePage from './pages/CertificatePage';
 
 // Components
 import Layout from './components/Layout';
@@ -84,7 +87,7 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* 🔥 NEW: Evaluation History Route - Staff & Pimpinan only */}
+          {/* Evaluation History Route - Staff & Pimpinan only */}
           <Route path="/evaluation-history" element={
             <ProtectedRoute requiredRole={['STAFF', 'PIMPINAN']}>
               <Layout>
@@ -93,8 +96,14 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* 🔥 NEW: Sertifikat route */}
-          <Route path="/certificate" element={<CertificatePage />} />
+          {/* 🔥 FIXED: Certificate route for STAFF menggunakan ProtectedRoute */}
+          <Route path="/my-certificates" element={
+            <ProtectedRoute requiredRole={['STAFF']}>
+              <Layout>
+                <CertificatePage />
+              </Layout>
+            </ProtectedRoute>
+          } />
           
           {/* Admin only - Management Routes */}
           <Route path="/evaluation-management" element={
@@ -136,6 +145,15 @@ function App() {
               </Layout>
             </ProtectedRoute>
           } />
+
+          {/* 🔥 Certificate Management Route - Admin & Pimpinan */}
+          <Route path="/certificate-management" element={
+            <ProtectedRoute requiredRole={['ADMIN', 'PIMPINAN']}>
+              <Layout>
+                <CertificateManagementPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
           
           {/* Admin & Pimpinan - Users/Data Pegawai */}
           <Route path="/users" element={
@@ -155,16 +173,36 @@ function App() {
             </ProtectedRoute>
           } />
 
+          {/* Admin & Pimpinan - Reports */}
           <Route path="/reports" element={
-                  <ProtectedRoute requiredRoles={['ADMIN', 'PIMPINAN']}>
-                    <Layout>
-                    <ComprehensiveReportPage />
-                    </Layout>
-                  </ProtectedRoute>
-                } />
+            <ProtectedRoute requiredRole={['ADMIN', 'PIMPINAN']}>
+              <Layout>
+                <ComprehensiveReportPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
           
           {/* Redirect root to dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          
+          {/* 404 Route */}
+          <Route path="*" element={
+            <ProtectedRoute>
+              <Layout>
+                <div className="container-fluid p-4">
+                  <div className="text-center">
+                    <h1 className="display-1">404</h1>
+                    <h2>Halaman Tidak Ditemukan</h2>
+                    <p className="lead">Halaman yang Anda cari tidak tersedia.</p>
+                    <a href="/dashboard" className="btn btn-primary">
+                      <i className="fas fa-home me-2"></i>
+                      Kembali ke Dashboard
+                    </a>
+                  </div>
+                </div>
+              </Layout>
+            </ProtectedRoute>
+          } />
         </Routes>
       </Router>
     </AuthProvider>

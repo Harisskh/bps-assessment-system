@@ -1,5 +1,3 @@
-// File: prisma/schema.prisma - COMPLETE VERSION WITH CERTIFICATE SYSTEM
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,53 +7,243 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =====================
-// USER MANAGEMENT - UPDATED FOR MULTI-ROLE
-// =====================
-
 model User {
-  id                String   @id @default(cuid())
-  nip               String   @unique
-  nama              String
-  email             String?  
-  password          String
-  
-  // 🔥 UPDATED: Multi-Role System
-  roles             String[] @default([])     // Array of roles: ["STAFF", "ADMIN"]
-  primaryRole       String   @default("STAFF") // Primary role for display
-  role              Role     @default(STAFF)   // Keep for backward compatibility
-  
-  // 🔥 NEW: Admin Expiry (Optional)
-  adminExpiry       DateTime? // Auto-revoke admin role after this date
-  
-  jenisKelamin      Gender
-  tanggalLahir      DateTime?
-  alamat            String?
-  mobilePhone       String?
-  pendidikanTerakhir String?
-  jabatan           String?
-  golongan          String?   // IV/b, III/a, etc.
-  status            String   @default("PNS") // PNS, PPPK
-  instansi          String   @default("BPS Kabupaten Pringsewu")
-  kantor            String   @default("BPS Kabupaten Pringsewu")
-  username          String   @unique
-  profilePicture    String?  // Profile picture path
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  evaluationsGiven    Evaluation[] @relation("Evaluator")
-  evaluationsReceived Evaluation[] @relation("Target")
-  attendances         Attendance[]
-  ckpScores          CkpScore[]
-  finalEvaluations   FinalEvaluation[]
-  
-  // 🔥 NEW: Certificate relations
-  certificates      CertificateLog[] @relation("CertificateRecipient")
-  generatedCerts    CertificateLog[] @relation("CertificateGenerator")
+  id                                                    String             @id @default(cuid())
+  nip                                                   String             @unique
+  nama                                                  String
+  email                                                 String?
+  password                                              String
+  role                                                  Role               @default(STAFF)
+  jenisKelamin                                          Gender
+  tanggalLahir                                          DateTime?
+  alamat                                                String?
+  mobilePhone                                           String?
+  pendidikanTerakhir                                    String?
+  jabatan                                               String?
+  golongan                                              String?
+  status                                                String             @default("PNS")
+  instansi                                              String             @default("BPS Kabupaten Pringsewu")
+  kantor                                                String             @default("BPS Kabupaten Pringsewu")
+  username                                              String             @unique
+  profilePicture                                        String?
+  isActive                                              Boolean            @default(true)
+  createdAt                                             DateTime           @default(now())
+  updatedAt                                             DateTime           @updatedAt
+  adminExpiry                                           DateTime?
+  primaryRole                                           String             @default("STAFF")
+  roles                                                 String[]           @default([])
+  attendances                                           Attendance[]
+  generatedCerts                                        Certificate[]      @relation("CertificateGenerator")
+  uploadedCerts                                         Certificate[]      @relation("CertificateUploader")
+  certificates                                          Certificate[]      @relation("CertificateRecipient")
+  ckpScores                                             CkpScore[]
+  evaluationsGiven                                      Evaluation[]       @relation("Evaluator")
+  evaluationsReceived                                   Evaluation[]       @relation("Target")
+  finalEvaluations                                      FinalEvaluation[]
 
   @@map("users")
+}
+
+model Period {
+  id               String             @id @default(cuid())
+  tahun            Int
+  bulan            Int
+  namaPeriode      String
+  isActive         Boolean            @default(false)
+  startDate        DateTime?
+  endDate          DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  attendances      Attendance[]
+  certificates     Certificate[]
+  ckpScores        CkpScore[]
+  evaluations      Evaluation[]
+  finalEvaluations FinalEvaluation[]
+
+  @@unique([tahun, bulan])
+  @@map("periods")
+}
+
+model EvaluationParameter {
+  id               String            @id @default(cuid())
+  namaParameter    String
+  deskripsi        String?
+  urutan           Int
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  evaluationScores EvaluationScore[]
+
+  @@map("evaluation_parameters")
+}
+
+model Evaluation {
+  id           String            @id @default(cuid())
+  evaluatorId  String
+  periodId     String
+  targetUserId String
+  status       EvaluationStatus  @default(DRAFT)
+  submitDate   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  scores       EvaluationScore[]
+  evaluator    User              @relation("Evaluator", fields: [evaluatorId], references: [id])
+  period       Period            @relation(fields: [periodId], references: [id])
+  target       User              @relation("Target", fields: [targetUserId], references: [id])
+
+  @@unique([evaluatorId, periodId, targetUserId])
+  @@map("evaluations")
+}
+
+model EvaluationScore {
+  id           String              @id @default(cuid())
+  evaluationId String
+  parameterId  String
+  score        Int
+  createdAt    DateTime            @default(now())
+  evaluation   Evaluation          @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  parameter    EvaluationParameter @relation(fields: [parameterId], references: [id])
+
+  @@unique([evaluationId, parameterId])
+  @@map("evaluation_scores")
+}
+
+model Attendance {
+  id               String   @id @default(cuid())
+  userId           String
+  periodId         String
+  persentaseTotal  Float    @default(100.0)
+  jumlahTidakKerja Int      @default(0)
+  jumlahPulangAwal Int      @default(0)
+  jumlahTelat      Int      @default(0)
+  jumlahAbsenApel  Int      @default(0)
+  jumlahCuti       Int      @default(0)
+  penguranganTK    Float    @default(0.0)
+  penguranganPSW   Float    @default(0.0)
+  penguranganTLT   Float    @default(0.0)
+  penguranganAPEL  Float    @default(0.0)
+  penguranganCT    Float    @default(0.0)
+  totalMinus       Float    @default(0.0)
+  nilaiPresensi    Float    @default(100.0)
+  keterangan       String?
+  inputBy          String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  adaAbsenApel     Boolean  @default(false)
+  adaCuti          Boolean  @default(false)
+  adaPulangAwal    Boolean  @default(false)
+  adaTelat         Boolean  @default(false)
+  adaTidakKerja    Boolean  @default(false)
+  period           Period   @relation(fields: [periodId], references: [id])
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, periodId])
+  @@map("attendance")
+}
+
+model CkpScore {
+  id         String   @id @default(cuid())
+  userId     String
+  periodId   String
+  score      Float
+  keterangan String?
+  inputBy    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  period     Period   @relation(fields: [periodId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, periodId])
+  @@map("ckp_scores")
+}
+
+model FinalEvaluation {
+  id                String   @id @default(cuid())
+  userId            String
+  periodId          String
+  berakhlakScore    Float    @default(0)
+  presensiScore     Float    @default(0)
+  ckpScore          Float    @default(0)
+  berakhlakWeighted Float    @default(0)
+  presensiWeighted  Float    @default(0)
+  ckpWeighted       Float    @default(0)
+  finalScore        Float    @default(0)
+  totalEvaluators   Int      @default(0)
+  isCandidate       Boolean  @default(false)
+  ranking           Int?
+  isBestEmployee    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  period            Period   @relation(fields: [periodId], references: [id])
+  user              User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, periodId])
+  @@map("final_evaluations")
+}
+
+model AspekPenilaian {
+  id        String   @id @default(cuid())
+  namaAspek String   @unique
+  deskripsi String?
+  bobot     Float
+  urutan    Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("aspek_penilaian")
+}
+
+model RentangNilai {
+  id        String   @id @default(cuid())
+  kategori  String
+  ranking   Int
+  nilaiMin  Int
+  nilaiMax  Int
+  deskripsi String?
+  createdAt DateTime @default(now())
+
+  @@unique([kategori, ranking])
+  @@map("rentang_nilai")
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model Certificate {
+  id                 String            @id @default(cuid())
+  period_id          String            @map("period_id")
+  user_id            String            @map("user_id")
+  template_generated Boolean           @default(false) @map("template_generated")
+  template_path      String?           @map("template_path")
+  template_type      String?           @map("template_type")
+  generated_by       String?           @map("generated_by")
+  generated_at       DateTime?         @map("generated_at")
+  is_uploaded        Boolean           @default(false) @map("is_uploaded")
+  file_name          String?           @map("file_name")
+  file_url           String?           @map("file_url")
+  file_path          String?           @map("file_path")
+  uploaded_by        String?           @map("uploaded_by")
+  uploaded_at        DateTime?         @map("uploaded_at")
+  certificate_number String?           @map("certificate_number")
+  status             CertificateStatus @default(TEMPLATE_PENDING)
+  created_at         DateTime          @default(now()) @map("created_at")
+  updated_at         DateTime          @default(now()) @updatedAt @map("updated_at")
+  generatedByUser    User?             @relation("CertificateGenerator", fields: [generated_by], references: [id])
+  period             Period            @relation(fields: [period_id], references: [id])
+  uploadedByUser     User?             @relation("CertificateUploader", fields: [uploaded_by], references: [id])
+  user               User              @relation("CertificateRecipient", fields: [user_id], references: [id])
+
+  @@index([period_id])
+  @@index([status])
+  @@index([user_id, period_id])
+  @@map("certificates")
 }
 
 enum Role {
@@ -69,271 +257,14 @@ enum Gender {
   PR
 }
 
-// =====================
-// PERIOD MANAGEMENT
-// =====================
-
-model Period {
-  id           String   @id @default(cuid())
-  tahun        Int
-  bulan        Int      // 1-12
-  namaPeriode  String   // "Januari 2025", "Februari 2025"
-  isActive     Boolean  @default(false)
-  startDate    DateTime?
-  endDate      DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  evaluations      Evaluation[]
-  attendances      Attendance[]
-  ckpScores       CkpScore[]
-  finalEvaluations FinalEvaluation[]
-  
-  // 🔥 NEW: Certificate relation
-  certificates      CertificateLog[]
-
-  @@unique([tahun, bulan])
-  @@map("periods")
-}
-
-// =====================
-// EVALUATION PARAMETERS (8 Parameter BERAKHLAK)
-// =====================
-
-model EvaluationParameter {
-  id            String   @id @default(cuid())
-  namaParameter String
-  deskripsi     String?
-  urutan        Int      // 1-8 (urutan parameter)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-
-  // Relations
-  evaluationScores EvaluationScore[]
-
-  @@map("evaluation_parameters")
-}
-
-// =====================
-// TOKOH BERAKHLAK EVALUATION SYSTEM - UPDATED FOR SINGLE CATEGORY
-// =====================
-
-model Evaluation {
-  id           String            @id @default(cuid())
-  evaluatorId  String
-  periodId     String
-  targetUserId String
-  // 🔥 REMOVED: ranking field - no longer needed for single category
-  status       EvaluationStatus  @default(DRAFT)
-  submitDate   DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  // Relations
-  evaluator User   @relation("Evaluator", fields: [evaluatorId], references: [id])
-  target    User   @relation("Target", fields: [targetUserId], references: [id])
-  period    Period @relation(fields: [periodId], references: [id])
-  scores    EvaluationScore[]
-
-  // 🔥 UPDATED: Remove ranking from unique constraint
-  @@unique([evaluatorId, periodId, targetUserId])
-  @@map("evaluations")
-}
-
-model EvaluationScore {
-  id           String @id @default(cuid())
-  evaluationId String
-  parameterId  String
-  score        Int    // 🔥 UPDATED: 80-100 (single range for all)
-  createdAt    DateTime @default(now())
-
-  // Relations
-  evaluation Evaluation          @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
-  parameter  EvaluationParameter @relation(fields: [parameterId], references: [id])
-
-  @@unique([evaluationId, parameterId])
-  @@map("evaluation_scores")
-}
-
 enum EvaluationStatus {
   DRAFT
   SUBMITTED
 }
 
-// =====================
-// ATTENDANCE SYSTEM (40% bobot) - UPDATED WITH TIERED RULES
-// =====================
-model Attendance {
-  id         String   @id @default(cuid())
-  userId     String
-  periodId   String
-  
-  // Persentase Total (default 100%)
-  persentaseTotal Float @default(100.0)
-  
-  // 🔥 EXISTING: Boolean fields (keep for compatibility)
-  adaTidakKerja      Boolean @default(false)  // TK - apakah ada tidak kerja
-  adaPulangAwal      Boolean @default(false)  // PSW - apakah ada pulang sebelum waktunya
-  adaTelat           Boolean @default(false)  // TLT - apakah ada telat
-  adaAbsenApel       Boolean @default(false)  // APEL - apakah ada absen apel
-  adaCuti            Boolean @default(false)  // CT - apakah ada cuti
-  
-  // 🔥 NEW: Count fields (yang sudah ada di DB)
-  jumlahTidakKerja   Int @default(0)          // Berapa kali tidak kerja
-  jumlahPulangAwal   Int @default(0)          // Berapa kali pulang awal
-  jumlahTelat        Int @default(0)          // Berapa kali telat
-  jumlahAbsenApel    Int @default(0)          // Berapa kali absen apel
-  jumlahCuti         Int @default(0)          // Berapa kali cuti
-  
-  // 🔥 CALCULATION: Pengurangan fields
-  penguranganTK      Float @default(0.0)    // -30% max
-  penguranganPSW     Float @default(0.0)    // -10% max  
-  penguranganTLT     Float @default(0.0)    // -10% max
-  penguranganAPEL    Float @default(0.0)    // -10% max
-  penguranganCT      Float @default(0.0)    // -5% max
-  
-  // Total Minus (otomatis calculated)
-  totalMinus      Float @default(0.0)
-  
-  // Nilai Final Presensi (100 - totalMinus)
-  nilaiPresensi   Float @default(100.0)
-  
-  keterangan String?
-  inputBy    String  // admin yang input
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id])
-  period Period @relation(fields: [periodId], references: [id])
-
-  @@unique([userId, periodId])
-  @@map("attendance")
-}
-
-// =====================
-// CKP SYSTEM (30% bobot)
-// =====================
-
-model CkpScore {
-  id         String   @id @default(cuid())
-  userId     String
-  periodId   String
-  score      Float    // 0-100
-  keterangan String?
-  inputBy    String   // admin yang input
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id])
-  period Period @relation(fields: [periodId], references: [id])
-
-  @@unique([userId, periodId])
-  @@map("ckp_scores")
-}
-
-// =====================
-// FINAL EVALUATION & BEST EMPLOYEE - UPDATED FOR SINGLE CATEGORY
-// =====================
-
-model FinalEvaluation {
-  id               String   @id @default(cuid())
-  userId           String
-  periodId         String
-  
-  // 🔥 UPDATED: Single BerAKHLAK score calculation
-  berakhlakScore   Float    @default(0)  // Direct total from single category
-  presensiScore    Float    @default(0)  // From attendance (40% bobot)
-  ckpScore         Float    @default(0)  // From CKP (30% bobot)
-  
-  // 🔥 UPDATED: New calculation method - total can exceed 100
-  berakhlakWeighted Float   @default(0)  // berakhlakScore * 30%
-  presensiWeighted  Float   @default(0)  // presensiScore * 40%
-  ckpWeighted       Float   @default(0)  // ckpScore * 30%
-  finalScore        Float   @default(0)  // total weighted score (can be > 100)
-  
-  // 🔥 UPDATED: Simplified statistics - no more tokoh1/2/3 count
-  totalEvaluators   Int     @default(0)  // total yang memilih user ini
-  
-  // Status kandidat
-  isCandidate       Boolean @default(false) // masuk kandidat berdasarkan jumlah pemilih
-  ranking           Int?                     // ranking final
-  isBestEmployee    Boolean @default(false)  // best employee of the month
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id])
-  period Period @relation(fields: [periodId], references: [id])
-
-  @@unique([userId, periodId])
-  @@map("final_evaluations")
-}
-
-// =====================
-// CERTIFICATE SYSTEM - NEW
-// =====================
-
-model CertificateLog {
-  id                String   @id @default(cuid())
-  userId            String   @map("user_id")
-  periodId          String   @map("period_id")
-  certificateNumber String   @map("certificate_number") @db.VarChar(100)
-  generatedAt       DateTime @default(now()) @map("generated_at")
-  generatedBy       String   @map("generated_by")
-  
-  // Relations
-  user              User     @relation("CertificateRecipient", fields: [userId], references: [id], onDelete: Cascade)
-  period            Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  generatedByUser   User     @relation("CertificateGenerator", fields: [generatedBy], references: [id])
-  
-  @@map("certificate_logs")
-}
-
-// =====================
-// MASTER DATA & CONFIGURATION - UPDATED FOR SINGLE CATEGORY
-// =====================
-
-model AspekPenilaian {
-  id            String   @id @default(cuid())
-  namaAspek     String   @unique
-  deskripsi     String?
-  bobot         Float    // 0.3 untuk BerAKHLAK, 0.4 untuk Presensi, 0.3 untuk CKP
-  urutan        Int
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-
-  @@map("aspek_penilaian")
-}
-
-// 🔥 UPDATED: Single range for BerAKHLAK
-model RentangNilai {
-  id         String   @id @default(cuid())
-  kategori   String   // "berakhlak" (single category)
-  ranking    Int      // 1 (single ranking)
-  nilaiMin   Int      // 80
-  nilaiMax   Int      // 100
-  deskripsi  String?  // "Tokoh BerAKHLAK"
-  createdAt  DateTime @default(now())
-
-  @@unique([kategori, ranking])
-  @@map("rentang_nilai")
-}
-
-// =====================
-// SYSTEM SETTINGS
-// =====================
-
-model SystemSetting {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("system_settings")
+enum CertificateStatus {
+  TEMPLATE_PENDING
+  TEMPLATE_GENERATED
+  PROCESSING
+  COMPLETED
 }

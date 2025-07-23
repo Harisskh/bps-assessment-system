@@ -1,4 +1,4 @@
-# 🏢 BPS Assessment System - Kabupaten Pringsewu
+# 🏢 Sistem Penilaian dan Penentuan Pegawai Terbaik (SiAPIK) - Kabupaten Pringsewu
 
 > Sistem Penilaian Pegawai BPS Kabupaten Pringsewu yang komprehensif dengan fitur penilaian Tokoh BerAKHLAK, Presensi, dan CKP untuk menentukan **Best Employee of the Month**.
 

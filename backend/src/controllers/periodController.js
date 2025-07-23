@@ -1,4 +1,4 @@
-// controllers/periodController.js - ENHANCED FOR FORCE DELETE
+// controllers/periodController.js - UPDATED WITH READ-ONLY FIELDS PROTECTION
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -226,20 +226,15 @@ const createPeriod = async (req, res) => {
   }
 };
 
-// UPDATE PERIOD
+// 🔒 UPDATED UPDATE PERIOD - PROTECT READ-ONLY FIELDS
 const updatePeriod = async (req, res) => {
   try {
     console.log('🔄 Updating period...');
     const { id } = req.params;
-    const {
-      namaPeriode,
-      startDate,
-      endDate,
-      isActive
-    } = req.body;
+    const requestBody = req.body;
 
     console.log('📝 Period ID:', id);
-    console.log('📥 Update data:', req.body);
+    console.log('📥 Update request body:', requestBody);
 
     // Check if period exists
     const existingPeriod = await prisma.period.findUnique({
@@ -253,8 +248,31 @@ const updatePeriod = async (req, res) => {
       });
     }
 
+    // 🔒 PROTECTION: Filter out read-only fields
+    const readOnlyFields = ['tahun', 'bulan', 'namaPeriode'];
+    const filteredData = {};
+    
+    // Log if any read-only fields were attempted to be changed
+    readOnlyFields.forEach(field => {
+      if (requestBody.hasOwnProperty(field)) {
+        console.log(`🔒 Blocked attempt to update read-only field: ${field}`);
+        console.log(`   Current value: ${existingPeriod[field]}`);
+        console.log(`   Attempted value: ${requestBody[field]}`);
+      }
+    });
+
+    // Only allow editable fields
+    const editableFields = ['startDate', 'endDate', 'isActive'];
+    editableFields.forEach(field => {
+      if (requestBody.hasOwnProperty(field)) {
+        filteredData[field] = requestBody[field];
+      }
+    });
+
+    console.log('✅ Filtered data for update (read-only fields removed):', filteredData);
+
     // If setting as active, deactivate other periods
-    if (isActive && !existingPeriod.isActive) {
+    if (filteredData.isActive && !existingPeriod.isActive) {
       console.log('🔄 Deactivating other periods...');
       await prisma.period.updateMany({
         where: { 
@@ -265,31 +283,66 @@ const updatePeriod = async (req, res) => {
       });
     }
 
-    const updateData = {};
-    if (namaPeriode !== undefined) updateData.namaPeriode = namaPeriode.trim();
-    if (isActive !== undefined) updateData.isActive = isActive;
-
-    // Handle dates
-    if (startDate !== undefined) {
-      updateData.startDate = startDate ? new Date(startDate) : null;
+    // Handle dates properly
+    if (filteredData.startDate !== undefined) {
+      if (filteredData.startDate && filteredData.startDate !== '') {
+        try {
+          filteredData.startDate = new Date(filteredData.startDate);
+          console.log('📅 Updated start date:', filteredData.startDate);
+        } catch (dateError) {
+          console.log('❌ Invalid start date:', filteredData.startDate);
+          return res.status(400).json({
+            success: false,
+            message: 'Format tanggal mulai tidak valid'
+          });
+        }
+      } else {
+        filteredData.startDate = null;
+      }
     }
-    if (endDate !== undefined) {
-      updateData.endDate = endDate ? new Date(endDate) : null;
+
+    if (filteredData.endDate !== undefined) {
+      if (filteredData.endDate && filteredData.endDate !== '') {
+        try {
+          filteredData.endDate = new Date(filteredData.endDate);
+          console.log('📅 Updated end date:', filteredData.endDate);
+        } catch (dateError) {
+          console.log('❌ Invalid end date:', filteredData.endDate);
+          return res.status(400).json({
+            success: false,
+            message: 'Format tanggal selesai tidak valid'
+          });
+        }
+      } else {
+        filteredData.endDate = null;
+      }
     }
 
-    console.log('💾 Updating with data:', updateData);
+    console.log('💾 Final update data:', filteredData);
 
+    // Perform update with filtered data only
     const updatedPeriod = await prisma.period.update({
       where: { id },
-      data: updateData
+      data: filteredData
     });
 
     console.log('✅ Period updated successfully');
+    console.log('🔒 Protected fields that remained unchanged:', {
+      tahun: updatedPeriod.tahun,
+      bulan: updatedPeriod.bulan,
+      namaPeriode: updatedPeriod.namaPeriode
+    });
 
     res.json({
       success: true,
-      message: 'Periode berhasil diperbarui',
-      data: { period: updatedPeriod }
+      message: 'Periode berhasil diperbarui (tahun, bulan, dan nama periode tidak dapat diubah)',
+      data: { period: updatedPeriod },
+      protectedFields: {
+        tahun: updatedPeriod.tahun,
+        bulan: updatedPeriod.bulan,
+        namaPeriode: updatedPeriod.namaPeriode,
+        note: 'Field ini tidak dapat diubah setelah periode dibuat'
+      }
     });
 
   } catch (error) {
@@ -302,7 +355,7 @@ const updatePeriod = async (req, res) => {
   }
 };
 
-// 🔥 ENHANCED DELETE PERIOD - Now supports force delete
+// ENHANCED DELETE PERIOD - Now supports force delete
 const deletePeriod = async (req, res) => {
   try {
     console.log('🗑️ Deleting period...');
@@ -375,11 +428,12 @@ const deletePeriod = async (req, res) => {
           where: { periodId: id }
         });
 
+        // 5. Delete certificates if exists
         await tx.certificate.deleteMany({
-          where: {period_id: id }
-        })
+          where: { period_id: id }
+        });
 
-        // 5. Finally delete the period
+        // 6. Finally delete the period
         await tx.period.delete({
           where: { id }
         });
@@ -482,7 +536,7 @@ const activatePeriod = async (req, res) => {
   }
 };
 
-// 🔥 ENHANCED GET PERIOD BY ID - Now includes data counts
+// ENHANCED GET PERIOD BY ID - Now includes data counts
 const getPeriodById = async (req, res) => {
   try {
     console.log('🔍 Getting period by ID...');

@@ -633,6 +633,7 @@ const CertificateManagementPage = () => {
     setSuccess('');
   };
 
+  // 🔥 LOADING STATE COMPONENT dengan SCSS yang sudah dibuat
   if (loading) {
     return (
       <div className="container-fluid p-4">
@@ -644,7 +645,14 @@ const CertificateManagementPage = () => {
               </div>
             </div>
             <h4>Memuat Data Sertifikat...</h4>
-            <p>Mohon tunggu sebentar</p>
+            <p>
+              Mohon tunggu sebentar
+              <span className="loading-dots">
+                <span className="dot"></span>
+                <span className="dot"></span>
+                <span className="dot"></span>
+              </span>
+            </p>
           </div>
         </div>
       </div>
@@ -653,15 +661,15 @@ const CertificateManagementPage = () => {
 
   return (
     <div className="container-fluid p-4 certificate-management-page">
-      {/* Header */}
+      {/* 🔥 Enhanced Header sesuai SCSS */}
       <div className="page-header">
         <div className="header-content">
           <div className="header-title">
             <i className="fas fa-certificate header-icon"></i>
             <div>
-              <h1>Kelola Sertifikat</h1>
+              <h1>Kelola Sertifikat Best Employee</h1>
               <p className="header-subtitle">
-                Kelola template dan upload sertifikat Best Employee
+                Kelola template dan upload sertifikat pegawai terbaik BPS Pringsewu
               </p>
             </div>
           </div>
@@ -676,7 +684,7 @@ const CertificateManagementPage = () => {
         </div>
       </div>
 
-      {/* Filter Section */}
+      {/* 🔥 Enhanced Filter Section sesuai SCSS */}
       <div className="filter-section mb-4">
         <div className="card">
           <div className="card-header">
@@ -772,7 +780,7 @@ const CertificateManagementPage = () => {
         </div>
       </div>
 
-      {/* Alert Messages */}
+      {/* 🔥 Enhanced Alert Messages sesuai SCSS */}
       {error && (
         <div className="alert alert-danger alert-dismissible fade show" role="alert">
           <i className="fas fa-exclamation-triangle me-2"></i>
@@ -788,7 +796,7 @@ const CertificateManagementPage = () => {
         </div>
       )}
 
-      {/* Certificate Management Grid */}
+      {/* 🔥 Enhanced Certificate Management Grid sesuai SCSS */}
       <div className="certificates-grid">
         {bestEmployees.map((emp) => {
           const key = `${emp.user.id}-${emp.period.id}`;
@@ -796,7 +804,7 @@ const CertificateManagementPage = () => {
           
           return (
             <div key={key} className="certificate-card">
-              {/* Period Header */}
+              {/* 🔥 Period Header di paling atas - sesuai SCSS */}
               <div className="card-period-header">
                 <div className="period-highlight">
                   <i className="fas fa-trophy period-icon"></i>
@@ -806,10 +814,11 @@ const CertificateManagementPage = () => {
                 </div>
               </div>
 
+              {/* 🔥 Enhanced Card Header sesuai SCSS */}
               <div className="card-header">
                 <div className="employee-info">
                   <div className="employee-details">
-                    {/* Employee Photo */}
+                    {/* 🔥 Enhanced Employee Photo sesuai SCSS */}
                     <div 
                       className="employee-photo" 
                       onClick={() => handlePhotoClick(emp)}
@@ -833,30 +842,42 @@ const CertificateManagementPage = () => {
                       </div>
                     </div>
                     
+                    {/* 🔥 Enhanced Employee Text sesuai SCSS */}
                     <div className="employee-text">
                       <h5>{emp.user.nama}</h5>
-                      <p className="employee-nip">{emp.user.nip}</p>
-                      <div className="employee-score">Score: {emp.finalScore?.toFixed(2)}</div>
+                      <p className="employee-nip">NIP: {emp.user.nip}</p>
+                      <div className="employee-score">
+                        <i className="fas fa-star me-1"></i>
+                        Score: {emp.finalScore?.toFixed(2)}
+                      </div>
                     </div>
                   </div>
                 </div>
 
+                {/* 🔥 Enhanced Period Info sesuai SCSS */}
                 <div className="period-info">
                   <div className="period-badge">
+                    <i className="fas fa-calendar-alt me-1"></i>
                     Periode {emp.period.bulan}/{emp.period.tahun}
                   </div>
                   <div className="ranking-info">
+                    <i className="fas fa-medal me-1"></i>
                     Ranking #{emp.ranking || 1}
                   </div>
                 </div>
               </div>
               
+              {/* 🔥 Enhanced Card Body sesuai SCSS */}
               <div className="card-body">
                 <div className="status-section">
-                  <div className="status-label">Status:</div>
+                  <div className="status-label">
+                    <i className="fas fa-info-circle me-1"></i>
+                    Status Sertifikat:
+                  </div>
                   {getStatusBadge(emp.certificate)}
                 </div>
 
+                {/* 🔥 Enhanced Certificate Details sesuai SCSS */}
                 {emp.certificate && (
                   <div className="certificate-details">
                     {emp.certificate.certificate_number && (
@@ -890,11 +911,12 @@ const CertificateManagementPage = () => {
                 )}
               </div>
               
+              {/* 🔥 Enhanced Card Actions sesuai SCSS */}
               <div className="card-actions">
                 {/* Generate Template - ADMIN ONLY */}
                 {(!emp.certificate || !emp.certificate.template_generated) && canGenerate && (
                   <button
-                    className="btn btn-primary"
+                    className={`btn btn-primary ${processing === 'generating' ? 'btn-loading' : ''}`}
                     onClick={() => handleTemplateSelectionClick(emp)}
                     disabled={processing === 'generating'}
                   >
@@ -949,7 +971,7 @@ const CertificateManagementPage = () => {
                         {canUploadAndDelete && (
                           <div className="upload-section">
                             <label 
-                              className={`btn btn-success ${processing === 'uploading' ? 'disabled' : ''}`} 
+                              className={`btn btn-success ${processing === 'uploading' ? 'label-loading disabled' : ''}`} 
                               htmlFor={`upload-${key}`}
                             >
                               {processing === 'uploading' ? (
@@ -999,7 +1021,7 @@ const CertificateManagementPage = () => {
                         {canUploadAndDelete && (
                           <div className="upload-section">
                             <label 
-                              className={`btn btn-warning ${processing === 'uploading' ? 'disabled' : ''}`} 
+                              className={`btn btn-warning ${processing === 'uploading' ? 'label-loading disabled' : ''}`} 
                               htmlFor={`upload-replace-${key}`}
                               title="Upload ulang sertifikat final"
                             >
@@ -1046,7 +1068,7 @@ const CertificateManagementPage = () => {
                     {/* Delete Button - ADMIN & PIMPINAN (Always show if certificate exists) */}
                     {canUploadAndDelete && (
                       <button
-                        className="btn btn-outline-danger"
+                        className={`btn btn-outline-danger ${processing === 'deleting' ? 'btn-loading' : ''}`}
                         onClick={() => handleDeleteCertificate(emp)}
                         disabled={processing === 'deleting'}
                         title="Hapus sertifikat dan mulai ulang"
@@ -1072,7 +1094,7 @@ const CertificateManagementPage = () => {
         })}
       </div>
 
-      {/* Empty State */}
+      {/* 🔥 Enhanced Empty State sesuai SCSS */}
       {bestEmployees.length === 0 && (
         <div className="empty-state">
           <i className="fas fa-certificate fa-3x text-muted mb-3"></i>
@@ -1090,37 +1112,62 @@ const CertificateManagementPage = () => {
               <>
                 Belum ada pegawai yang meraih predikat Best Employee.
                 <br/>
-                Lakukan perhitungan final evaluation terlebih dahulu.
+                Lakukan perhitungan final evaluation terlebih dahulu di menu{' '}
+                <strong>Perhitungan Final</strong>.
               </>
             )}
           </p>
         </div>
       )}
 
-      {/* Instructions Panel */}
+      {/* 🔥 Enhanced Instructions Panel sesuai SCSS */}
       <div className="instructions-panel mt-4">
         <div className="card">
           <div className="card-header">
             <h5 className="mb-0">
               <i className="fas fa-info-circle me-2"></i>
-              Petunjuk Role: {user.role}
+              Petunjuk Penggunaan - Role: {user.role}
             </h5>
           </div>
           <div className="card-body">
             {user.role === 'ADMIN' && (
               <div className="row">
                 <div className="col-12">
-                  <h6>👨‍💼 Role Admin (Full Access)</h6>
+                  <h6>
+                    <i className="fas fa-user-cog me-2 text-primary"></i>
+                    Role Admin (Full Access)
+                  </h6>
                   <ol>
-                    <li><strong>Generate Template:</strong> Buat template dengan pilihan TTD Basah/E-TTD</li>
-                    <li><strong>Download Template:</strong> Unduh template untuk proses offline</li>
-                    <li><strong>Preview:</strong> Lihat preview sertifikat di tab baru</li>
-                    <li><strong>Upload Final:</strong> Upload sertifikat yang sudah ditandatangani</li>
-                    <li><strong>Upload Ulang:</strong> Ganti sertifikat final jika perlu revisi</li>
-                    <li><strong>Download Final:</strong> Unduh sertifikat final</li>
-                    <li><strong>View Final:</strong> Lihat sertifikat final di tab baru</li>
-                    <li><strong>Hapus:</strong> Reset proses dari awal</li>
+                    <li>
+                      <strong>Generate Template:</strong> Buat template dengan pilihan TTD Basah/E-TTD dan input nomor sertifikat
+                    </li>
+                    <li>
+                      <strong>Download Template:</strong> Unduh template untuk proses offline (tanda tangan manual)
+                    </li>
+                    <li>
+                      <strong>Preview:</strong> Lihat preview sertifikat di tab baru sebelum finalisasi
+                    </li>
+                    <li>
+                      <strong>Upload Final:</strong> Upload sertifikat yang sudah ditandatangani (.pdf atau gambar)
+                    </li>
+                    <li>
+                      <strong>Upload Ulang:</strong> Ganti sertifikat final jika perlu revisi
+                    </li>
+                    <li>
+                      <strong>Download Final:</strong> Unduh sertifikat final untuk distribusi
+                    </li>
+                    <li>
+                      <strong>View Final:</strong> Lihat sertifikat final di tab baru
+                    </li>
+                    <li>
+                      <strong>Hapus:</strong> Reset proses dari awal (template + final)
+                    </li>
                   </ol>
+                  
+                  <div className="alert alert-info mt-3">
+                    <i className="fas fa-lightbulb me-2"></i>
+                    <strong>Tips Admin:</strong> Gunakan fitur preview untuk memastikan template sudah benar sebelum proses offline.
+                  </div>
                 </div>
               </div>
             )}
@@ -1128,16 +1175,32 @@ const CertificateManagementPage = () => {
             {user.role === 'PIMPINAN' && (
               <div className="row">
                 <div className="col-12">
-                  <h6>👔 Role Pimpinan (Management Access)</h6>
+                  <h6>
+                    <i className="fas fa-user-tie me-2 text-primary"></i>
+                    Role Pimpinan (Management Access)
+                  </h6>
                   <ol>
-                    <li><strong>✅ Download Template:</strong> Unduh template setelah Admin generate</li>
-                    <li><strong>✅ Preview:</strong> Lihat preview sertifikat di tab baru</li>
-                    <li><strong>✅ Upload Final:</strong> Upload sertifikat yang sudah ditandatangani</li>
-                    <li><strong>✅ Upload Ulang:</strong> Ganti sertifikat final jika perlu revisi</li>
-                    <li><strong>✅ Download Final:</strong> Unduh sertifikat final</li>
-                    <li><strong>✅ View Final:</strong> Lihat sertifikat final di tab baru</li>
-                    <li><strong>✅ Hapus:</strong> Reset proses dari awal</li>
-                    <li><strong>❌ Generate:</strong> Tidak bisa generate template (hanya Admin)</li>
+                    <li>
+                      <strong>✅ Download Template:</strong> Unduh template setelah Admin generate
+                    </li>
+                    <li>
+                      <strong>✅ Preview:</strong> Lihat preview sertifikat di tab baru
+                    </li>
+                    <li>
+                      <strong>✅ Upload Final:</strong> Upload sertifikat yang sudah ditandatangani
+                    </li>
+                    <li>
+                      <strong>✅ Upload Ulang:</strong> Ganti sertifikat final jika perlu revisi
+                    </li>
+                    <li>
+                      <strong>✅ Download Final:</strong> Unduh sertifikat final
+                    </li>
+                    <li>
+                      <strong>✅ View Final:</strong> Lihat sertifikat final di tab baru
+                    </li>
+                    <li>
+                      <strong>✅ Hapus:</strong> Reset proses dari awal
+                    </li>
                   </ol>
                   
                   <div className="alert alert-success mt-3">
@@ -1147,11 +1210,27 @@ const CertificateManagementPage = () => {
                 </div>
               </div>
             )}
+
+            {user.role === 'STAFF' && (
+              <div className="row">
+                <div className="col-12">
+                  <h6>
+                    <i className="fas fa-user me-2 text-primary"></i>
+                    Role Staff (View Only)
+                  </h6>
+                  <div className="alert alert-warning">
+                    <i className="fas fa-eye me-2"></i>
+                    <strong>Akses Terbatas:</strong> Staff hanya dapat melihat data sertifikat Best Employee. 
+                    Untuk pengelolaan sertifikat, hubungi Admin atau Pimpinan.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Template Selection Modal - ADMIN ONLY */}
+       {/* Template Selection Modal - ADMIN ONLY */}
       {showTemplateModal && selectedEmployeeForTemplate && canGenerate && (
         <div className={`template-selection-modal ${showTemplateModal ? 'show' : ''}`} onClick={handleCloseTemplateModal}>
           <div 
@@ -1309,9 +1388,9 @@ const CertificateManagementPage = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal - ADMIN & PIMPINAN */}
+      {/* 🔥 DELETE CONFIRMATION MODAL - Enhanced sesuai SCSS */}
       {showDeleteModal && selectedEmployeeForDelete && canUploadAndDelete && (
-        <div className={`delete-modal ${showDeleteModal ? 'show' : ''}`} onClick={handleCloseDeleteModal}>
+        <div className={`cert-delete-modal ${showDeleteModal ? 'show' : ''}`} onClick={handleCloseDeleteModal}>
           <div 
             className={`delete-modal-content ${showDeleteModal ? 'show' : ''}`} 
             onClick={(e) => e.stopPropagation()}
@@ -1331,6 +1410,7 @@ const CertificateManagementPage = () => {
             </div>
             
             <div className="modal-body">
+              {/* Employee Info */}
               <div className="employee-info-modal">
                 <div className="employee-avatar-modal">
                   {selectedEmployeeForDelete.user.profilePicture ? (
@@ -1353,6 +1433,7 @@ const CertificateManagementPage = () => {
                 </div>
               </div>
 
+              {/* Warning Message */}
               <div className="warning-message mt-3">
                 <div className="alert alert-danger">
                   <i className="fas fa-exclamation-triangle me-2"></i>
@@ -1368,7 +1449,7 @@ const CertificateManagementPage = () => {
                 
                 <div className="alert alert-info">
                   <i className="fas fa-info-circle me-2"></i>
-                  <strong>Setelah dihapus:</strong> Proses dapat dimulai dari awal lagi.
+                  <strong>Setelah dihapus:</strong> Proses dapat dimulai dari awal lagi dengan generate template baru.
                 </div>
               </div>
             </div>
@@ -1393,9 +1474,9 @@ const CertificateManagementPage = () => {
         </div>
       )}
 
-      {/* Photo Modal */}
+      {/* 🔥 PHOTO MODAL - Enhanced sesuai SCSS */}
       {showPhotoModal && selectedEmployee && (
-        <div className={`photo-modal ${showPhotoModal ? 'show' : ''}`} onClick={handleClosePhotoModal}>
+        <div className={`cert-photo-modal ${showPhotoModal ? 'show' : ''}`} onClick={handleClosePhotoModal}>
           <div 
             className={`photo-modal-content ${showPhotoModal ? 'show' : ''}`} 
             onClick={(e) => e.stopPropagation()}
@@ -1416,16 +1497,19 @@ const CertificateManagementPage = () => {
                   {getInitials(selectedEmployee.user.nama)}
                 </div>
               )}
-              
+                    
               <div className="employee-info">
                 <h4>{selectedEmployee.user.nama}</h4>
-                <p><i className="fas fa-id-card"></i> NIP: {selectedEmployee.user.nip}</p>
-                <p><i className="fas fa-briefcase"></i> Jabatan: {selectedEmployee.user.jabatan || 'N/A'}</p>
-                <p><i className="fas fa-trophy"></i> Best Employee: {getMonthName(selectedEmployee.period.bulan)} {selectedEmployee.period.tahun}</p>
-                <p><i className="fas fa-star"></i> Score: {selectedEmployee.finalScore?.toFixed(2)}</p>
+                <p><i className="fas fa-id-card me-2"></i> NIP: {selectedEmployee.user.nip}</p>
+                <p><i className="fas fa-briefcase me-2"></i> Jabatan: {selectedEmployee.user.jabatan || 'N/A'}</p>
+                <p><i className="fas fa-trophy me-2"></i> Best Employee: {getMonthName(selectedEmployee.period.bulan)} {selectedEmployee.period.tahun}</p>
+                <p><i className="fas fa-star me-2"></i> Score: {selectedEmployee.finalScore?.toFixed(2)}</p>
                 
                 {!selectedEmployee.user.profilePicture && (
-                  <p className="no-photo-text">Foto profil belum diatur</p>
+                  <p className="no-photo-text">
+                    <i className="fas fa-camera me-2"></i>
+                    Foto profil belum diatur
+                  </p>
                 )}
               </div>
             </div>

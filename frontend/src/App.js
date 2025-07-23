@@ -1,5 +1,4 @@
 // src/App.js - FIXED WITH CONSISTENT PROTECTEDROUTE USAGE
-import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 

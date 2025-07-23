@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { userCertificateAPI } from '../services/api';
 
+
 const Icon = ({ path, className = "nav-icon" }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
     <path d={path} />

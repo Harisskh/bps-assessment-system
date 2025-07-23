@@ -1,4 +1,4 @@
-// src/pages/PeriodManagementPage.js - ENHANCED UI/UX WITH DOUBLE CONFIRMATION
+// src/pages/PeriodManagementPage.js - ENHANCED WITH READ-ONLY EDIT MODE
 import React, { useState, useEffect } from 'react';
 import { periodAPI } from '../services/api';
 import Select from 'react-select';
@@ -23,9 +23,9 @@ const PeriodManagementPage = () => {
   const [modalMode, setModalMode] = useState('create');
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   
-  // 🔥 Enhanced Delete States
+  // Delete States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteStep, setDeleteStep] = useState(1); // 1 = first warning, 2 = final confirmation
+  const [deleteStep, setDeleteStep] = useState(1);
   const [periodToDelete, setPeriodToDelete] = useState(null);
   const [periodHasData, setPeriodHasData] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -126,21 +126,37 @@ const PeriodManagementPage = () => {
     setSuccess('');
     
     try {
-      const submitData = {
-        tahun: parseInt(formData.tahun),
-        bulan: parseInt(formData.bulan),
-        namaPeriode: formData.namaPeriode,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        isActive: formData.isActive
-      };
-      
-      console.log('📤 Submitting period data:', submitData);
+      let submitData;
       
       if (modalMode === 'create') {
+        // For create mode, send all data
+        submitData = {
+          tahun: parseInt(formData.tahun),
+          bulan: parseInt(formData.bulan),
+          namaPeriode: formData.namaPeriode,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          isActive: formData.isActive
+        };
+        
+        console.log('📤 Creating period data:', submitData);
         await periodAPI.create(submitData);
         setSuccess('Periode berhasil dibuat');
       } else {
+        // For edit mode, only send editable fields (excluding tahun, bulan, namaPeriode)
+        submitData = {
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          isActive: formData.isActive
+        };
+        
+        console.log('📤 Updating period data:', submitData);
+        console.log('🔒 Read-only fields (not sent):', {
+          tahun: formData.tahun,
+          bulan: formData.bulan,
+          namaPeriode: formData.namaPeriode
+        });
+        
         await periodAPI.update(selectedPeriod.id, submitData);
         setSuccess('Periode berhasil diperbarui');
       }
@@ -172,42 +188,49 @@ const PeriodManagementPage = () => {
     }
   };
 
-  // 🔥 Enhanced Delete Handler with Data Check
-  const handleDeletePeriodClick = async (period) => {
-    setPeriodToDelete(period);
-    setDeleteStep(1);
-    setDeleteConfirmText('');
+  const handleDeletePeriodClick = (period) => {
+    console.log('🔄 Handling delete click for period:', period.namaPeriode);
     
     try {
-      // Check if period has related data
-      const detailResponse = await periodAPI.getById(period.id);
-      const periodDetail = detailResponse.data.data.period;
-      
-      const hasData = (
-        periodDetail._count?.evaluations > 0 ||
-        periodDetail._count?.attendances > 0 ||
-        periodDetail._count?.ckpScores > 0 ||
-        periodDetail._count?.finalEvaluations > 0
-      );
-      
-      setPeriodHasData(hasData);
-      setShowDeleteModal(true);
-      
-    } catch (error) {
-      console.error('Check period data error:', error);
-      // If we can't check, assume it has data for safety
+      setPeriodToDelete(period);
+      setDeleteStep(1);
+      setDeleteConfirmText('');
+      setError('');
       setPeriodHasData(true);
       setShowDeleteModal(true);
+      
+      setTimeout(async () => {
+        try {
+          console.log('📊 Background data check for period:', period.id);
+          const detailResponse = await periodAPI.getById(period.id);
+          const periodDetail = detailResponse.data.data.period;
+          
+          const hasData = (
+            periodDetail._count?.evaluations > 0 ||
+            periodDetail._count?.attendances > 0 ||
+            periodDetail._count?.ckpScores > 0 ||
+            periodDetail._count?.finalEvaluations > 0
+          );
+          
+          console.log('✅ Background data check completed, hasData:', hasData);
+          setPeriodHasData(hasData);
+        } catch (error) {
+          console.error('❌ Background data check error:', error);
+          setPeriodHasData(true);
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ handleDeletePeriodClick error:', error);
+      setError('Terjadi kesalahan saat menyiapkan dialog hapus');
     }
   };
 
   const handleDeleteConfirm = () => {
     if (periodHasData) {
       if (deleteStep === 1) {
-        // First confirmation - show second warning
         setDeleteStep(2);
       } else {
-        // Second confirmation - check text input
         const expectedText = `hapus ${periodToDelete.namaPeriode}`;
         if (deleteConfirmText.toLowerCase() === expectedText.toLowerCase()) {
           performDelete();
@@ -216,7 +239,6 @@ const PeriodManagementPage = () => {
         }
       }
     } else {
-      // No data - single confirmation
       performDelete();
     }
   };
@@ -262,15 +284,24 @@ const PeriodManagementPage = () => {
   
   const getLastDayOfMonth = (year, month) => new Date(year, month, 0).getDate();
   
+  // 🔒 Modified handleFormChange to prevent changes in edit mode for read-only fields
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // 🔒 Block changes to read-only fields in edit mode
+    if (modalMode === 'edit' && (name === 'tahun' || name === 'bulan' || name === 'namaPeriode')) {
+      console.log(`🔒 Blocked attempt to change ${name} in edit mode`);
+      return;
+    }
+    
     setFormData(prev => {
       const newFormState = {
         ...prev,
         [name]: type === 'checkbox' ? checked : value
       };
       
-      if (name === 'tahun' || name === 'bulan') {
+      // Only auto-generate namaPeriode in create mode
+      if (modalMode === 'create' && (name === 'tahun' || name === 'bulan')) {
         const tahun = name === 'tahun' ? parseInt(value) : newFormState.tahun;
         const bulan = name === 'bulan' ? parseInt(value) : newFormState.bulan;
         const newNamaPeriode = `${getMonthName(bulan)} ${tahun}`;
@@ -339,7 +370,7 @@ const PeriodManagementPage = () => {
 
   return (
     <div className="container-fluid p-4 period-management-page">
-      {/* 🔥 Enhanced Header */}
+      {/* Header */}
       <div className="page-header">
         <div className="header-content">
           <div className="header-title">
@@ -371,7 +402,7 @@ const PeriodManagementPage = () => {
         </div>
       )}
       
-      {/* 🔥 Enhanced Filter Section */}
+      {/* Filter Section */}
       <div className="filter-section">
         <div className="filter-header">
           <h5>
@@ -415,7 +446,7 @@ const PeriodManagementPage = () => {
         </div>
       </div>
 
-      {/* 🔥 Enhanced Table Section */}
+      {/* Table Section */}
       <div className="table-section">
         <div className="table-header">
           <h5>
@@ -533,7 +564,7 @@ const PeriodManagementPage = () => {
         </div>
       </div>
 
-      {/* Enhanced Pagination */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <nav className="mt-4">
           <ul className="pagination justify-content-center">
@@ -573,7 +604,7 @@ const PeriodManagementPage = () => {
         </nav>
       )}
 
-      {/* Modal Tambah/Edit Periode */}
+      {/* 🔒 Modal Tambah/Edit Periode - WITH READ-ONLY FIELDS IN EDIT MODE */}
       {showModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
@@ -591,46 +622,103 @@ const PeriodManagementPage = () => {
                   ></button>
                 </div>
                 <div className="modal-body">
+                  {/* 🔒 Show notification in edit mode */}
+                  {modalMode === 'edit' && (
+                    <div className="alert alert-info mb-4">
+                      <i className="fas fa-info-circle me-2"></i>
+                      <strong>Catatan:</strong> Tahun, bulan, dan nama periode tidak dapat diubah setelah periode dibuat.
+                      Anda hanya dapat mengedit tanggal mulai, tanggal selesai, dan status aktif.
+                    </div>
+                  )}
+                  
                   <div className="row g-3">
                     <div className="col-6">
-                      <label className="form-label">Tahun *</label>
-                      <Select
-                        options={modalYearOptions}
-                        value={modalYearOptions.find(y => y.value === formData.tahun)}
-                        onChange={(opt) => handleFormChange({
-                          target: { name: 'tahun', value: opt.value }
-                        })}
-                        styles={customSelectStyles}
-                        placeholder="Pilih Tahun"
-                      />
+                      <label className="form-label">
+                        Tahun * 
+                        {modalMode === 'edit' && <i className="fas fa-lock text-muted ms-1" title="Tidak dapat diubah"></i>}
+                      </label>
+                      {modalMode === 'create' ? (
+                        <Select
+                          options={modalYearOptions}
+                          value={modalYearOptions.find(y => y.value === formData.tahun)}
+                          onChange={(opt) => handleFormChange({
+                            target: { name: 'tahun', value: opt.value }
+                          })}
+                          styles={customSelectStyles}
+                          placeholder="Pilih Tahun"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={formData.tahun}
+                          readOnly
+                          disabled
+                          style={{ 
+                            minHeight: '48px', 
+                            borderRadius: '0.75rem',
+                            backgroundColor: '#f8f9fa',
+                            color: '#6c757d'
+                          }}
+                        />
+                      )}
                     </div>
                     <div className="col-6">
-                      <label className="form-label">Bulan *</label>
-                      <select
-                        className="form-select"
-                        name="bulan"
-                        value={formData.bulan}
-                        onChange={handleFormChange}
-                        required
-                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
-                      >
-                        {Array.from({ length: 12 }, (_, i) => (
-                          <option key={i + 1} value={i + 1}>
-                            {getMonthName(i + 1)}
-                          </option>
-                        ))}
-                      </select>
+                      <label className="form-label">
+                        Bulan * 
+                        {modalMode === 'edit' && <i className="fas fa-lock text-muted ms-1" title="Tidak dapat diubah"></i>}
+                      </label>
+                      {modalMode === 'create' ? (
+                        <select
+                          className="form-select"
+                          name="bulan"
+                          value={formData.bulan}
+                          onChange={handleFormChange}
+                          required
+                          style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                        >
+                          {Array.from({ length: 12 }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                              {getMonthName(i + 1)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={getMonthName(formData.bulan)}
+                          readOnly
+                          disabled
+                          style={{ 
+                            minHeight: '48px', 
+                            borderRadius: '0.75rem',
+                            backgroundColor: '#f8f9fa',
+                            color: '#6c757d'
+                          }}
+                        />
+                      )}
                     </div>
                     <div className="col-12">
-                      <label className="form-label">Nama Periode *</label>
+                      <label className="form-label">
+                        Nama Periode * 
+                        {modalMode === 'edit' && <i className="fas fa-lock text-muted ms-1" title="Tidak dapat diubah"></i>}
+                      </label>
                       <input
                         type="text"
                         className="form-control"
                         name="namaPeriode"
                         value={formData.namaPeriode}
                         onChange={handleFormChange}
-                        required
-                        style={{ minHeight: '48px', borderRadius: '0.75rem' }}
+                        required={modalMode === 'create'}
+                        readOnly={modalMode === 'edit'}
+                        disabled={modalMode === 'edit'}
+                        style={{ 
+                          minHeight: '48px', 
+                          borderRadius: '0.75rem',
+                          backgroundColor: modalMode === 'edit' ? '#f8f9fa' : 'white',
+                          color: modalMode === 'edit' ? '#6c757d' : 'inherit'
+                        }}
                       />
                     </div>
                     <div className="col-6">
@@ -730,7 +818,7 @@ const PeriodManagementPage = () => {
         </div>
       )}
 
-      {/* 🔥 Enhanced Delete Modal with Double Confirmation */}
+      {/* Delete Modal */}
       {showDeleteModal && periodToDelete && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">

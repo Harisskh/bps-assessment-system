@@ -2413,3 +2413,47 @@ $status-completed: #28a745;
     }
   }
 }
+
+// Tambahkan CSS ini ke CertificateManagementPage.scss
+// Untuk mengubah warna text input menjadi hitam
+
+.template-selection-modal {
+  .modal-body {
+    .form-group {
+      .form-control {
+        color: #1d1a1a !important; // 🔥 FORCE BLACK TEXT
+        background: white !important;
+        
+        &::placeholder {
+          color: #6c757d !important; // Placeholder tetap abu-abu
+          font-style: italic;
+        }
+        
+        &:focus {
+          color: #262424 !important; // Tetap hitam saat focus
+          background: white !important;
+        }
+      }
+      
+      .form-select {
+        color: #272424 !important; // 🔥 DROPDOWN TEXT HITAM
+        background: white !important;
+        
+        option {
+          color: #262323 !important; // Option text hitam
+          background: white !important;
+          
+          &:disabled {
+            color: #6c757d !important;
+            background: #f8f9fa !important;
+          }
+        }
+        
+        &:focus {
+          color: #292727 !important;
+          background: white !important;
+        }
+      }
+    }
+  }
+}

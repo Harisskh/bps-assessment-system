@@ -216,33 +216,38 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+// Add this to your existing Certificate model in schema.prisma
+
 model Certificate {
   id                 String            @id @default(cuid())
-  period_id          String            @map("period_id")
-  user_id            String            @map("user_id")
-  template_generated Boolean           @default(false) @map("template_generated")
-  template_path      String?           @map("template_path")
-  template_type      String?           @map("template_type")
-  generated_by       String?           @map("generated_by")
-  generated_at       DateTime?         @map("generated_at")
-  is_uploaded        Boolean           @default(false) @map("is_uploaded")
-  file_name          String?           @map("file_name")
-  file_url           String?           @map("file_url")
-  file_path          String?           @map("file_path")
-  uploaded_by        String?           @map("uploaded_by")
-  uploaded_at        DateTime?         @map("uploaded_at")
-  certificate_number String?           @map("certificate_number")
+  user_id            String
+  period_id          String
+  certificate_number String?           @db.VarChar(100)
+  template_generated Boolean           @default(false)
+  template_path      String?
+  template_type      String?           @default("TTD_BASAH") // 🔥 NEW: Store template type
+  is_uploaded        Boolean           @default(false)
+  file_name          String?
+  file_url           String?
+  file_path          String?
   status             CertificateStatus @default(TEMPLATE_PENDING)
-  created_at         DateTime          @default(now()) @map("created_at")
-  updated_at         DateTime          @default(now()) @updatedAt @map("updated_at")
+  generated_by       String?
+  generated_at       DateTime?
+  uploaded_by        String?
+  uploaded_at        DateTime?
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @updatedAt
+
+  // Relations
+  period             Period            @relation(fields: [period_id], references: [id], onDelete: Cascade)
   generatedByUser    User?             @relation("CertificateGenerator", fields: [generated_by], references: [id])
-  period             Period            @relation(fields: [period_id], references: [id])
   uploadedByUser     User?             @relation("CertificateUploader", fields: [uploaded_by], references: [id])
   user               User              @relation("CertificateRecipient", fields: [user_id], references: [id])
 
   @@index([period_id])
   @@index([status])
   @@index([user_id, period_id])
+  @@index([template_type]) // 🔥 NEW: Index for template type queries
   @@map("certificates")
 }
 

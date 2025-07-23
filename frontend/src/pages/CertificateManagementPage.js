@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { certificateManagementAPI, periodAPI, getImageUrl } from '../services/api';
 import '../styles/CertificateManagementPage.scss';
+import '../styles/TemplateSelectionModal.scss';
 
 const CertificateManagementPage = () => {
   const { user } = useAuth();
@@ -15,12 +16,15 @@ const CertificateManagementPage = () => {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  // Nomor sertifikat modal states
-  const [showNomorModal, setShowNomorModal] = useState(false);
-  const [selectedEmployeeForNomor, setSelectedEmployeeForNomor] = useState(null);
+  // Template selection modal states
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [selectedEmployeeForTemplate, setSelectedEmployeeForTemplate] = useState(null);
   const [nomorSertifikat, setNomorSertifikat] = useState('');
+  const [selectedTemplateType, setSelectedTemplateType] = useState('TTD_BASAH');
+  const [availableTemplates, setAvailableTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
 
-  // 🔥 NEW: Delete confirmation modal states
+  // Delete confirmation modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedEmployeeForDelete, setSelectedEmployeeForDelete] = useState(null);
 
@@ -38,6 +42,11 @@ const CertificateManagementPage = () => {
     { value: 'COMPLETED', label: 'Selesai' }
   ];
 
+  // Role checks
+  const canGenerate = user.role === 'ADMIN';
+  const canUploadAndDelete = user.role === 'ADMIN' || user.role === 'PIMPINAN';
+  const canViewAndDownload = user.role === 'ADMIN' || user.role === 'PIMPINAN';
+
   // Handle photo click
   const handlePhotoClick = (employee) => {
     console.log('📷 Photo clicked for:', employee.user.nama);
@@ -53,65 +62,107 @@ const CertificateManagementPage = () => {
     document.body.style.overflow = 'unset';
   };
 
-  // Handle nomor sertifikat modal
-  const handleNomorSertifikatClick = (employee) => {
-    console.log('📝 Opening nomor sertifikat modal for:', employee.user.nama);
-    setSelectedEmployeeForNomor(employee);
+  // Handle template selection modal (ADMIN ONLY)
+  const handleTemplateSelectionClick = async (employee) => {
+    console.log('📝 Opening template selection modal for:', employee.user.nama);
+    setSelectedEmployeeForTemplate(employee);
     
-    // Pre-fill dengan nomor yang sudah ada jika ada
     const existingNumber = employee.certificate?.certificate_number || '';
     setNomorSertifikat(existingNumber);
+    setSelectedTemplateType('TTD_BASAH');
     
-    setShowNomorModal(true);
+    await loadAvailableTemplates();
+    
+    setShowTemplateModal(true);
     document.body.style.overflow = 'hidden';
   };
 
-  // Handle close nomor modal
-  const handleCloseNomorModal = () => {
-    setShowNomorModal(false);
-    setSelectedEmployeeForNomor(null);
+  // Load available templates
+  const loadAvailableTemplates = async () => {
+    setTemplatesLoading(true);
+    try {
+      console.log('🔄 Loading available templates...');
+      const response = await certificateManagementAPI.getAvailableTemplates();
+      
+      if (response.data.success) {
+        setAvailableTemplates(response.data.data.templates);
+        console.log('✅ Available templates loaded:', response.data.data.templates);
+      } else {
+        setError('Gagal memuat template: ' + response.data.error);
+        setAvailableTemplates([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading templates:', error);
+      setError('Gagal memuat template: ' + (error.response?.data?.message || error.message));
+      setAvailableTemplates([]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  // Handle close template modal
+  const handleCloseTemplateModal = () => {
+    setShowTemplateModal(false);
+    setSelectedEmployeeForTemplate(null);
     setNomorSertifikat('');
+    setSelectedTemplateType('TTD_BASAH');
     document.body.style.overflow = 'unset';
   };
 
-  // Handle submit nomor sertifikat
-  const handleSubmitNomorSertifikat = async () => {
+  // Handle submit template generation (ADMIN ONLY)
+  const handleSubmitTemplateGeneration = async () => {
     if (!nomorSertifikat.trim()) {
       setError('Nomor sertifikat harus diisi');
       return;
     }
 
-    if (!selectedEmployeeForNomor) {
+    if (!selectedTemplateType) {
+      setError('Template harus dipilih');
+      return;
+    }
+
+    if (!selectedEmployeeForTemplate) {
       setError('Data pegawai tidak ditemukan');
       return;
     }
 
-    const key = `${selectedEmployeeForNomor.user.id}-${selectedEmployeeForNomor.period.id}`;
+    const selectedTemplate = availableTemplates.find(t => t.key === selectedTemplateType);
+    if (!selectedTemplate) {
+      setError('Template yang dipilih tidak valid');
+      return;
+    }
+
+    if (!selectedTemplate.exists) {
+      setError(`Template ${selectedTemplate.displayName} tidak ditemukan di server.`);
+      return;
+    }
+
+    const key = `${selectedEmployeeForTemplate.user.id}-${selectedEmployeeForTemplate.period.id}`;
     setProcessingStates(prev => ({ ...prev, [key]: 'generating' }));
     setError('');
     
     try {
-      console.log('🔄 Generating template with nomor:', nomorSertifikat);
+      console.log('🔄 Generating template with type:', selectedTemplateType, 'nomor:', nomorSertifikat);
       const response = await certificateManagementAPI.generateTemplateWithNomor(
-        selectedEmployeeForNomor.user.id, 
-        selectedEmployeeForNomor.period.id,
-        nomorSertifikat
+        selectedEmployeeForTemplate.user.id, 
+        selectedEmployeeForTemplate.period.id,
+        nomorSertifikat,
+        selectedTemplateType
       );
       
       if (response.data.success) {
-        setSuccess(`Sertifikat dengan nomor ${nomorSertifikat} berhasil di-generate! Template disimpan ke folder uploads/cert`);
+        setSuccess(`Sertifikat berhasil di-generate menggunakan ${selectedTemplate.displayName}!`);
         
-        // Auto preview setelah berhasil generate
         setTimeout(() => {
           handlePreviewCertificate(
-            selectedEmployeeForNomor.user.id, 
-            selectedEmployeeForNomor.period.id, 
-            selectedEmployeeForNomor.user.nama
+            selectedEmployeeForTemplate.user.id, 
+            selectedEmployeeForTemplate.period.id, 
+            selectedEmployeeForTemplate.user.nama
           );
         }, 1000);
         
-        fetchBestEmployees(); // Refresh data
-        handleCloseNomorModal(); // Close modal
+        fetchBestEmployees();
+        handleCloseTemplateModal();
       } else {
         setError('Gagal generate template: ' + response.data.error);
       }
@@ -123,7 +174,7 @@ const CertificateManagementPage = () => {
     }
   };
 
-  // 🔥 NEW: Handle delete certificate
+  // Handle delete certificate (ADMIN & PIMPINAN)
   const handleDeleteCertificate = (employee) => {
     console.log('🗑️ Opening delete confirmation for:', employee.user.nama);
     setSelectedEmployeeForDelete(employee);
@@ -131,14 +182,14 @@ const CertificateManagementPage = () => {
     document.body.style.overflow = 'hidden';
   };
 
-  // 🔥 NEW: Handle close delete modal
+  // Handle close delete modal
   const handleCloseDeleteModal = () => {
     setShowDeleteModal(false);
     setSelectedEmployeeForDelete(null);
     document.body.style.overflow = 'unset';
   };
 
-  // 🔥 NEW: Handle confirm delete
+  // Handle confirm delete (ADMIN & PIMPINAN)
   const handleConfirmDelete = async () => {
     if (!selectedEmployeeForDelete) {
       setError('Data pegawai tidak ditemukan');
@@ -157,9 +208,9 @@ const CertificateManagementPage = () => {
       );
       
       if (response.data.success) {
-        setSuccess(`Sertifikat ${selectedEmployeeForDelete.user.nama} berhasil dihapus! Proses dapat dimulai dari awal.`);
-        fetchBestEmployees(); // Refresh data
-        handleCloseDeleteModal(); // Close modal
+        setSuccess(`Sertifikat ${selectedEmployeeForDelete.user.nama} berhasil dihapus!`);
+        fetchBestEmployees();
+        handleCloseDeleteModal();
       } else {
         setError('Gagal menghapus sertifikat: ' + response.data.error);
       }
@@ -171,12 +222,12 @@ const CertificateManagementPage = () => {
     }
   };
 
-  // Handle certificate preview dengan download approach
+  // Handle certificate preview
   const handlePreviewCertificate = async (userId, periodId, employeeName) => {
     console.log('📋 Opening certificate preview for:', employeeName);
     
     try {
-      setError(''); // Clear previous errors
+      setError('');
       
       const token = localStorage.getItem('token');
       if (!token) {
@@ -184,9 +235,6 @@ const CertificateManagementPage = () => {
         return;
       }
 
-      console.log('🔄 Fetching certificate via API...');
-      
-      // Gunakan fetch dengan Authorization header (lebih reliable)
       const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
       const apiUrl = `${baseUrl}/api/certificate/download-template/${userId}/${periodId}`;
       
@@ -199,39 +247,26 @@ const CertificateManagementPage = () => {
         }
       });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', response.headers);
-
       if (response.ok) {
-        // Check content type
         const contentType = response.headers.get('content-type');
-        console.log('📄 Content type:', contentType);
         
         if (contentType && contentType.includes('application/pdf')) {
-          // It's a PDF, create blob and open
           const blob = await response.blob();
           const pdfUrl = URL.createObjectURL(blob);
           
-          console.log('✅ PDF blob created, opening in new tab');
           window.open(pdfUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
           
-          // Clean up blob URL after some time
           setTimeout(() => {
             URL.revokeObjectURL(pdfUrl);
           }, 10000);
           
           setSuccess(`Preview sertifikat ${employeeName} dibuka di tab baru`);
         } else {
-          // Probably JSON error response
           const errorData = await response.json();
-          console.error('❌ Error response:', errorData);
           setError(`Gagal membuka preview: ${errorData.error || 'Response bukan PDF'}`);
         }
       } else {
-        // Handle HTTP error
         const errorText = await response.text();
-        console.error('❌ HTTP Error:', response.status, errorText);
-        
         try {
           const errorData = JSON.parse(errorText);
           setError(`Gagal membuka preview: ${errorData.error || errorData.message || 'HTTP Error'}`);
@@ -253,8 +288,8 @@ const CertificateManagementPage = () => {
         if (showPhotoModal) {
           handleClosePhotoModal();
         }
-        if (showNomorModal) {
-          handleCloseNomorModal();
+        if (showTemplateModal) {
+          handleCloseTemplateModal();
         }
         if (showDeleteModal) {
           handleCloseDeleteModal();
@@ -262,13 +297,13 @@ const CertificateManagementPage = () => {
       }
     };
 
-    if (showPhotoModal || showNomorModal || showDeleteModal) {
+    if (showPhotoModal || showTemplateModal || showDeleteModal) {
       document.addEventListener('keydown', handleEscapeKey);
       return () => {
         document.removeEventListener('keydown', handleEscapeKey);
       };
     }
-  }, [showPhotoModal, showNomorModal, showDeleteModal]);
+  }, [showPhotoModal, showTemplateModal, showDeleteModal]);
 
   // Get unique years and months from available periods
   const getUniqueYears = () => {
@@ -345,7 +380,6 @@ const CertificateManagementPage = () => {
         
         let employees = response.data.data.bestEmployees;
         
-        // Apply client-side filtering if backend doesn't support it yet
         if (filterTahun || filterBulan || filterStatus) {
           employees = employees.filter(emp => {
             let matches = true;
@@ -405,46 +439,38 @@ const CertificateManagementPage = () => {
       const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
       const downloadUrl = `${baseUrl}/api/certificate/download-template/${userId}/${periodId}`;
       
-      console.log('📥 Download URL:', downloadUrl);
-
-      try {
-        const response = await fetch(downloadUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/pdf'
-          }
-        });
-
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          
-          const contentDisposition = response.headers.get('content-disposition');
-          let filename = 'template_sertifikat.pdf';
-          if (contentDisposition && contentDisposition.includes('filename=')) {
-            const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-            if (matches != null && matches[1]) {
-              filename = matches[1].replace(/['"]/g, '');
-            }
-          }
-          
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-          
-          setSuccess('Template berhasil didownload dari folder uploads/cert!');
-        } else {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/pdf'
         }
-      } catch (fetchError) {
-        console.warn('Fetch method failed, trying alternative:', fetchError);
-        const urlWithToken = `${downloadUrl}?token=${encodeURIComponent(token)}`;
-        window.open(urlWithToken, '_blank', 'noopener,noreferrer');
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = 'template_sertifikat.pdf';
+        if (contentDisposition && contentDisposition.includes('filename=')) {
+          const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (matches != null && matches[1]) {
+            filename = matches[1].replace(/['"]/g, '');
+          }
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        setSuccess('Template berhasil didownload!');
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
     } catch (error) {
@@ -454,147 +480,127 @@ const CertificateManagementPage = () => {
   };
 
   const handleDownloadFinalCertificate = async (certificateId) => {
-  try {
-    console.log('📥 Downloading final certificate:', certificateId);
-    const response = await certificateManagementAPI.downloadCertificate(certificateId);
-    
-    const blob = new Blob([response.data], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    
-    // Get filename from response headers
-    const contentDisposition = response.headers.get('content-disposition');
-    let filename = `Sertifikat_Final_${certificateId}.pdf`;
-    if (contentDisposition && contentDisposition.includes('filename=')) {
-      const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (matches != null && matches[1]) {
-        filename = matches[1].replace(/['"]/g, '');
-      }
-    }
-    
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    
-    setSuccess('Sertifikat final berhasil didownload!');
-    
-  } catch (error) {
-    console.error('❌ Download final certificate error:', error);
-    setError('Gagal download sertifikat final: ' + (error.response?.data?.message || error.message));
-  }
-};
-
-// 🔥 FIXED: Handle view final certificate (open in new tab, NOT download)
-const handleViewFinalCertificate = async (certificateId, employeeName) => {
-  try {
-    console.log('👁️ Opening final certificate in new tab:', certificateId);
-    setError(''); // Clear previous errors
-    
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Token tidak ditemukan. Silakan login ulang.');
-      return;
-    }
-
-    console.log('🔄 Fetching final certificate via API...');
-    
-    // Create URL for viewing certificate in new tab
-    const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    const apiUrl = `${baseUrl}/api/certificate/download/${certificateId}`;
-    
-    // Use fetch to get the PDF as blob for preview
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/pdf'
-      }
-    });
-
-    console.log('📡 Final certificate response status:', response.status);
-
-    if (response.ok) {
-      // Check content type
-      const contentType = response.headers.get('content-type');
-      console.log('📄 Final certificate content type:', contentType);
+    try {
+      console.log('📥 Downloading final certificate:', certificateId);
+      const response = await certificateManagementAPI.downloadCertificate(certificateId);
       
-      if (contentType && (contentType.includes('application/pdf') || contentType.includes('image/'))) {
-        // It's a PDF or image, create blob and open in new tab
-        const blob = await response.blob();
-        const pdfUrl = URL.createObjectURL(blob);
-        
-        console.log('✅ Final certificate blob created, opening in new tab');
-        
-        // Open in new tab for viewing
-        const newTab = window.open(pdfUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-        
-        if (newTab) {
-          // Set title for the new tab
-          newTab.onload = () => {
-            newTab.document.title = `Sertifikat Final - ${employeeName}`;
-          };
-          
-          setSuccess(`Sertifikat final ${employeeName} dibuka di tab baru`);
-        } else {
-          setError('Pop-up diblokir oleh browser. Silakan izinkan pop-up untuk situs ini.');
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `Sertifikat_Final_${certificateId}.pdf`;
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, '');
         }
-        
-        // Clean up blob URL after some time
-        setTimeout(() => {
-          URL.revokeObjectURL(pdfUrl);
-        }, 10000);
-        
-      } else {
-        // Probably JSON error response
-        const errorData = await response.json();
-        console.error('❌ Error response:', errorData);
-        setError(`Gagal membuka sertifikat: ${errorData.error || 'Response bukan PDF'}`);
       }
-    } else {
-      // Handle HTTP error
-      const errorText = await response.text();
-      console.error('❌ HTTP Error:', response.status, errorText);
       
-      try {
-        const errorData = JSON.parse(errorText);
-        setError(`Gagal membuka sertifikat: ${errorData.error || errorData.message || 'HTTP Error'}`);
-      } catch (parseError) {
-        setError(`Gagal membuka sertifikat: HTTP ${response.status} - ${response.statusText}`);
-      }
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess('Sertifikat final berhasil didownload!');
+      
+    } catch (error) {
+      console.error('❌ Download final certificate error:', error);
+      setError('Gagal download sertifikat final: ' + (error.response?.data?.message || error.message));
     }
-    
-  } catch (error) {
-    console.error('❌ View final certificate error:', error);
-    setError('Gagal membuka sertifikat final: ' + error.message);
-  }
-};
+  };
 
-// 🔥 UPDATED: Handle upload certificate (support upload ulang)
-const handleUploadCertificate = async (userId, periodId, file) => {
-  const key = `${userId}-${periodId}`;
-  setProcessingStates(prev => ({ ...prev, [key]: 'uploading' }));
-  setError('');
-  
-  try {
-    console.log('📤 Uploading certificate for:', userId, periodId);
-    const response = await certificateManagementAPI.uploadCertificate(userId, periodId, file);
-    
-    if (response.data.success) {
-      setSuccess('Sertifikat final berhasil diupload ke folder uploads/certificates!');
-      fetchBestEmployees(); // Refresh data
-    } else {
-      setError('Gagal upload sertifikat: ' + response.data.error);
+  // Handle view final certificate
+  const handleViewFinalCertificate = async (certificateId, employeeName) => {
+    try {
+      console.log('👁️ Opening final certificate in new tab:', certificateId);
+      setError('');
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Token tidak ditemukan. Silakan login ulang.');
+        return;
+      }
+
+      const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+      const apiUrl = `${baseUrl}/api/certificate/download/${certificateId}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/pdf'
+        }
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && (contentType.includes('application/pdf') || contentType.includes('image/'))) {
+          const blob = await response.blob();
+          const pdfUrl = URL.createObjectURL(blob);
+          
+          const newTab = window.open(pdfUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+          
+          if (newTab) {
+            newTab.onload = () => {
+              newTab.document.title = `Sertifikat Final - ${employeeName}`;
+            };
+            
+            setSuccess(`Sertifikat final ${employeeName} dibuka di tab baru`);
+          } else {
+            setError('Pop-up diblokir oleh browser. Silakan izinkan pop-up untuk situs ini.');
+          }
+          
+          setTimeout(() => {
+            URL.revokeObjectURL(pdfUrl);
+          }, 10000);
+          
+        } else {
+          const errorData = await response.json();
+          setError(`Gagal membuka sertifikat: ${errorData.error || 'Response bukan PDF'}`);
+        }
+      } else {
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          setError(`Gagal membuka sertifikat: ${errorData.error || errorData.message || 'HTTP Error'}`);
+        } catch (parseError) {
+          setError(`Gagal membuka sertifikat: HTTP ${response.status} - ${response.statusText}`);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ View final certificate error:', error);
+      setError('Gagal membuka sertifikat final: ' + error.message);
     }
-  } catch (error) {
-    console.error('❌ Certificate upload error:', error);
-    setError('Terjadi kesalahan: ' + (error.response?.data?.message || error.message));
-  } finally {
-    setProcessingStates(prev => ({ ...prev, [key]: null }));
-  }
-};
+  };
+
+  // Handle upload certificate (ADMIN & PIMPINAN)
+  const handleUploadCertificate = async (userId, periodId, file) => {
+    const key = `${userId}-${periodId}`;
+    setProcessingStates(prev => ({ ...prev, [key]: 'uploading' }));
+    setError('');
+    
+    try {
+      console.log('📤 Uploading certificate for:', userId, periodId);
+      const response = await certificateManagementAPI.uploadCertificate(userId, periodId, file);
+      
+      if (response.data.success) {
+        setSuccess('Sertifikat final berhasil diupload!');
+        fetchBestEmployees();
+      } else {
+        setError('Gagal upload sertifikat: ' + response.data.error);
+      }
+    } catch (error) {
+      console.error('❌ Certificate upload error:', error);
+      setError('Terjadi kesalahan: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setProcessingStates(prev => ({ ...prev, [key]: null }));
+    }
+  };
 
   const handleClearFilters = () => {
     setFilterTahun('');
@@ -790,7 +796,7 @@ const handleUploadCertificate = async (userId, periodId, file) => {
           
           return (
             <div key={key} className="certificate-card">
-              {/* Period Header di paling atas */}
+              {/* Period Header */}
               <div className="card-period-header">
                 <div className="period-highlight">
                   <i className="fas fa-trophy period-icon"></i>
@@ -803,7 +809,7 @@ const handleUploadCertificate = async (userId, periodId, file) => {
               <div className="card-header">
                 <div className="employee-info">
                   <div className="employee-details">
-                    {/* Employee Photo with Click Handler */}
+                    {/* Employee Photo */}
                     <div 
                       className="employee-photo" 
                       onClick={() => handlePhotoClick(emp)}
@@ -853,18 +859,24 @@ const handleUploadCertificate = async (userId, periodId, file) => {
 
                 {emp.certificate && (
                   <div className="certificate-details">
-                    {/* Show certificate number if exists */}
                     {emp.certificate.certificate_number && (
                       <div className="detail-item">
                         <i className="fas fa-hashtag text-info"></i>
                         <span>Nomor: {emp.certificate.certificate_number}</span>
                       </div>
                     )}
+
+                    {emp.certificate.template_type && (
+                      <div className="detail-item">
+                        <i className="fas fa-file-pdf text-primary"></i>
+                        <span>Template: {emp.certificate.template_type === 'TTD_BASAH' ? 'TTD Basah' : 'E-TTD'}</span>
+                      </div>
+                    )}
                     
                     {emp.certificate.template_generated && (
                       <div className="detail-item">
-                        <i className="fas fa-file-pdf text-primary"></i>
-                        <span>Template: {emp.certificate.generated_at ? new Date(emp.certificate.generated_at).toLocaleDateString('id-ID') : 'N/A'}</span>
+                        <i className="fas fa-calendar text-primary"></i>
+                        <span>Generated: {emp.certificate.generated_at ? new Date(emp.certificate.generated_at).toLocaleDateString('id-ID') : 'N/A'}</span>
                       </div>
                     )}
                     
@@ -879,169 +891,182 @@ const handleUploadCertificate = async (userId, periodId, file) => {
               </div>
               
               <div className="card-actions">
-              {/* Generate Template with Nomor Button - Admin Only */}
-              {(!emp.certificate || !emp.certificate.template_generated) && user.role === 'ADMIN' && (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => handleNomorSertifikatClick(emp)}
-                  disabled={processing === 'generating'}
-                >
-                  {processing === 'generating' ? (
-                    <>
-                      <div className="spinner-border spinner-border-sm me-2"></div>
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-plus-circle me-2"></i>
-                      Generate Template
-                    </>
-                  )}
-                </button>
-              )}
-
-              {/* SEBELUM UPLOAD - Show: Download Template, Preview, Upload Final */}
-              {emp.certificate?.template_generated && !emp.certificate?.is_uploaded && (
-                <>
-                  {/* Download Template Button */}
+                {/* Generate Template - ADMIN ONLY */}
+                {(!emp.certificate || !emp.certificate.template_generated) && canGenerate && (
                   <button
-                    className="btn btn-outline-primary"
-                    onClick={() => handleDownloadTemplate(emp.user.id, emp.period.id)}
+                    className="btn btn-primary"
+                    onClick={() => handleTemplateSelectionClick(emp)}
+                    disabled={processing === 'generating'}
                   >
-                    <i className="fas fa-download me-2"></i>
-                    Unduh Template
+                    {processing === 'generating' ? (
+                      <>
+                        <div className="spinner-border spinner-border-sm me-2"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-plus-circle me-2"></i>
+                        Generate Template
+                      </>
+                    )}
                   </button>
+                )}
 
-                  {/* Preview Certificate Button */}
-                  <button
-                    className="btn btn-outline-info"
-                    onClick={() => handlePreviewCertificate(emp.user.id, emp.period.id, emp.user.nama)}
-                    title="Buka preview sertifikat di tab baru"
-                  >
-                    <i className="fas fa-external-link-alt me-2"></i>
-                    Preview Sertifikat
-                  </button>
+                {/* Info for Pimpinan when template not generated */}
+                {(!emp.certificate || !emp.certificate.template_generated) && !canGenerate && (
+                  <div className="alert alert-info mb-0">
+                    <i className="fas fa-info-circle me-2"></i>
+                    <strong>Menunggu Admin:</strong> Template belum di-generate oleh Admin.
+                  </div>
+                )}
 
-                  {/* Upload Final Certificate - Admin Only */}
-                  {user.role === 'ADMIN' && (
-                    <div className="upload-section">
-                      <label 
-                        className={`btn btn-success ${processing === 'uploading' ? 'disabled' : ''}`} 
-                        htmlFor={`upload-${key}`}
+                {/* Actions setelah template generated - ADMIN & PIMPINAN */}
+                {emp.certificate?.template_generated && canViewAndDownload && (
+                  <>
+                    {/* SEBELUM UPLOAD - Show Template Actions */}
+                    {!emp.certificate.is_uploaded && (
+                      <>
+                        {/* Download Template */}
+                        <button
+                          className="btn btn-outline-primary"
+                          onClick={() => handleDownloadTemplate(emp.user.id, emp.period.id)}
+                        >
+                          <i className="fas fa-download me-2"></i>
+                          Unduh Template
+                        </button>
+
+                        {/* Preview Certificate */}
+                        <button
+                          className="btn btn-outline-info"
+                          onClick={() => handlePreviewCertificate(emp.user.id, emp.period.id, emp.user.nama)}
+                          title="Buka preview sertifikat di tab baru"
+                        >
+                          <i className="fas fa-external-link-alt me-2"></i>
+                          Preview Sertifikat
+                        </button>
+
+                        {/* Upload Final - ADMIN & PIMPINAN */}
+                        {canUploadAndDelete && (
+                          <div className="upload-section">
+                            <label 
+                              className={`btn btn-success ${processing === 'uploading' ? 'disabled' : ''}`} 
+                              htmlFor={`upload-${key}`}
+                            >
+                              {processing === 'uploading' ? (
+                                <>
+                                  <div className="spinner-border spinner-border-sm me-2"></div>
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <i className="fas fa-upload me-2"></i>
+                                  Upload Final
+                                </>
+                              )}
+                            </label>
+                            <input
+                              id={`upload-${key}`}
+                              type="file"
+                              accept=".pdf,image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  handleUploadCertificate(emp.user.id, emp.period.id, file);
+                                }
+                              }}
+                              disabled={processing === 'uploading'}
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* SETELAH UPLOAD - Show Final Certificate Actions */}
+                    {emp.certificate?.is_uploaded && emp.certificate?.id && (
+                      <>
+                        {/* Unduh Sertifikat Final */}
+                        <button
+                          className="btn btn-outline-primary"
+                          onClick={() => handleDownloadFinalCertificate(emp.certificate.id)}
+                          title="Download sertifikat final yang sudah diupload"
+                        >
+                          <i className="fas fa-download me-2"></i>
+                          Unduh Sertifikat Final
+                        </button>
+
+                        {/* Upload Ulang - ADMIN & PIMPINAN */}
+                        {canUploadAndDelete && (
+                          <div className="upload-section">
+                            <label 
+                              className={`btn btn-warning ${processing === 'uploading' ? 'disabled' : ''}`} 
+                              htmlFor={`upload-replace-${key}`}
+                              title="Upload ulang sertifikat final"
+                            >
+                              {processing === 'uploading' ? (
+                                <>
+                                  <div className="spinner-border spinner-border-sm me-2"></div>
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <i className="fas fa-upload me-2"></i>
+                                  Upload Ulang
+                                </>
+                              )}
+                            </label>
+                            <input
+                              id={`upload-replace-${key}`}
+                              type="file"
+                              accept=".pdf,image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  handleUploadCertificate(emp.user.id, emp.period.id, file);
+                                }
+                              }}
+                              disabled={processing === 'uploading'}
+                            />
+                          </div>
+                        )}
+
+                        {/* Lihat Sertifikat Final */}
+                        <button
+                          className="btn btn-outline-success"
+                          onClick={() => handleViewFinalCertificate(emp.certificate.id, emp.user.nama)}
+                          title="Buka sertifikat final di tab baru"
+                        >
+                          <i className="fas fa-external-link-alt me-2"></i>
+                          Lihat Sertifikat Final
+                        </button>
+                      </>
+                    )}
+
+                    {/* Delete Button - ADMIN & PIMPINAN (Always show if certificate exists) */}
+                    {canUploadAndDelete && (
+                      <button
+                        className="btn btn-outline-danger"
+                        onClick={() => handleDeleteCertificate(emp)}
+                        disabled={processing === 'deleting'}
+                        title="Hapus sertifikat dan mulai ulang"
                       >
-                        {processing === 'uploading' ? (
+                        {processing === 'deleting' ? (
                           <>
                             <div className="spinner-border spinner-border-sm me-2"></div>
-                            Uploading...
+                            Deleting...
                           </>
                         ) : (
                           <>
-                            <i className="fas fa-upload me-2"></i>
-                            Upload Final
+                            <i className="fas fa-trash me-2"></i>
+                            Hapus
                           </>
                         )}
-                      </label>
-                      <input
-                        id={`upload-${key}`}
-                        type="file"
-                        accept=".pdf,image/*"
-                        style={{ display: 'none' }}
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            handleUploadCertificate(emp.user.id, emp.period.id, file);
-                          }
-                        }}
-                        disabled={processing === 'uploading'}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* 🔥 FIXED: SETELAH UPLOAD - Show: Unduh Sertifikat Final, Upload Ulang, Lihat Sertifikat Final */}
-              {emp.certificate?.is_uploaded && emp.certificate?.id && (
-                <>
-                  {/* 🔥 NEW: Unduh Sertifikat Final (Download the uploaded certificate) */}
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={() => handleDownloadFinalCertificate(emp.certificate.id)}
-                    title="Download sertifikat final yang sudah diupload"
-                  >
-                    <i className="fas fa-download me-2"></i>
-                    Unduh Sertifikat Final
-                  </button>
-
-                  {/* 🔥 FIXED: Upload Ulang - Admin Only (Replace existing certificate) */}
-                  {user.role === 'ADMIN' && (
-                    <div className="upload-section">
-                      <label 
-                        className={`btn btn-warning ${processing === 'uploading' ? 'disabled' : ''}`} 
-                        htmlFor={`upload-replace-${key}`}
-                        title="Upload ulang sertifikat final"
-                      >
-                        {processing === 'uploading' ? (
-                          <>
-                            <div className="spinner-border spinner-border-sm me-2"></div>
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <i className="fas fa-upload me-2"></i>
-                            Upload Ulang
-                          </>
-                        )}
-                      </label>
-                      <input
-                        id={`upload-replace-${key}`}
-                        type="file"
-                        accept=".pdf,image/*"
-                        style={{ display: 'none' }}
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            handleUploadCertificate(emp.user.id, emp.period.id, file);
-                          }
-                        }}
-                        disabled={processing === 'uploading'}
-                      />
-                    </div>
-                  )}
-
-                  {/* 🔥 FIXED: Lihat Sertifikat Final (Preview in new tab, NOT download) */}
-                  <button
-                    className="btn btn-outline-success"
-                    onClick={() => handleViewFinalCertificate(emp.certificate.id, emp.user.nama)}
-                    title="Buka sertifikat final di tab baru"
-                  >
-                    <i className="fas fa-external-link-alt me-2"></i>
-                    Lihat Sertifikat Final
-                  </button>
-                </>
-              )}
-
-              {/* Delete Button - Admin Only, Show for any generated certificate */}
-              {emp.certificate && user.role === 'ADMIN' && (
-                <button
-                  className="btn btn-outline-danger"
-                  onClick={() => handleDeleteCertificate(emp)}
-                  disabled={processing === 'deleting'}
-                  title="Hapus sertifikat dan mulai ulang"
-                >
-                  {processing === 'deleting' ? (
-                    <>
-                      <div className="spinner-border spinner-border-sm me-2"></div>
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-trash me-2"></i>
-                      Hapus
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           );
         })}
@@ -1057,19 +1082,14 @@ const handleUploadCertificate = async (userId, periodId, file) => {
           <p className="text-muted">
             {filterTahun || filterBulan || filterStatus ? (
               <>
-                Tidak ada data yang sesuai dengan filter yang dipilih:
-                <br/>
-                {filterTahun && `Tahun: ${filterTahun}`}
-                {filterTahun && (filterBulan || filterStatus) && ', '}
-                {filterBulan && `Bulan: ${getMonthName(parseInt(filterBulan))}`}
-                {filterBulan && filterStatus && ', '}
-                {filterStatus && `Status: ${statusOptions.find(s => s.value === filterStatus)?.label}`}
+                Tidak ada data yang sesuai dengan filter yang dipilih.
                 <br/>
                 Coba ubah filter atau lakukan perhitungan final evaluation terlebih dahulu.
               </>
             ) : (
               <>
                 Belum ada pegawai yang meraih predikat Best Employee.
+                <br/>
                 Lakukan perhitungan final evaluation terlebih dahulu.
               </>
             )}
@@ -1083,73 +1103,69 @@ const handleUploadCertificate = async (userId, periodId, file) => {
           <div className="card-header">
             <h5 className="mb-0">
               <i className="fas fa-info-circle me-2"></i>
-              Petunjuk Penggunaan & Update Folder Structure
+              Petunjuk Role: {user.role}
             </h5>
           </div>
           <div className="card-body">
-            <div className="row">
-              <div className="col-md-6">
-                <h6>📄 Generate & Download Template</h6>
-                <ol>
-                  <li>Klik tombol "Generate Template" untuk membuka form input nomor sertifikat</li>
-                  <li>Masukkan nomor sertifikat yang diinginkan (contoh: 001/BPS-PWU/VII/2025)</li>
-                  <li>Klik "Generate" untuk membuat template dengan nomor dan nama Kepala BPS</li>
-                  <li>Template akan disimpan ke folder <strong>uploads/cert/</strong></li>
-                  <li>Preview akan otomatis terbuka di tab baru</li>
-                  <li>Download template dengan klik tombol "Unduh Template"</li>
-                </ol>
-              </div>
-              <div className="col-md-6">
-                <h6>📤 Upload & Manage Sertifikat</h6>
-                <ol>
-                  <li>Setelah proses offline (cap, TTD, dll) selesai, scan/foto sertifikat</li>
-                  <li>Klik tombol "Upload Final" dan pilih file</li>
-                  <li>Sertifikat final akan disimpan ke folder <strong>uploads/certificates/</strong></li>
-                  <li>Setelah upload, tombol "Preview" berubah jadi "Upload"</li>
-                  <li>Gunakan tombol "Hapus" untuk reset dan mulai ulang proses</li>
-                  <li>Pegawai dapat melihat sertifikat mereka di dashboard</li>
-                </ol>
-              </div>
-            </div>
-            
-            <div className="row mt-3">
-              <div className="col-12">
-                <div className="alert alert-info">
-                  <i className="fas fa-folder me-2"></i>
-                  <strong>🔥 NEW: Struktur Folder Update:</strong>
-                  <ul className="mb-0 mt-2">
-                    <li><strong>uploads/temp_cert/</strong> - Template sumber (kosong, siap untuk 2 template)</li>
-                    <li><strong>uploads/cert/</strong> - Template yang sudah di-generate (Template_NamaPegawai_Bulan_Tahun.pdf)</li>
-                    <li><strong>uploads/certificates/</strong> - Sertifikat final yang sudah diupload (Sertifikat_NamaPegawai_Bulan_Tahun.pdf)</li>
-                  </ul>
-                </div>
-                
-                <div className="alert alert-warning">
-                  <i className="fas fa-exclamation-triangle me-2"></i>
-                  <strong>Fitur Hapus Sertifikat:</strong> Tombol hapus akan menghapus semua file (template & final) dan record database. 
-                  Proses dapat dimulai dari awal lagi. Gunakan dengan hati-hati!
+            {user.role === 'ADMIN' && (
+              <div className="row">
+                <div className="col-12">
+                  <h6>👨‍💼 Role Admin (Full Access)</h6>
+                  <ol>
+                    <li><strong>Generate Template:</strong> Buat template dengan pilihan TTD Basah/E-TTD</li>
+                    <li><strong>Download Template:</strong> Unduh template untuk proses offline</li>
+                    <li><strong>Preview:</strong> Lihat preview sertifikat di tab baru</li>
+                    <li><strong>Upload Final:</strong> Upload sertifikat yang sudah ditandatangani</li>
+                    <li><strong>Upload Ulang:</strong> Ganti sertifikat final jika perlu revisi</li>
+                    <li><strong>Download Final:</strong> Unduh sertifikat final</li>
+                    <li><strong>View Final:</strong> Lihat sertifikat final di tab baru</li>
+                    <li><strong>Hapus:</strong> Reset proses dari awal</li>
+                  </ol>
                 </div>
               </div>
-            </div>
+            )}
+
+            {user.role === 'PIMPINAN' && (
+              <div className="row">
+                <div className="col-12">
+                  <h6>👔 Role Pimpinan (Management Access)</h6>
+                  <ol>
+                    <li><strong>✅ Download Template:</strong> Unduh template setelah Admin generate</li>
+                    <li><strong>✅ Preview:</strong> Lihat preview sertifikat di tab baru</li>
+                    <li><strong>✅ Upload Final:</strong> Upload sertifikat yang sudah ditandatangani</li>
+                    <li><strong>✅ Upload Ulang:</strong> Ganti sertifikat final jika perlu revisi</li>
+                    <li><strong>✅ Download Final:</strong> Unduh sertifikat final</li>
+                    <li><strong>✅ View Final:</strong> Lihat sertifikat final di tab baru</li>
+                    <li><strong>✅ Hapus:</strong> Reset proses dari awal</li>
+                    <li><strong>❌ Generate:</strong> Tidak bisa generate template (hanya Admin)</li>
+                  </ol>
+                  
+                  <div className="alert alert-success mt-3">
+                    <i className="fas fa-check-circle me-2"></i>
+                    <strong>Pimpinan Access:</strong> Setelah Admin generate template, Pimpinan memiliki akses penuh untuk semua fitur pengelolaan sertifikat.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Nomor Sertifikat Modal */}
-      {showNomorModal && selectedEmployeeForNomor && (
-        <div className={`nomor-modal ${showNomorModal ? 'show' : ''}`} onClick={handleCloseNomorModal}>
+      {/* Template Selection Modal - ADMIN ONLY */}
+      {showTemplateModal && selectedEmployeeForTemplate && canGenerate && (
+        <div className={`template-selection-modal ${showTemplateModal ? 'show' : ''}`} onClick={handleCloseTemplateModal}>
           <div 
-            className={`nomor-modal-content ${showNomorModal ? 'show' : ''}`} 
+            className={`template-modal-content ${showTemplateModal ? 'show' : ''}`} 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
               <h5 className="modal-title">
-                <i className="fas fa-hashtag me-2"></i>
-                Input Nomor Sertifikat
+                <i className="fas fa-file-pdf me-2"></i>
+                Generate Template Sertifikat
               </h5>
               <button 
                 className="btn-close" 
-                onClick={handleCloseNomorModal}
+                onClick={handleCloseTemplateModal}
                 aria-label="Close"
               >
                 <i className="fas fa-times"></i>
@@ -1159,24 +1175,80 @@ const handleUploadCertificate = async (userId, periodId, file) => {
             <div className="modal-body">
               <div className="employee-info-modal">
                 <div className="employee-avatar-modal">
-                  {selectedEmployeeForNomor.user.profilePicture ? (
+                  {selectedEmployeeForTemplate.user.profilePicture ? (
                     <img 
-                      src={getImageUrl(selectedEmployeeForNomor.user.profilePicture)} 
-                      alt={selectedEmployeeForNomor.user.nama}
+                      src={getImageUrl(selectedEmployeeForTemplate.user.profilePicture)} 
+                      alt={selectedEmployeeForTemplate.user.nama}
                     />
                   ) : (
                     <div className="employee-initials-modal">
-                      {getInitials(selectedEmployeeForNomor.user.nama)}
+                      {getInitials(selectedEmployeeForTemplate.user.nama)}
                     </div>
                   )}
                 </div>
                 <div>
-                  <h6>{selectedEmployeeForNomor.user.nama}</h6>
+                  <h6>{selectedEmployeeForTemplate.user.nama}</h6>
                   <p className="text-muted mb-0">
-                    Best Employee {getMonthName(selectedEmployeeForNomor.period.bulan)} {selectedEmployeeForNomor.period.tahun}
+                    Best Employee {getMonthName(selectedEmployeeForTemplate.period.bulan)} {selectedEmployeeForTemplate.period.tahun}
                   </p>
-                  <small className="text-muted">NIP: {selectedEmployeeForNomor.user.nip}</small>
+                  <small className="text-muted">NIP: {selectedEmployeeForTemplate.user.nip}</small>
                 </div>
+              </div>
+
+              {/* Template Selection */}
+              <div className="form-group mt-3">
+                <label htmlFor="templateType" className="form-label">
+                  <i className="fas fa-file-pdf me-2"></i>
+                  Pilih Template <span className="text-danger">*</span>
+                </label>
+                {templatesLoading ? (
+                  <div className="text-center py-3">
+                    <div className="spinner-border spinner-border-sm me-2"></div>
+                    Memuat template...
+                  </div>
+                ) : (
+                  <select
+                    id="templateType"
+                    className="form-select"
+                    value={selectedTemplateType}
+                    onChange={(e) => setSelectedTemplateType(e.target.value)}
+                  >
+                    {availableTemplates.map((template) => (
+                      <option 
+                        key={template.key} 
+                        value={template.key}
+                        disabled={!template.exists}
+                      >
+                        {template.displayName} {!template.exists && '(Tidak tersedia)'}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                
+                {availableTemplates.length > 0 && (
+                  <div className="template-info mt-2">
+                    {availableTemplates.map((template) => (
+                      template.key === selectedTemplateType && (
+                        <div key={template.key} className={`alert ${template.exists ? 'alert-success' : 'alert-danger'} mb-0`}>
+                          <div className="d-flex align-items-center">
+                            <i className={`fas ${template.exists ? 'fa-check-circle' : 'fa-exclamation-triangle'} me-2`}></i>
+                            <div>
+                              <strong>{template.displayName}</strong>
+                              <div className="small">
+                                {template.description}
+                                {!template.exists && (
+                                  <div className="text-danger mt-1">
+                                    File {template.fileName} tidak ditemukan di folder temp_cert
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="form-group mt-3">
@@ -1203,12 +1275,12 @@ const handleUploadCertificate = async (userId, periodId, file) => {
                 <div className="alert alert-light">
                   <strong>Preview Template:</strong>
                   <ul className="mb-0 mt-2">
+                    <li>Template: <span className="text-primary">
+                      {availableTemplates.find(t => t.key === selectedTemplateType)?.displayName || 'Template dengan TTD Basah'}
+                    </span></li>
                     <li>Nomor: <span className="text-primary">{nomorSertifikat || '[Nomor akan ditampilkan]'}</span></li>
-                    <li>Nama Pegawai: <strong>{selectedEmployeeForNomor.user.nama}</strong></li>
-                    <li>Periode: <strong>{getMonthName(selectedEmployeeForNomor.period.bulan)} {selectedEmployeeForNomor.period.tahun}</strong></li>
-                    <li>Kepala BPS: <strong>Eko Purnomo, SST., MM</strong></li>
-                    <li>NIP Kepala: <strong>197309131994031004</strong></li>
-                    <li>Folder Output: <strong>uploads/cert/</strong></li>
+                    <li>Nama Pegawai: <strong>{selectedEmployeeForTemplate.user.nama}</strong></li>
+                    <li>Periode: <strong>{getMonthName(selectedEmployeeForTemplate.period.bulan)} {selectedEmployeeForTemplate.period.tahun}</strong></li>
                   </ul>
                 </div>
               </div>
@@ -1217,15 +1289,17 @@ const handleUploadCertificate = async (userId, periodId, file) => {
             <div className="modal-footer">
               <button 
                 className="btn btn-secondary me-2" 
-                onClick={handleCloseNomorModal}
+                onClick={handleCloseTemplateModal}
               >
                 <i className="fas fa-times me-2"></i>
                 Batal
               </button>
               <button 
                 className="btn btn-primary" 
-                onClick={handleSubmitNomorSertifikat}
-                disabled={!nomorSertifikat.trim()}
+                onClick={handleSubmitTemplateGeneration}
+                disabled={!nomorSertifikat.trim() || !selectedTemplateType || 
+                  (availableTemplates.find(t => t.key === selectedTemplateType) && 
+                   !availableTemplates.find(t => t.key === selectedTemplateType).exists)}
               >
                 <i className="fas fa-cog me-2"></i>
                 Generate Template
@@ -1235,8 +1309,8 @@ const handleUploadCertificate = async (userId, periodId, file) => {
         </div>
       )}
 
-      {/* 🔥 NEW: Delete Confirmation Modal */}
-      {showDeleteModal && selectedEmployeeForDelete && (
+      {/* Delete Confirmation Modal - ADMIN & PIMPINAN */}
+      {showDeleteModal && selectedEmployeeForDelete && canUploadAndDelete && (
         <div className={`delete-modal ${showDeleteModal ? 'show' : ''}`} onClick={handleCloseDeleteModal}>
           <div 
             className={`delete-modal-content ${showDeleteModal ? 'show' : ''}`} 
@@ -1284,18 +1358,17 @@ const handleUploadCertificate = async (userId, periodId, file) => {
                   <i className="fas fa-exclamation-triangle me-2"></i>
                   <strong>Peringatan!</strong> Tindakan ini akan menghapus:
                   <ul className="mb-0 mt-2">
-                    <li>File template di folder <code>uploads/cert/</code></li>
+                    <li>File template di folder uploads/cert/</li>
                     {selectedEmployeeForDelete.certificate?.is_uploaded && (
-                      <li>File sertifikat final di folder <code>uploads/certificates/</code></li>
+                      <li>File sertifikat final di folder uploads/certificates/</li>
                     )}
                     <li>Record sertifikat dari database</li>
-                    <li>Semua data terkait sertifikat ini</li>
                   </ul>
                 </div>
                 
                 <div className="alert alert-info">
                   <i className="fas fa-info-circle me-2"></i>
-                  <strong>Setelah dihapus:</strong> Proses dapat dimulai dari awal lagi dengan klik tombol "Generate Template".
+                  <strong>Setelah dihapus:</strong> Proses dapat dimulai dari awal lagi.
                 </div>
               </div>
             </div>

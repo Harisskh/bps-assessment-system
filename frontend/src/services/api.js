@@ -1,4 +1,4 @@
-// src/services/api.js - UPDATED WITH DELETE CERTIFICATE FEATURE
+// src/services/api.js - UPDATED WITH TEMPLATE SELECTION SUPPORT
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -488,10 +488,16 @@ const getMonthName = (month) => {
 };
 
 // =====================
-// 🔥 UPDATED: CERTIFICATE MANAGEMENT API WITH DELETE FEATURE
+// 🔥 UPDATED: CERTIFICATE MANAGEMENT API WITH TEMPLATE SELECTION
 // =====================
 export const certificateManagementAPI = {
-  // Get all best employees for certificate management
+  // 🔥 UPDATED: Get available templates (ADMIN & PIMPINAN)
+  getAvailableTemplates: () => {
+    console.log('🔄 Getting available certificate templates...');
+    return api.get('/certificate/templates');
+  },
+
+  // 🔥 UPDATED: Get all best employees for certificate management (ADMIN & PIMPINAN)
   getBestEmployees: (filters = {}) => {
     const params = new URLSearchParams();
     if (filters.tahun) params.append('tahun', filters.tahun);
@@ -501,26 +507,33 @@ export const certificateManagementAPI = {
     const queryString = params.toString();
     const url = queryString ? `/certificate/management?${queryString}` : '/certificate/management';
     
+    console.log('🔄 Getting best employees for certificate management with filters:', filters);
     return api.get(url);
   },
 
-  // Generate template with nomor sertifikat
-  generateTemplateWithNomor: (userId, periodId, nomorSertifikat) => {
+  // 🔥 UPDATED: Generate template with template type selection and nomor sertifikat (ADMIN ONLY)
+  generateTemplateWithNomor: (userId, periodId, nomorSertifikat, templateType = 'TTD_BASAH') => {
+    console.log('🔄 Generating template with type:', templateType, 'nomor:', nomorSertifikat);
+    console.log('👤 Current user role should be ADMIN for this action');
+    
     return api.post(`/certificate/generate-template/${userId}/${periodId}`, {
-      nomorSertifikat: nomorSertifikat
+      nomorSertifikat: nomorSertifikat,
+      templateType: templateType
     });
   },
 
-  // Update certificate number
+  // 🔥 UPDATED: Update certificate number (ADMIN & PIMPINAN)
   updateCertificateNumber: (userId, periodId, nomorSertifikat) => {
+    console.log('📝 Updating certificate number:', nomorSertifikat);
     return api.put(`/certificate/update-number/${userId}/${periodId}`, {
       nomorSertifikat: nomorSertifikat
     });
   },
 
-  // 🔥 FIXED: Delete certificate - Reset to beginning
+  // 🔥 UPDATED: Delete certificate - Reset to beginning (ADMIN & PIMPINAN)
   deleteCertificate: (userId, periodId) => {
     console.log('🗑️ Deleting certificate for user:', userId, 'period:', periodId);
+    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
     console.log('🔗 DELETE URL:', `/certificate/delete/${userId}/${periodId}`);
     
     return api.delete(`/certificate/delete/${userId}/${periodId}`).then(response => {
@@ -534,10 +547,11 @@ export const certificateManagementAPI = {
     });
   },
 
-  // Download template with proper authentication
+  // 🔥 UPDATED: Download template with proper authentication (ADMIN & PIMPINAN)
   downloadTemplate: async (userId, periodId) => {
     try {
       console.log('📥 Downloading template for user:', userId, 'period:', periodId);
+      console.log('👤 User role should be ADMIN or PIMPINAN for this action');
       
       const response = await api.get(`/certificate/download-template/${userId}/${periodId}`, {
         responseType: 'blob',
@@ -553,16 +567,21 @@ export const certificateManagementAPI = {
     }
   },
 
-  // Get download URL (for window.open method)
+  // 🔥 UPDATED: Get download URL (for window.open method) (ADMIN & PIMPINAN)
   getTemplateDownloadUrl: (userId, periodId) => {
     console.log('📥 Getting template download URL for user:', userId, 'period:', periodId);
+    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
     const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
     const token = localStorage.getItem('token');
     return `${baseUrl}/api/certificate/download-template/${userId}/${periodId}?token=${encodeURIComponent(token)}`;
   },
   
-  // Upload final certificate
+  // 🔥 UPDATED: Upload final certificate (ADMIN & PIMPINAN)
   uploadCertificate: (userId, periodId, file) => {
+    console.log('📤 Uploading certificate for user:', userId, 'period:', periodId);
+    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
+    console.log('📁 File:', file.name, 'Size:', file.size, 'Type:', file.type);
+    
     const formData = new FormData();
     formData.append('certificate', file);
     
@@ -570,39 +589,51 @@ export const certificateManagementAPI = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60000, // 60 seconds for upload
     });
   },
 
+  // 🔥 UPDATED: Preview template (ADMIN & PIMPINAN)
   previewTemplate: (userId, periodId) => {
+    console.log('👁️ Previewing template for user:', userId, 'period:', periodId);
+    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
+    
     return api.get(`/certificate/preview-template/${userId}/${periodId}`, {
       responseType: 'blob',
     });
   },
   
-  // Download certificate (Admin/Pimpinan)
+  // 🔥 UPDATED: Download final certificate (ADMIN & PIMPINAN & STAFF for own certificates)
   downloadCertificate: (certificateId) => {
+    console.log('📥 Downloading final certificate:', certificateId);
+    console.log('👤 User role: ADMIN/PIMPINAN can download any, STAFF can download own');
+    
     return api.get(`/certificate/download/${certificateId}`, {
       responseType: 'blob',
     });
   }
 };
 
-// User Certificate API (Staff)
+// 🔥 UPDATED: User Certificate API (ALL ROLES)
 export const userCertificateAPI = {
-  // Get user's own certificates (Staff only)
+  // Get user's own certificates (ALL ROLES)
   getMyCertificates: () => {
     console.log('🔄 Getting my certificates...');
+    console.log('👤 Available for all roles (STAFF, ADMIN, PIMPINAN)');
     return api.get('/certificate/my-certificates');
   },
 
+  // Get detailed certificates with scores (ALL ROLES)
   getMyCertificatesDetailed: () => {
     console.log('🔄 Getting my detailed certificates with scores...');
+    console.log('👤 Available for all roles (STAFF, ADMIN, PIMPINAN)');
     return api.get('/certificate/my-certificates-detailed');
   },
   
-  // Download user's certificate (Staff)
+  // Download user's certificate (ALL ROLES for own certificates)
   downloadMyCertificate: (certificateId) => {
     console.log('⬇️ Downloading my certificate:', certificateId);
+    console.log('👤 User can only download their own certificates');
     return api.get(`/certificate/download/${certificateId}`, {
       responseType: 'blob'
     });

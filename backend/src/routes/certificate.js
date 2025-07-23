@@ -1,4 +1,4 @@
-// backend/routes/certificate.js - UPDATED WITH DELETE FEATURE & NEW FOLDER STRUCTURE
+// backend/routes/certificate.js - UPDATED WITH TEMPLATE SELECTION
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -25,6 +25,133 @@ Object.values(FOLDERS).forEach(dir => {
     console.log(`📁 Created directory: ${dir}`);
   }
 });
+
+// 🔥 NEW: Template configurations dengan koordinat yang berbeda
+const TEMPLATE_CONFIGS = {
+  TTD_BASAH: {
+    fileName: 'template_ttd_basah.pdf',
+    displayName: 'Template dengan TTD Basah',
+    description: 'Template untuk tanda tangan basah (manual)',
+    coordinates: {
+      // 🔥 FIXED: Nomor sertifikat - koordinat Y yang lebih rendah
+      nomorSertifikat: { 
+        x: 300,  // Center X (akan di-adjust dengan textWidth)
+        y: 445,  // 🔥 DIPERBAIKI: Posisi Y lebih tinggi di PDF (dari bawah ke atas)
+        fontSize: 16
+      },
+      
+      // Nama pegawai (center, font besar)
+      employeeName: { 
+        x: 300,      // Center X (akan di-adjust dengan textWidth)
+        y: 335,      // Posisi Y untuk nama
+        fontSize: 75 // Ukuran font nama
+      },
+      
+      // Periode (sesuaikan posisi)
+      periodText: { 
+        x: 558,     // Posisi X untuk periode (kanan)
+        y: 290,     // Posisi Y untuk periode
+        fontSize: 14
+      },
+      
+      // Footer TTD Basah (center-aligned)
+      dateLocation: { 
+        x: 300,     // Center X (akan di-adjust dengan textWidth)
+        y: 205,     // Posisi Y tanggal
+        fontSize: 18
+      },
+      
+      kepalaBpsName: { 
+        x: 300,     // Center X (akan di-adjust dengan textWidth)
+        y: 80,     // Posisi Y nama kepala
+        fontSize: 18
+      },
+      
+      nipKepala: { 
+        x: 300,     // Center X (akan di-adjust dengan textWidth)
+        y: 60,      // Posisi Y NIP
+        fontSize: 14
+      }
+    }
+  },
+  E_TTD: {
+    fileName: 'template_e_ttd.pdf',
+    displayName: 'Template dengan E-TTD',
+    description: 'Template untuk tanda tangan elektronik',
+    coordinates: {
+      // 🔥 FIXED: Nomor sertifikat - sama seperti TTD Basah
+      nomorSertifikat: { 
+        x: 300,  // Center X (akan di-adjust dengan textWidth)
+        y: 445,  // 🔥 DIPERBAIKI: Sama dengan TTD Basah
+        fontSize: 16
+      },
+      
+      // Nama pegawai (CENTER - sama dengan TTD Basah)
+      employeeName: { 
+        x: 300,      // Center X (akan di-adjust dengan textWidth)
+        y: 335,      // Sama dengan TTD Basah
+        fontSize: 75 // Sama dengan TTD Basah
+      },
+      
+      // Periode (sama dengan TTD Basah)
+      periodText: { 
+        x: 558,     // Sama dengan TTD Basah
+        y: 290,     // Sama dengan TTD Basah
+        fontSize: 14
+      },
+      
+      // 🔥 FOOTER E-TTD: RATA KIRI SEJAJAR
+      dateLocationLeft: { 
+        x: 400,      // Margin kiri
+        y: 175,     // Posisi Y paling atas footer
+        fontSize: 18
+      },
+      
+      kepalaBpsPositionLeft: { 
+        x: 400,      // Rata kiri - X sama
+        y: 155,     // Di bawah tanggal
+        fontSize: 18
+      },
+      
+      kepalaBpsKabupatenLeft: { 
+        x: 400,      // Rata kiri - X sama
+        y: 135,     // Di bawah jabatan
+        fontSize: 18
+      },
+      
+      kepalaBpsNameLeft: { 
+        x: 400,      // Rata kiri - X sama
+        y: 100,     // Setelah space untuk TTD
+        fontSize: 18
+      },
+      
+      nipKepalaLeft: { 
+        x: 400,      // Rata kiri - X sama
+        y: 80,      // Di bawah nama
+        fontSize: 16
+      }
+    }
+  }
+};
+
+// 🔥 HELPER FUNCTION: Get PDF page dimensions to calculate proper center
+const getPDFPageInfo = (pdfDoc) => {
+  const pages = pdfDoc.getPages();
+  const firstPage = pages[0];
+  const { width, height } = firstPage.getSize();
+  
+  console.log(`📐 PDF Dimensions: ${width} x ${height} points`);
+  return { width, height, firstPage };
+};
+
+// 🔥 HELPER FUNCTION: Calculate center position for text
+const calculateCenterPosition = (text, font, fontSize, pageWidth) => {
+  const textWidth = font.widthOfTextAtSize(text, fontSize);
+  const centerX = (pageWidth / 2) - (textWidth / 2);
+  
+  console.log(`📏 Text: "${text}" | Width: ${textWidth} | Center X: ${centerX}`);
+  return centerX;
+};
 
 // Configure multer for certificate uploads
 const storage = multer.diskStorage({
@@ -156,6 +283,55 @@ const getKepalaBpsData = async () => {
 // ===============================================
 // ADMIN/PIMPINAN ROUTES - Certificate Management
 // ===============================================
+
+// 🔥 NEW: Get available templates
+router.get('/templates', async (req, res) => {
+  try {
+    console.log('📋 Getting available certificate templates...');
+    
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'PIMPINAN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Akses ditolak. Hanya admin dan pimpinan yang dapat mengakses template.'
+      });
+    }
+
+    const availableTemplates = [];
+    
+    // Check which templates exist
+    Object.keys(TEMPLATE_CONFIGS).forEach(templateKey => {
+      const config = TEMPLATE_CONFIGS[templateKey];
+      const templatePath = path.join(FOLDERS.TEMPLATE_SOURCE, config.fileName);
+      
+      availableTemplates.push({
+        key: templateKey,
+        fileName: config.fileName,
+        displayName: config.displayName,
+        description: config.description,
+        exists: fs.existsSync(templatePath),
+        path: templatePath
+      });
+    });
+
+    console.log('✅ Available templates:', availableTemplates);
+
+    res.json({
+      success: true,
+      data: {
+        templates: availableTemplates,
+        folderPath: FOLDERS.TEMPLATE_SOURCE
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get templates error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 
 // Get all best employees with filters
 router.get('/management', async (req, res) => {
@@ -325,7 +501,7 @@ router.get('/management', async (req, res) => {
   }
 });
 
-// Generate certificate with nomor sertifikat input and Kepala BPS data
+// 🔥 FIXED: Generate template dengan koordinat dan center alignment yang benar
 router.post('/generate-template/:userId/:periodId', async (req, res) => {
   try {
     console.log('🔄 Generate template request from:', req.user?.nama, 'Role:', req.user?.role);
@@ -338,10 +514,25 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
     }
 
     const { userId, periodId } = req.params;
-    // Get nomor sertifikat from request body
-    const { nomorSertifikat } = req.body;
+    const { templateType, nomorSertifikat } = req.body;
+
+    if (!templateType || !TEMPLATE_CONFIGS[templateType]) {
+      return res.status(400).json({
+        success: false,
+        error: 'Template type harus dipilih dan valid',
+        availableTemplates: Object.keys(TEMPLATE_CONFIGS)
+      });
+    }
+
+    if (!nomorSertifikat) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nomor sertifikat harus diisi'
+      });
+    }
 
     console.log('🔄 Generating template for user:', userId, 'period:', periodId);
+    console.log('📝 Template type:', templateType);
     console.log('📝 Nomor sertifikat:', nomorSertifikat);
 
     // Verify this is a best employee
@@ -363,8 +554,22 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
         error: 'Best employee tidak ditemukan untuk periode ini'
       });
     }
-
     console.log('✅ Best employee found:', bestEmployee.user.nama);
+
+    // Get template configuration
+    const templateConfig = TEMPLATE_CONFIGS[templateType];
+    const templatePath = path.join(FOLDERS.TEMPLATE_SOURCE, templateConfig.fileName);
+
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).json({
+        success: false,
+        error: `Template ${templateConfig.displayName} tidak ditemukan di: ${templatePath}`,
+        templatePath: templatePath,
+        availableFiles: fs.existsSync(FOLDERS.TEMPLATE_SOURCE) ? fs.readdirSync(FOLDERS.TEMPLATE_SOURCE) : []
+      });
+    }
+
+    console.log('📋 Found template:', templateConfig.displayName, 'at:', templatePath);
 
     // Get Kepala BPS data
     const kepalaBpsData = await getKepalaBpsData();
@@ -378,46 +583,16 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
       }
     });
 
-    console.log('📄 Loading existing PDF template from temp_cert folder...');
+    console.log('📄 Loading PDF template...');
 
-    // 🔥 NEW: Path ke template PDF dari folder temp_cert
-    const possibleTemplates = [
-      'template_certificate.pdf',
-      'certificate_template.pdf', 
-      'sertifikat_template.pdf',
-      'template.pdf'
-    ];
-    
-    let actualTemplatePath = null;
-    
-    // Cari file template yang ada di folder temp_cert
-    for (const templateName of possibleTemplates) {
-      const testPath = path.join(FOLDERS.TEMPLATE_SOURCE, templateName);
-      if (fs.existsSync(testPath)) {
-        actualTemplatePath = testPath;
-        console.log('📋 Found template:', templateName, 'in temp_cert folder');
-        break;
-      }
-    }
-    
-    // Jika tidak ada template, buat error
-    if (!actualTemplatePath) {
-      const files = fs.existsSync(FOLDERS.TEMPLATE_SOURCE) ? fs.readdirSync(FOLDERS.TEMPLATE_SOURCE) : [];
-      console.log('📁 Files in temp_cert directory:', files);
-      
-      return res.status(404).json({
-        success: false,
-        error: 'Template PDF tidak ditemukan. Pastikan file template ada di folder uploads/temp_cert/',
-        availableFiles: files,
-        searchedPath: FOLDERS.TEMPLATE_SOURCE
-      });
-    }
-
-    // Baca template PDF yang sudah ada
-    const existingPdfBytes = fs.readFileSync(actualTemplatePath);
+    // Load existing PDF template
+    const existingPdfBytes = fs.readFileSync(templatePath);
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     
-    // Load fonts (pastikan folder fonts ada)
+    // 🔥 FIXED: Get PDF page info for proper positioning
+    const { width, height, firstPage } = getPDFPageInfo(pdfDoc);
+    
+    // Load fonts
     const fontsDir = path.join(process.cwd(), 'assets', 'fonts');
     let ephesisFont, pattayaFont;
     
@@ -431,12 +606,6 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
       console.warn('⚠️ Custom font not available, using standard font:', fontError.message);
     }
 
-    const pages = pdfDoc.getPages();
-    const firstPage = pages[0];
-    const { width, height } = firstPage.getSize();
-    
-    console.log('📐 Template loaded - Size:', width, 'x', height);
-
     // Load standard fonts
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -445,17 +614,11 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
     // Extract clean employee name (tanpa gelar)
     const employeeFullName = bestEmployee.user.nama;
     const employeeName = employeeFullName
-      // Versi 1: Menghapus gelar dengan titik (e.g., S.T., M.M., A.Md.Stat.)
-      .replace(/,?\s*(A\.Md\.?|A\.Md\.Stat\.?|A\.Md\.Kb\.N\.?|S\.P\.?|S\.T\.?|S\.Kom\.?|S\.Tr\.Stat\.?|S\.Si\.?|S\.Pd\.?|S\.E\.?|S\.Sos\.?|SST\.?|M\.E\.K\.K\.?|M\.EKK\.?|M\.S\.E\.?|M\.M\.?|M\.Si\.?|M\.Kom\.?|M\.T\.?|M\.Pd\.?|Dr\.?|Ir\.?)$/gi, '')
-      // Versi 2: Menghapus gelar tanpa titik (e.g., ST, MM, AMdStat)
-      .replace(/,?\s*(AMd|AMdStat|AMdKbN|SP|ST|SKom|SST|STrStat|Stat|SSi|SPd|SE|SSos|MEKK|MSE|MM|MSi|MKom|MT|MPd|Dr|Ir)$/gi, '')
+      .replace(/,?\s*(A\.Md\.?|A\.Md\.Stat\.?|S\.T\.?|S\.Kom\.?|S\.Tr\.Stat\.?|S\.Si\.?|S\.Pd\.?|S\.E\.?|S\.Sos\.?|SST\.?|M\.M\.?|M\.Si\.?|M\.Kom\.?|M\.T\.?|M\.Pd\.?|Dr\.?|Ir\.?)$/gi, '')
+      .replace(/,?\s*(AMd|AMdStat|ST|SKom|SST|STrStat|SSi|SPd|SE|SSos|MM|MSi|MKom|MT|MPd|Dr|Ir)$/gi, '')
       .trim();
     
     console.log('📝 Employee name:', employeeFullName, '-> Clean name:', employeeName);
-    
-    // Calculate text width untuk centering
-    const nameFont = ephesisFont || boldFont;
-    const textWidth = nameFont.widthOfTextAtSize(employeeName, 75);
     
     // Get period information
     const periodMonth = getMonthName(bestEmployee.period.bulan);
@@ -464,87 +627,144 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
     // Get current date for certificate print date
     const currentDate = new Date();
     const printDate = `${currentDate.getDate()} ${getMonthName(currentDate.getMonth() + 1)} ${currentDate.getFullYear()}`;
-    const dateText = `Pringsewu, ${printDate}`;
-    const dateTextWidth = font.widthOfTextAtSize(dateText, 18);
+    
+    // 🔥 FIXED: Apply coordinates based on template type
+    const coords = templateConfig.coordinates;
 
-    // Add nomor sertifikat if provided
-    if (nomorSertifikat) {
+    // 🔥 FIXED: Add nomor sertifikat dengan center alignment yang benar
+    if (nomorSertifikat && coords.nomorSertifikat) {
       const nomorText = `Nomor: ${nomorSertifikat}`;
-      const nomorTextWidth = font.widthOfTextAtSize(nomorText, 16);
+      const nomorCenterX = calculateCenterPosition(nomorText, font, coords.nomorSertifikat.fontSize, width);
       
       firstPage.drawText(nomorText, {
-        x: (width - nomorTextWidth) / 2,
-        y: height - 150, // Position di atas nama, sesuaikan dengan template
-        size: 16,
+        x: nomorCenterX, // 🔥 FIXED: Menggunakan calculated center position
+        y: coords.nomorSertifikat.y,
+        size: coords.nomorSertifikat.fontSize,
         font: font,
         color: rgb(0, 0, 0),
       });
       
-      console.log('📝 Added nomor sertifikat:', nomorText);
+      console.log(`📝 Added nomor sertifikat: "${nomorText}" at center position X=${nomorCenterX}, Y=${coords.nomorSertifikat.y}`);
     }
 
-    // Draw employee name on PDF
+    // 🔥 FIXED: Draw employee name dengan center alignment yang benar
+    const nameFont = ephesisFont || boldFont;
+    const nameCenterX = calculateCenterPosition(employeeName, nameFont, coords.employeeName.fontSize, width);
+    
     firstPage.drawText(employeeName, {
-      x: (width - textWidth) / 2,
-      y: height - 260, // Adjust Y position based on your template
-      size: 75,
+      x: nameCenterX, // 🔥 FIXED: Menggunakan calculated center position
+      y: coords.employeeName.y,
+      size: coords.employeeName.fontSize,
       font: nameFont,
       color: rgb(0, 0, 0), 
     });
+    
+    console.log(`📝 Added employee name: "${employeeName}" at center position X=${nameCenterX}, Y=${coords.employeeName.y}`);
 
     // Draw period information
     const periodText = `Bulan ${periodMonth} Tahun ${periodYear}`;
     firstPage.drawText(periodText, {
-      x: width - 285, // Adjust X position based on your template
-      y: height - 305, // Adjust Y position based on your template
-      size: 14,
+      x: coords.periodText.x,
+      y: coords.periodText.y,
+      size: coords.periodText.fontSize,
       font: font,
       color: rgb(0, 0, 0),
     });
 
-    // Draw date and location
-    firstPage.drawText(dateText, {
-      x: (width - dateTextWidth) / 2,
-      y: 205, // Adjust Y position based on your template
-      size: 18,
-      font: font,
-      color: rgb(0, 0, 0),
-    });
+    // 🔥 FIXED: Apply different layouts based on template type
+    if (templateType === 'TTD_BASAH') {
+      // Layout untuk TTD Basah (center aligned)
+      const dateText = `Pringsewu, ${printDate}`;
+      const dateCenterX = calculateCenterPosition(dateText, font, coords.dateLocation.fontSize, width);
+      
+      firstPage.drawText(dateText, {
+        x: dateCenterX, // 🔥 FIXED: Center alignment
+        y: coords.dateLocation.y,
+        size: coords.dateLocation.fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
 
-    // Add Kepala BPS name (below "Kepala BPS Kabupaten Pringsewu")
-    const kepalaBpsNameWidth = boldFont.widthOfTextAtSize(kepalaBpsData.nama, 18);
-    firstPage.drawText(kepalaBpsData.nama, {
-      x: (width - kepalaBpsNameWidth) / 2,
-      y: 80, // Position di bawah tanggal, sesuaikan dengan template
-      size: 18,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
+      // Add Kepala BPS name (center aligned)
+      const kepalaBpsNameCenterX = calculateCenterPosition(kepalaBpsData.nama, boldFont, coords.kepalaBpsName.fontSize, width);
+      firstPage.drawText(kepalaBpsData.nama, {
+        x: kepalaBpsNameCenterX, // 🔥 FIXED: Center alignment
+        y: coords.kepalaBpsName.y,
+        size: coords.kepalaBpsName.fontSize,
+        font: boldFont,
+        color: rgb(0, 0, 0),
+      });
 
-    // Add Kepala BPS NIP (below name)
-    const nipText = `NIP. ${kepalaBpsData.nip}`;
-    const nipTextWidth = font.widthOfTextAtSize(nipText, 14);
-    firstPage.drawText(nipText, {
-      x: (width - nipTextWidth) / 2,
-      y: 60, // Position di bawah nama kepala, sesuaikan dengan template
-      size: 14,
-      font: font,
-      color: rgb(0, 0, 0),
-    });
+      // Add Kepala BPS NIP (center aligned)
+      const nipText = `NIP. ${kepalaBpsData.nip}`;
+      const nipCenterX = calculateCenterPosition(nipText, font, coords.nipKepala.fontSize, width);
+      firstPage.drawText(nipText, {
+        x: nipCenterX, // 🔥 FIXED: Center alignment
+        y: coords.nipKepala.y,
+        size: coords.nipKepala.fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
 
-    console.log('👨‍💼 Added Kepala BPS info:', kepalaBpsData.nama, 'NIP:', kepalaBpsData.nip);
+    } else if (templateType === 'E_TTD') {
+      // Layout untuk E-TTD (left aligned, sejajar atas bawah)
+      
+      const dateText = `Pringsewu, ${printDate}`;
+      firstPage.drawText(dateText, {
+        x: coords.dateLocationLeft.x, // Left aligned
+        y: coords.dateLocationLeft.y,
+        size: coords.dateLocationLeft.fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+
+      firstPage.drawText('Kepala Badan Pusat Statistik', {
+        x: coords.kepalaBpsPositionLeft.x, // Left aligned
+        y: coords.kepalaBpsPositionLeft.y,
+        size: coords.kepalaBpsPositionLeft.fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+
+      firstPage.drawText('Kabupaten Pringsewu', {
+        x: coords.kepalaBpsKabupatenLeft.x, // Left aligned
+        y: coords.kepalaBpsKabupatenLeft.y,
+        size: coords.kepalaBpsKabupatenLeft.fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+
+      firstPage.drawText(kepalaBpsData.nama, {
+        x: coords.kepalaBpsNameLeft.x, // Left aligned
+        y: coords.kepalaBpsNameLeft.y,
+        size: coords.kepalaBpsNameLeft.fontSize,
+        font: boldFont,
+        color: rgb(0, 0, 0),
+      });
+
+      const nipText = `NIP. ${kepalaBpsData.nip}`;
+      firstPage.drawText(nipText, {
+        x: coords.nipKepalaLeft.x, // Left aligned
+        y: coords.nipKepalaLeft.y,
+        size: coords.nipKepalaLeft.fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+    }
+
+    console.log('👨‍💼 Added Kepala BPS info with layout:', templateType);
 
     // Generate modified PDF
     const pdfBytes = await pdfDoc.save();
 
-    // 🔥 NEW: Save filled template ke folder cert dengan format yang diminta
+    // Save filled template to cert folder
     const cleanName = cleanEmployeeName(employeeName);
-    const filename = `Template_${cleanName}_${periodMonth}_${periodYear}.pdf`;
+    const filename = `Template_${cleanName}_${periodMonth}_${periodYear}_${templateType}.pdf`;
     const outputPath = path.join(FOLDERS.GENERATED_TEMPLATES, filename);
     
     fs.writeFileSync(outputPath, pdfBytes);
 
-    console.log('💾 Certificate generated with NEW format in cert folder:', filename);
+    console.log('💾 Certificate generated with template type:', templateType, 'saved as:', filename);
 
     // Update or create certificate record
     if (certificate) {
@@ -555,7 +775,8 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
           template_path: `/uploads/cert/${filename}`,
           generated_by: req.user.id,
           generated_at: new Date(),
-          certificate_number: nomorSertifikat || certificate.certificate_number,
+          certificate_number: nomorSertifikat,
+          template_type: templateType,
           status: 'TEMPLATE_GENERATED'
         }
       });
@@ -568,7 +789,8 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
           template_path: `/uploads/cert/${filename}`,
           generated_by: req.user.id,
           generated_at: new Date(),
-          certificate_number: nomorSertifikat || null,
+          certificate_number: nomorSertifikat,
+          template_type: templateType,
           status: 'TEMPLATE_GENERATED'
         }
       });
@@ -578,7 +800,7 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Sertifikat berhasil di-generate dari template',
+      message: `Sertifikat berhasil di-generate menggunakan ${templateConfig.displayName}`,
       data: {
         certificate,
         downloadUrl: `/uploads/cert/${filename}`,
@@ -588,9 +810,15 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
         period: `${periodMonth} ${periodYear}`,
         printDate: printDate,
         nomorSertifikat: nomorSertifikat,
+        templateType: templateType,
+        templateDisplayName: templateConfig.displayName,
         kepalaBps: kepalaBpsData,
-        templateUsed: path.basename(actualTemplatePath),
-        savedToFolder: 'uploads/cert'
+        templateUsed: templateConfig.fileName,
+        savedToFolder: 'uploads/cert',
+        debug: {
+          pdfDimensions: { width, height },
+          centerCalculations: `Employee name center X: ${calculateCenterPosition(employeeName, nameFont, coords.employeeName.fontSize, width)}`
+        }
       }
     });
 
@@ -662,7 +890,7 @@ router.put('/update-number/:userId/:periodId', async (req, res) => {
   }
 });
 
-// 🔥 NEW: DELETE certificate - Reset to beginning
+// 🔥 DELETE certificate - Reset to beginning
 router.delete('/delete/:userId/:periodId', async (req, res) => {
   try {
     console.log('🗑️ EXPLICIT Delete route hit!');
@@ -770,21 +998,6 @@ router.delete('/delete/:userId/:periodId', async (req, res) => {
   }
 });
 
-// Test route untuk memastikan DELETE berfungsi
-router.all('/test-delete', (req, res) => {
-  res.json({
-    success: true,
-    message: 'DELETE route is registered and working!',
-    method: req.method,
-    timestamp: new Date().toISOString(),
-    user: req.user?.nama || 'Not authenticated'
-  });
-});
-
-console.log('✅ EXPLICIT DELETE route registered: DELETE /delete/:userId/:periodId');
-console.log('✅ TEST route registered: ALL /test-delete');
-
-
 // Download template/preview dengan proper token handling
 router.get('/download-template/:userId/:periodId', async (req, res) => {
   try {
@@ -887,7 +1100,8 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
     const cleanName = cleanEmployeeName(certificate.user.nama);
     const periodMonth = getMonthName(certificate.period.bulan);
     const periodYear = certificate.period.tahun;
-    const properFilename = `Template_${cleanName}_${periodMonth}_${periodYear}.pdf`;
+    const templateType = certificate.template_type || 'TTD_BASAH';
+    const properFilename = `Template_${cleanName}_${periodMonth}_${periodYear}_${templateType}.pdf`;
     
     console.log('📤 Setting filename:', properFilename);
     
@@ -985,7 +1199,8 @@ router.post('/upload/:userId/:periodId', upload.single('certificate'), async (re
     const cleanName = cleanEmployeeName(certificate.user.nama);
     const periodMonth = getMonthName(certificate.period.bulan);
     const periodYear = certificate.period.tahun;
-    const finalFilename = `Sertifikat_${cleanName}_${periodMonth}_${periodYear}${path.extname(req.file.originalname)}`;
+    const templateType = certificate.template_type || 'TTD_BASAH';
+    const finalFilename = `Sertifikat_${cleanName}_${periodMonth}_${periodYear}_${templateType}${path.extname(req.file.originalname)}`;
     
     // Rename the uploaded file to proper format
     const oldPath = req.file.path;
@@ -1064,7 +1279,8 @@ router.get('/my-certificates', async (req, res) => {
       fileName: cert.file_name,
       fileUrl: cert.file_url,
       uploadedAt: cert.uploaded_at,
-      certificateNumber: cert.certificate_number
+      certificateNumber: cert.certificate_number,
+      templateType: cert.template_type
     }));
 
     res.json({
@@ -1143,6 +1359,7 @@ router.get('/my-certificates-detailed', async (req, res) => {
             fileUrl: cert.file_url,
             uploadedAt: cert.uploaded_at,
             certificateNumber: cert.certificate_number,
+            templateType: cert.template_type,
             // Detailed scores
             berakhlakScore: finalEval?.berakhlakScore || null,
             presensiScore: finalEval?.presensiScore || null,
@@ -1163,6 +1380,7 @@ router.get('/my-certificates-detailed', async (req, res) => {
             fileUrl: cert.file_url,
             uploadedAt: cert.uploaded_at,
             certificateNumber: cert.certificate_number,
+            templateType: cert.template_type,
             berakhlakScore: null,
             presensiScore: null,
             ckpScore: null,

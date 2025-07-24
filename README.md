@@ -11,7 +11,7 @@
 
 Sistem ini menggantikan penilaian berbasis Google Form dengan aplikasi web yang lebih robust dan terintegrasi. Sistem memiliki 3 aspek penilaian utama:
 
-- **🎯 Tokoh BerAKHLAK (30%)** - 8 parameter perilaku dengan 3 kategori penilaian
+- **🎯 Tokoh BerAKHLAK (30%)** - 8 parameter perilaku
 - **⏰ Presensi (40%)** - Perhitungan kehadiran, keterlambatan, dan absensi
 - **📊 CKP (30%)** - Capaian Kinerja Pegawai
 

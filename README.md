@@ -169,6 +169,7 @@ npm start
   "xlsx": "^0.18.5",             // Excel processing
   "sharp": "^0.34.3",            // Image processing
   "pdf-lib": "^1.17.1",          // PDF manipulation
+  "fontkit": "^2.0.4",           // Font manipulation
   "pdfkit": "^0.17.1",           // PDF generation
   "puppeteer": "^24.13.0"        // PDF from HTML
 }

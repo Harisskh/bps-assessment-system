@@ -96,14 +96,14 @@ dist
 .sapper
 
 # Remix build output
-build/
-public/build/
+# build/
+# public/build/
 
 # Scully build output
 .scully
 
 # Vite build output
-dist/
+# dist/
 
 # Private keys
 *.key
@@ -124,11 +124,11 @@ dist/
 *.sln
 
 ### React ###
-build/
+# build/
 .DS_Store
 
 # Custom Ignores for this Monorepo
 /frontend/node_modules
 /backend/node_modules
-/frontend/build
+# /frontend/build
 /backend/dist

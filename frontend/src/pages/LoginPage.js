@@ -272,7 +272,7 @@ const SipekaLogo = () => (
         </div>
         <div className="text-start">
             <h4 className="mb-0 fw-bold text-white">SiAPIK</h4>
-            <small className="text-white opacity-75">Sistem Apresiasi Pegawai Terbaik</small>
+            <small className="text-white opacity-75">Sistem Penilaian dan Penentuan Pegawai Terbaik</small>
         </div>
     </div>
 );

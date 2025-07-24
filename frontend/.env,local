@@ -1,9 +1,0 @@
-# frontend/.env (optional)
-# REACT_APP_UPLOAD_URL=http://localhost:5000/uploads
-# REACT_APP_API_URL="http://192.168.100.156:5000/api"
-
-# .env (production)
-REACT_APP_API_URL=https://your-backend-domain.com/api
-
-# .env.local (development) 
-REACT_APP_API_URL=http://localhost:5000/api

@@ -6,7 +6,7 @@ $danger: #dc3545;
 $info: #0dcaf0;
 $light: #f8f9fa;
 $dark: #343a40;
-$black: #232426;
+$black: #151617;
 $gray-100: #f8f9fa;
 $gray-200: #e9ecef;
 $gray-300: #ced4da;
@@ -228,7 +228,7 @@ $white: #fff;
           &:focus {
             border-color: $primary;
             box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
-            background: white;
+            background: rgb(255, 254, 254);
           }
 
           option:disabled {
@@ -714,7 +714,7 @@ $white: #fff;
 .form-select {
   option:checked {
     background: linear-gradient(135deg, $primary 0%, lighten($primary, 10%) 100%);
-    color: white;
+    color: rgb(34, 33, 33);
   }
 
   &:hover {
@@ -854,47 +854,5 @@ $white: #fff;
 
   &:active {
     transform: scale(0.98);
-  }
-}
-
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .template-selection-modal {
-    .template-modal-content {
-      background: linear-gradient(145deg, #2d3748 0%, #1a202c 100%);
-      color: #e2e8f0;
-
-      .modal-body {
-        .employee-info-modal {
-          background: linear-gradient(135deg, rgba($primary, 0.2), rgba($primary, 0.1));
-          border-color: rgba($primary, 0.3);
-        }
-
-        .form-control, .form-select {
-          background: #2d3748;
-          border-color: rgba($primary, 0.3);
-          color: #e2e8f0;
-
-          &:focus {
-            background: #1a202c;
-          }
-        }
-
-        .alert {
-          &.alert-success {
-            background: linear-gradient(135deg, rgba($success, 0.2), rgba($success, 0.1));
-          }
-
-          &.alert-danger {
-            background: linear-gradient(135deg, rgba($danger, 0.2), rgba($danger, 0.1));
-          }
-        }
-      }
-
-      .modal-footer {
-        background: #2d3748;
-        border-color: #4a5568;
-      }
-    }
   }
 }

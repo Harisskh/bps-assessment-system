@@ -1,7 +1,7 @@
 // src/pages/DashboardPage.js - COMPLETE AND FINAL VERSION
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { dashboardAPI, finalEvaluationAPI, periodAPI, evaluationAPI } from '../services/api';
+import { dashboardAPI, periodAPI, evaluationAPI } from '../services/api';
 import { Link } from 'react-router-dom';
 import '../styles/Dashboard.scss';
 
@@ -580,6 +580,7 @@ const DashboardPage = () => {
         if (user) {
             loadData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     const calculateProgressPercentage = () => {

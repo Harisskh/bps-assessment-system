@@ -636,10 +636,10 @@ const CertificateManagementPage = () => {
   // 🔥 LOADING STATE COMPONENT dengan SCSS yang sudah dibuat
   if (loading) {
     return (
-      <div className="container-fluid p-4">
-        <div className="loading-container">
+      <div className="container-fluid p-4 d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
+        <div className="loading-container text-center">
           <div className="loading-content">
-            <div className="loading-spinner">
+            <div className="loading-spinner mb-3">
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading...</span>
               </div>
@@ -1142,7 +1142,7 @@ const CertificateManagementPage = () => {
                       <strong>Generate Template:</strong> Buat template dengan pilihan TTD Basah/E-TTD dan input nomor sertifikat
                     </li>
                     <li>
-                      <strong>Download Template:</strong> Unduh template untuk proses offline (tanda tangan manual)
+                      <strong>Download Template:</strong> Unduh template untuk proses sertifikat (tanda tangan manual/E-TTD)
                     </li>
                     <li>
                       <strong>Preview:</strong> Lihat preview sertifikat di tab baru sebelum finalisasi
@@ -1166,7 +1166,7 @@ const CertificateManagementPage = () => {
                   
                   <div className="alert alert-info mt-3">
                     <i className="fas fa-lightbulb me-2"></i>
-                    <strong>Tips Admin:</strong> Gunakan fitur preview untuk memastikan template sudah benar sebelum proses offline.
+                    <strong>Tips Admin:</strong> Gunakan fitur preview untuk memastikan template sudah benar sebelum proses pemberian TTD Sertifikat.
                   </div>
                 </div>
               </div>

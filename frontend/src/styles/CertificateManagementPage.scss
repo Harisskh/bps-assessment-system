@@ -57,7 +57,7 @@ $status-completed: #28a745;
   // 🔥 LOADING CONTAINER - CENTERED & BEAUTIFUL
   // ==============================================
   .loading-container {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100vw;

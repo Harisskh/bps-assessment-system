@@ -26,11 +26,11 @@ const config = {
   // 🔥 BPS Specific Settings
   BPS_SETTINGS: {
     COMPANY_NAME: 'BPS Kabupaten Pringsewu',
-    SYSTEM_NAME: 'SIAPIK - Sistem Penilaian Pegawai',
+    SYSTEM_NAME: 'SiAPIK - Sistem Penilaian dan Penentuan Pegawai Terbaik',
     SYSTEM_VERSION: '1.0.0',
     
     // Evaluation settings
-    TOKOH_BERAKHLAK_CATEGORIES: 3,
+    TOKOH_BERAKHLAK_CATEGORIES: 1,
     TOKOH_BERAKHLAK_PARAMETERS: 8,
     
     // Scoring weights
@@ -42,9 +42,7 @@ const config = {
     
     // Score ranges for Tokoh Berakhlak
     SCORE_RANGES: {
-      TOKOH_1: { min: 96, max: 100 },
-      TOKOH_2: { min: 86, max: 95 },
-      TOKOH_3: { min: 80, max: 85 }
+      TOKOH_1: { min: 96, max: 100 }
     }
   },
   

@@ -968,10 +968,10 @@ const ComprehensiveReportPage = () => {
                 <div style="text-align: center; flex: 1;">
                 <br><br><br><br>
                     <p style="margin: 0; font-size: 12px;">Pringsewu, ${formattedDate}</p>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #000;">Kepala BPS Kabupaten Pringsewu</p>
                     <br><br><br><br>
                     <p style="margin-bottom: 0; font-size: 12px;"><strong>${reportData.kepalaBpsName || 'Eko Purnomo, SST., MM'}</strong></p>
                     <div style="border-bottom: 1px solid #000; width: 200px; margin: 5px auto;"></div>
-                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Kepala BPS Kabupaten Pringsewu</p>
                 </div>
             </div>
         </div>

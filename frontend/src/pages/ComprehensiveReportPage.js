@@ -874,13 +874,13 @@ const ComprehensiveReportPage = () => {
             <table>
                 <thead>
                     <tr>
-                        <th rowspan="2">No</th>
-                        <th rowspan="2">Nama</th>
-                        <th rowspan="2">Persentase Awal</th>
-                        <th colspan="5">Detail Pelanggaran</th>
-                        <th rowspan="2">Total Minus (%)</th>
-                        <th rowspan="2">Total Nilai Presensi (%)</th>
-                        <th rowspan="2">Status</th>
+                        <th rowSpan="2">No</th>
+                        <th rowSpan="2">Nama</th>
+                        <th rowSpan="2">Persentase Awal</th>
+                        <th colSpan="5">Detail Pelanggaran</th>
+                        <th rowSpan="2">Total Minus (%)</th>
+                        <th rowSpan="2">Total Nilai Presensi (%)</th>
+                        <th rowSpan="2">Status</th>
                     </tr>
                     <tr>
                         <th>TK</th>
@@ -1244,12 +1244,12 @@ const ComprehensiveReportPage = () => {
               <table className="table table-striped">
                 <thead className="table-light">
                   <tr>
-                    <th rowspan="2">No</th>
-                    <th rowspan="2">Nama</th>
-                    <th rowspan="2">Persentase Awal</th>
-                    <th colspan="5">Detail Pelanggaran</th>
-                    <th rowspan="2">Total Minus (%)</th>
-                    <th rowspan="2">Total Nilai Presensi (%)</th>
+                    <th rowSpan="2">No</th>
+                    <th rowSpan="2">Nama</th>
+                    <th rowSpan="2">Persentase Awal</th>
+                    <th colSpan="5">Detail Pelanggaran</th>
+                    <th rowSpan="2">Total Minus (%)</th>
+                    <th rowSpan="2">Total Nilai Presensi (%)</th>
                   </tr>
                   <tr>
                     <th>TK</th>

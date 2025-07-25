@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { dashboardAPI, periodAPI, evaluationAPI } from '../services/api';
 import { Link } from 'react-router-dom';
 import '../styles/Dashboard.scss';
+import config, { BACKEND_BASE_URL } from '../config/config';
 
 // PhotoModal Component
 const PhotoModal = ({ isOpen, onClose, imageUrl, userName, userRole }) => {
@@ -90,7 +91,6 @@ const StatCardColorful = ({ title, value, icon, unit = '', colorClass = 'bg-prim
 );
 
 const BestEmployeeCard = ({ employee, period, onPhotoClick }) => {
-    const BACKEND_BASE_URL = 'http://localhost:5000';
     
     const getImageUrl = (imagePath) => {
         if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {
@@ -404,8 +404,6 @@ const DashboardPage = () => {
         userName: '',
         userRole: ''
     });
-
-    const BACKEND_BASE_URL = 'http://localhost:5000';
     
     const getImageUrl = (imagePath) => {
         if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {

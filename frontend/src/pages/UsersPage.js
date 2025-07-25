@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import ImportExcelModal from '../components/ImportExcelModal';
 import '../styles/ImportExcel.scss';
 import '../styles/UserManagement.scss';
+import config, { BACKEND_BASE_URL } from '../config/config';
 
 const UsersPage = () => {
   const { user } = useAuth();
@@ -151,29 +152,29 @@ const UsersPage = () => {
 
   // 🔥 NEW: Test Import System
   const testImportSystem = async () => {
-    try {
-      console.log('🧪 Testing import system...');
-      
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/import/debug', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Import system test:', data);
-        setSuccess('Import system berfungsi dengan baik!');
-      } else {
-        throw new Error(`Test failed: ${response.status}`);
+  try {
+    console.log('🧪 Testing import system...');
+    
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${BACKEND_BASE_URL}/api/import/debug`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
       }
-    } catch (error) {
-      console.error('❌ Import system test failed:', error);
-      setError('Import system tidak dapat diakses: ' + error.message);
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Import system test:', data);
+      setSuccess('Import system berfungsi dengan baik!');
+    } else {
+      throw new Error(`Test failed: ${response.status}`);
     }
-  };
+  } catch (error) {
+    console.error('❌ Import system test failed:', error);
+    setError('Import system tidak dapat diakses: ' + error.message);
+  }
+};
 
 
   // 🔥 FIXED: Download Template Handler
@@ -185,7 +186,7 @@ const handleDownloadTemplate = async () => {
     console.log('📥 Starting download template...');
     
     const token = localStorage.getItem('token');
-    const response = await fetch('http://localhost:5000/api/import/template', {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/import/template`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

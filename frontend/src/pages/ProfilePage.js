@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { profileAPI } from '../services/api';
 import '../styles/ProfilePage.scss';
+import config, { BACKEND_BASE_URL } from '../config/config';
 
 const ProfilePage = () => {
   const { user, updateUser, refreshUser } = useAuth();
@@ -22,30 +23,28 @@ const ProfilePage = () => {
     previewImage: null
   });
 
-  // Backend URL
-  const BACKEND_BASE_URL = 'http://localhost:5000';
   
   // Image URL construction
-  const getImageUrl = useCallback((imagePath, bustCache = false) => {
-    if (!imagePath || imagePath === 'undefined' || imagePath === 'null' || imagePath === '') {
-      return null;
-    }
-    
-    let finalUrl;
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      finalUrl = imagePath;
-    } else {
-      const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-      finalUrl = BACKEND_BASE_URL + cleanPath;
-    }
-    
-    if (bustCache) {
-      const separator = finalUrl.includes('?') ? '&' : '?';
-      finalUrl += `${separator}_t=${Date.now()}&_fr=${forceRefresh}`;
-    }
-    
-    return finalUrl;
-  }, [forceRefresh]);
+const getImageUrl = useCallback((imagePath, bustCache = false) => {
+  if (!imagePath || imagePath === 'undefined' || imagePath === 'null' || imagePath === '') {
+    return null;
+  }
+  
+  let finalUrl;
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    finalUrl = imagePath;
+  } else {
+    const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+    finalUrl = BACKEND_BASE_URL + cleanPath;
+  }
+  
+  if (bustCache) {
+    const separator = finalUrl.includes('?') ? '&' : '?';
+    finalUrl += `${separator}_t=${Date.now()}&_fr=${forceRefresh}`;
+  }
+  
+  return finalUrl;
+}, [forceRefresh]);
 
   // Update local profile data
   const updateLocalProfileData = useCallback(() => {

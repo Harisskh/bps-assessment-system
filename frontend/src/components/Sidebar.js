@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { userCertificateAPI } from '../services/api';
-
+import { BACKEND_BASE_URL } from '../config/config'; // ✅ TAMBAH: Import BACKEND_BASE_URL
 
 const Icon = ({ path, className = "nav-icon" }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -22,7 +22,7 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
   const [loadingCertificates, setLoadingCertificates] = useState(false);
   const [hasCertificates, setHasCertificates] = useState(false);
 
-  const BACKEND_BASE_URL = 'http://localhost:5000';
+  // ✅ FIXED: Hapus hardcoded BACKEND_BASE_URL, sekarang menggunakan import dari config
   
   const getImageUrl = (imagePath, bustCache = false) => {
     if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {
@@ -38,7 +38,7 @@ const Sidebar = ({ isCollapsed, isMobileOpen, onToggleClick }) => {
       cleanPath = '/' + imagePath;
     }
     
-    let finalUrl = BACKEND_BASE_URL + cleanPath;
+    let finalUrl = BACKEND_BASE_URL + cleanPath; // ✅ FIXED: Menggunakan BACKEND_BASE_URL dari config
     
     if (bustCache) {
       finalUrl += '?t=' + Date.now();

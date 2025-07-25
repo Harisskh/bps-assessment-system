@@ -1,5 +1,7 @@
 // src/components/ImportExcelModal.js - ENHANCED VERSION dengan Better UX
 import React, { useState, useRef } from 'react';
+// import { API_BASE_URL } from '../config/config'; 
+import { importService } from '../services/importService'; 
 
 const ImportExcelModal = ({ isOpen, onClose, onSuccess }) => {
   const [file, setFile] = useState(null);
@@ -11,23 +13,14 @@ const ImportExcelModal = ({ isOpen, onClose, onSuccess }) => {
   
   const fileInputRef = useRef(null);
 
-  // Download Template Function
+  // ✅ FIXED: Download Template Function menggunakan API_BASE_URL langsung
   const handleDownloadTemplate = async () => {
     try {
       setDownloading(true);
       setError('');
       
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/import/template', {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
+      const blob = await importService.downloadTemplate();
+      
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -97,7 +90,8 @@ const ImportExcelModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  const handleImport = async () => {
+  // ✅ FIXED: Import function menggunakan API_BASE_URL langsung
+   const handleImport = async () => {
     if (!file) {
       setError('❌ Pilih file Excel terlebih dahulu');
       return;
@@ -109,29 +103,15 @@ const ImportExcelModal = ({ isOpen, onClose, onSuccess }) => {
     setSuccess('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/import/users', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-
-      const result = await response.json();
+      const result = await importService.importUsers(file);
       
-      if (response.ok && result.success) {
-        setSuccess('🎉 ' + result.message);
-        onSuccess(result.data);
-        
-        // Auto close after success
-        setTimeout(() => {
-          handleClose();
-        }, 2500);
-      } else {
-        throw new Error(result.message || 'Import gagal');
-      }
+      setSuccess('🎉 ' + result.message);
+      onSuccess(result.data);
+      
+      // Auto close after success
+      setTimeout(() => {
+        handleClose();
+      }, 2500);
 
     } catch (error) {
       console.error('❌ Import error:', error);

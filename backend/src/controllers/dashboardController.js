@@ -52,7 +52,6 @@ const getDashboardStats = async (req, res) => {
           id: true,
           evaluatorId: true,
           targetUserId: true,
-          ranking: true,
           evaluator: {
             select: {
               nama: true,

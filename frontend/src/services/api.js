@@ -1,47 +1,126 @@
-// src/services/api.js - UPDATED WITH TEMPLATE SELECTION SUPPORT
+// frontend/src/services/api.js - COMPLETE FIXED VERSION WITH CONFIG INTEGRATION
 import axios from 'axios';
+import config, { API_BASE_URL, BACKEND_BASE_URL } from '../config/config';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+console.log('🔧 API Service initialized with Base URL:', API_BASE_URL);
 
-console.log('API Base URL:', API_BASE_URL);
-
-// Create axios instance
+// Create axios instance with config integration
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
+  timeout: config.SYSTEM.TIMEOUTS.API_REQUEST, // Use config timeout
 });
 
-// Helper function untuk construct image URL dengan benar
-export const getImageUrl = (imagePath) => {
-  if (!imagePath) return null;
-  const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-  
-  // Handle different path formats
-  if (imagePath.startsWith('http')) {
-    return imagePath; // Already full URL
+// 🔧 HELPER FUNCTIONS - INTEGRATED WITH CONFIG
+
+/**
+ * Get properly formatted image URL
+ * @param {string} imagePath - Path to image
+ * @param {boolean} bustCache - Add timestamp to prevent caching
+ * @returns {string|null} - Full image URL or null
+ */
+export const getImageUrl = (imagePath, bustCache = false) => {
+  if (!imagePath || imagePath === 'undefined' || imagePath === 'null') {
+    return null;
   }
   
+  // If already full URL, return as is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Clean path and construct URL using config
   const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-  return `${baseUrl}${cleanPath}`;
+  let finalUrl = BACKEND_BASE_URL + cleanPath;
+  
+  // Add cache busting if requested
+  if (bustCache) {
+    const separator = finalUrl.includes('?') ? '&' : '?';
+    finalUrl += separator + 't=' + Date.now();
+  }
+  
+  return finalUrl;
 };
 
-// Request interceptor
+/**
+ * Get download URL with token for protected files
+ * @param {string} endpoint - API endpoint
+ * @returns {string} - URL with token
+ */
+export const getDownloadUrl = (endpoint) => {
+  const token = localStorage.getItem(config.STORAGE_KEYS.TOKEN);
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+  const baseUrl = BACKEND_BASE_URL + '/api' + cleanEndpoint;
+  return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+};
+
+// =====================
+// 🔗 CERTIFICATE HELPER FUNCTIONS - NEW ADDITIONS FOR FIXED URL HANDLING
+// =====================
+
+/**
+ * ✅ NEW: Get certificate preview URL dengan proper config
+ * @param {string} userId - User ID
+ * @param {string} periodId - Period ID  
+ * @param {boolean} isPreview - Whether this is for preview (adds preview=true param)
+ * @returns {string} - Complete preview URL with token
+ */
+export const getCertificatePreviewUrl = (userId, periodId, isPreview = true) => {
+  const token = localStorage.getItem(config.STORAGE_KEYS.TOKEN);
+  const baseUrl = `${BACKEND_BASE_URL}/api${config.ENDPOINTS.CERTIFICATE}/download-template/${userId}/${periodId}`;
+  const params = new URLSearchParams();
+  
+  if (isPreview) params.append('preview', 'true');
+  if (token) params.append('token', token);
+  
+  return `${baseUrl}?${params.toString()}`;
+};
+
+/**
+ * ✅ NEW: Get final certificate URL dengan proper config
+ * @param {string} certificateId - Certificate ID
+ * @returns {string} - Complete final certificate URL with token
+ */
+export const getFinalCertificateUrl = (certificateId) => {
+  const token = localStorage.getItem(config.STORAGE_KEYS.TOKEN);
+  const baseUrl = `${BACKEND_BASE_URL}/api${config.ENDPOINTS.CERTIFICATE}/download/${certificateId}`;
+  
+  return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+};
+
+/**
+ * ✅ NEW: Get template download URL dengan proper config
+ * @param {string} userId - User ID
+ * @param {string} periodId - Period ID
+ * @returns {string} - Complete template download URL with token
+ */
+export const getTemplateDownloadUrl = (userId, periodId) => {
+  const token = localStorage.getItem(config.STORAGE_KEYS.TOKEN);
+  const baseUrl = `${BACKEND_BASE_URL}/api${config.ENDPOINTS.CERTIFICATE}/download-template/${userId}/${periodId}`;
+  
+  return token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+};
+
+// 🔧 AXIOS INTERCEPTORS
+
+// Request interceptor with config integration
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
+  (requestConfig) => {
+    const token = localStorage.getItem(config.STORAGE_KEYS.TOKEN);
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      requestConfig.headers.Authorization = `Bearer ${token}`;
     }
     
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-      headers: config.headers,
-      data: config.data instanceof FormData ? 'FormData' : config.data
-    });
+    if (config.IS_DEVELOPMENT) {
+      console.log(`🚀 API Request: ${requestConfig.method?.toUpperCase()} ${requestConfig.url}`, {
+        headers: requestConfig.headers,
+        data: requestConfig.data instanceof FormData ? 'FormData' : requestConfig.data
+      });
+    }
     
-    return config;
+    return requestConfig;
   },
   (error) => {
     console.error('❌ Request Error:', error);
@@ -49,14 +128,16 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor with config integration
 api.interceptors.response.use(
   (response) => {
-    console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
-      status: response.status,
-      success: response.data?.success,
-      hasData: !!response.data?.data
-    });
+    if (config.IS_DEVELOPMENT) {
+      console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+        status: response.status,
+        success: response.data?.success,
+        hasData: !!response.data?.data
+      });
+    }
     return response;
   },
   (error) => {
@@ -66,9 +147,10 @@ api.interceptors.response.use(
       data: error.response?.data
     });
 
-    // Handle specific error cases
+    // Handle 401 - Unauthorized
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
+      localStorage.removeItem(config.STORAGE_KEYS.TOKEN);
+      localStorage.removeItem(config.STORAGE_KEYS.USER);
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
@@ -83,7 +165,11 @@ api.interceptors.response.use(
   }
 );
 
-// Test connection function
+// 🔧 UTILITY FUNCTIONS
+
+/**
+ * Test backend connection
+ */
 export const testConnection = async () => {
   try {
     const response = await api.get('/test');
@@ -95,113 +181,107 @@ export const testConnection = async () => {
   }
 };
 
+/**
+ * CSS fix for cursor pointer issue
+ */
+export const fixCursorIssue = () => {
+  const style = document.createElement('style');
+  style.textContent = `
+    * { cursor: auto !important; }
+    button, .btn, a, [role="button"], input[type="button"], input[type="submit"] { cursor: pointer !important; }
+    .table-responsive { cursor: auto !important; }
+    .form-control, .form-select, input, textarea, select { cursor: text !important; }
+    .disabled, :disabled { cursor: not-allowed !important; }
+    .text-muted { cursor: auto !important; }
+  `;
+  
+  const existingFix = document.getElementById('cursor-fix');
+  if (existingFix) existingFix.remove();
+  
+  style.id = 'cursor-fix';
+  document.head.appendChild(style);
+  
+  console.log('🔧 Applied cursor fix');
+};
+
 // =====================
-// AUTH API
+// 🔐 AUTH API
 // =====================
 export const authAPI = {
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
-  getCurrentUser: () => api.get('/auth/me'),
-  changePassword: (data) => api.put('/auth/change-password', data),
-  logout: () => api.post('/auth/logout'),
+  login: (credentials) => api.post(config.ENDPOINTS.AUTH + '/login', credentials),
+  register: (userData) => api.post(config.ENDPOINTS.AUTH + '/register', userData),
+  getCurrentUser: () => api.get(config.ENDPOINTS.AUTH + '/me'),
+  changePassword: (data) => api.put(config.ENDPOINTS.AUTH + '/change-password', data),
+  logout: () => api.post(config.ENDPOINTS.AUTH + '/logout'),
 };
 
 // =====================
-// PROFILE API
+// 👤 PROFILE API
 // =====================
 export const profileAPI = {
-  getProfile: () => api.get('/profile'),
+  getProfile: () => api.get(config.ENDPOINTS.PROFILE),
   updateProfile: (formData) => {
     console.log('📤 Sending profile update with FormData');
-    
-    return api.put('/profile', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 60000, // 60 seconds for file uploads
+    return api.put(config.ENDPOINTS.PROFILE, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: config.SYSTEM.TIMEOUTS.FILE_UPLOAD,
     });
   },
-  deleteProfilePicture: () => api.delete('/profile/picture'),
+  deleteProfilePicture: () => api.delete(config.ENDPOINTS.PROFILE + '/picture'),
 };
 
 // =====================
-// USER API
+// 👥 USER API
 // =====================
 export const userAPI = {
   getAll: (params = {}) => {
     const queryParams = new URLSearchParams();
-    
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== '') {
         queryParams.append(key, params[key]);
       }
     });
-    
-    return api.get(`/users?${queryParams.toString()}`);
+    return api.get(`${config.ENDPOINTS.USERS}?${queryParams.toString()}`);
   },
-  getById: (id) => api.get(`/users/${id}`),
-  checkData: (id) => api.get(`/users/${id}/check-data`),
-  getStats: () => api.get('/users/stats'),
-  create: (userData) => api.post('/users', userData),
-  update: (id, userData) => api.put(`/users/${id}`, userData),
-  delete: (id) => api.delete(`/users/${id}`),
-  permanentDelete: (id) => api.delete(`/users/${id}/permanent`),
-  activate: (id) => api.put(`/users/${id}/activate`),
-  resetPassword: (id, data) => api.put(`/users/${id}/reset-password`, data),
+  getById: (id) => api.get(`${config.ENDPOINTS.USERS}/${id}`),
+  checkData: (id) => api.get(`${config.ENDPOINTS.USERS}/${id}/check-data`),
+  getStats: () => api.get(`${config.ENDPOINTS.USERS}/stats`),
+  create: (userData) => api.post(config.ENDPOINTS.USERS, userData),
+  update: (id, userData) => api.put(`${config.ENDPOINTS.USERS}/${id}`, userData),
+  delete: (id) => api.delete(`${config.ENDPOINTS.USERS}/${id}`),
+  permanentDelete: (id) => api.delete(`${config.ENDPOINTS.USERS}/${id}/permanent`),
+  activate: (id) => api.put(`${config.ENDPOINTS.USERS}/${id}/activate`),
+  resetPassword: (id, data) => api.put(`${config.ENDPOINTS.USERS}/${id}/reset-password`, data),
 };
 
 // =====================
-// IMPORT/EXPORT API
+// 📊 IMPORT/EXPORT API
 // =====================
 export const importExportAPI = {
-  importUsers: (formData) => {
-    return api.post('/import/users', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 60000,
-    });
-  },
-  downloadTemplate: () => {
-    return api.get('/import/template', {
-      responseType: 'blob',
-    });
-  },
+  importUsers: (formData) => api.post(config.ENDPOINTS.IMPORT + '/users', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: config.SYSTEM.TIMEOUTS.FILE_UPLOAD,
+  }),
+  downloadTemplate: () => api.get(config.ENDPOINTS.IMPORT + '/template', { responseType: 'blob' }),
   exportUsers: (params = {}) => {
     const queryParams = new URLSearchParams();
-    
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== '') {
         queryParams.append(key, params[key]);
       }
     });
-    
-    return api.get(`/export/users?${queryParams.toString()}`, {
-      responseType: 'blob',
-    });
+    return api.get(`${config.ENDPOINTS.EXPORT}/users?${queryParams.toString()}`, { responseType: 'blob' });
   }
 };
 
 // =====================
-// EVALUATION API
+// 📝 EVALUATION API
 // =====================
 export const evaluationAPI = {
-  getParameters: () => {
-    console.log('🔄 Getting evaluation parameters...');
-    return api.get('/evaluations/parameters');
-  },
-  getScoreRanges: () => {
-    console.log('🔄 Getting score ranges...');
-    return api.get('/evaluations/score-ranges');
-  },
-  getActivePeriod: () => {
-    console.log('🔄 Getting active period...');
-    return api.get('/evaluations/active-period');
-  },
-  getEligibleUsers: () => {
-    console.log('🔄 Getting eligible users...');
-    return api.get('/evaluations/eligible-users');
-  },
+  getParameters: () => api.get(config.ENDPOINTS.EVALUATIONS + '/parameters'),
+  getScoreRanges: () => api.get(config.ENDPOINTS.EVALUATIONS + '/score-ranges'),
+  getActivePeriod: () => api.get(config.ENDPOINTS.EVALUATIONS + '/active-period'),
+  getEligibleUsers: () => api.get(config.ENDPOINTS.EVALUATIONS + '/eligible-users'),
   submit: (data) => {
     console.log('📤 Submitting evaluation:', data);
     
@@ -221,34 +301,19 @@ export const evaluationAPI = {
     };
     
     console.log('📤 Transformed data for backend:', transformedData);
-    return api.post('/evaluations/submit', transformedData);
+    return api.post(config.ENDPOINTS.EVALUATIONS + '/submit', transformedData);
   },
-  getMyEvaluations: (params = {}) => {
-    console.log('🔄 Getting my evaluations:', params);
-    return api.get('/evaluations/my-evaluations', { params });
-  },
-  getAll: (params = {}) => {
-    console.log('🔄 Getting all evaluations:', params);
-    return api.get('/evaluations/all', { params });
-  },
-  getSummary: (periodId) => {
-    console.log('🔄 Getting evaluation summary for period:', periodId);
-    return api.get(`/evaluations/summary/${periodId}`);
-  },
+  getMyEvaluations: (params = {}) => api.get(config.ENDPOINTS.EVALUATIONS + '/my-evaluations', { params }),
+  getAll: (params = {}) => api.get(config.ENDPOINTS.EVALUATIONS + '/all', { params }),
+  getSummary: (periodId) => api.get(`${config.ENDPOINTS.EVALUATIONS}/summary/${periodId}`),
 };
 
 // =====================
-// ATTENDANCE API
+// 📅 ATTENDANCE API
 // =====================
 export const attendanceAPI = {
-  getAll: (params = {}) => {
-    console.log('🔄 Getting attendance records:', params);
-    return api.get('/attendance', { params });
-  },
-  getById: (id) => {
-    console.log('🔄 Getting attendance by ID:', id);
-    return api.get(`/attendance/${id}`);
-  },
+  getAll: (params = {}) => api.get(config.ENDPOINTS.ATTENDANCE, { params }),
+  getById: (id) => api.get(`${config.ENDPOINTS.ATTENDANCE}/${id}`),
   upsert: (data) => {
     console.log('💾 Upserting attendance:', data);
     
@@ -266,31 +331,18 @@ export const attendanceAPI = {
       jumlahCuti: parseInt(data.jumlahCuti) || 0
     };
     
-    console.log('💾 Clean attendance data:', cleanData);
-    return api.post('/attendance', cleanData);
+    return api.post(config.ENDPOINTS.ATTENDANCE, cleanData);
   },
-  delete: (id) => {
-    console.log('🗑️ Deleting attendance:', id);
-    return api.delete(`/attendance/${id}`);
-  },
-  getStats: (params = {}) => {
-    console.log('📊 Getting attendance stats:', params);
-    return api.get('/attendance/stats', { params });
-  },
+  delete: (id) => api.delete(`${config.ENDPOINTS.ATTENDANCE}/${id}`),
+  getStats: (params = {}) => api.get(`${config.ENDPOINTS.ATTENDANCE}/stats`, { params }),
 };
 
 // =====================
-// CKP API
+// 📈 CKP API
 // =====================
 export const ckpAPI = {
-  getAll: (params = {}) => {
-    console.log('🔄 Getting CKP scores:', params);
-    return api.get('/ckp', { params });
-  },
-  getById: (id) => {
-    console.log('🔄 Getting CKP by ID:', id);
-    return api.get(`/ckp/${id}`);
-  },
+  getAll: (params = {}) => api.get(config.ENDPOINTS.CKP, { params }),
+  getById: (id) => api.get(`${config.ENDPOINTS.CKP}/${id}`),
   upsert: (data) => {
     console.log('💾 Upserting CKP:', data);
     
@@ -304,53 +356,46 @@ export const ckpAPI = {
       return Promise.reject(new Error('Score must be between 0-100'));
     }
     
-    return api.post('/ckp', data);
+    return api.post(config.ENDPOINTS.CKP, data);
   },
-  delete: (id) => {
-    console.log('🗑️ Deleting CKP:', id);
-    return api.delete(`/ckp/${id}`);
-  },
+  delete: (id) => api.delete(`${config.ENDPOINTS.CKP}/${id}`),
 };
 
 // =====================
-// PERIOD API
+// 📅 PERIOD API
 // =====================
 export const periodAPI = {
-  getAll: (params) => api.get('/periods', { params }),
-  getActive: () => api.get('/periods/active'),
-  getById: (id) => api.get(`/periods/${id}`),
-  create: (data) => api.post('/periods', data),
-  update: (id, data) => api.put(`/periods/${id}`, data),
-  activate: (id) => api.put(`/periods/${id}/activate`),
-  delete: (id) => api.delete(`/periods/${id}`),
+  getAll: (params) => api.get(config.ENDPOINTS.PERIODS, { params }),
+  getActive: () => api.get(config.ENDPOINTS.PERIODS + '/active'),
+  getById: (id) => api.get(`${config.ENDPOINTS.PERIODS}/${id}`),
+  create: (data) => api.post(config.ENDPOINTS.PERIODS, data),
+  update: (id, data) => api.put(`${config.ENDPOINTS.PERIODS}/${id}`, data),
+  activate: (id) => api.put(`${config.ENDPOINTS.PERIODS}/${id}/activate`),
+  delete: (id) => api.delete(`${config.ENDPOINTS.PERIODS}/${id}`),
   
+  // Smart period fetching with fallbacks
   getAllSmart: async (params = {}) => {
     try {
       try {
-        return await api.get('/periods/staff/all', { params });
+        return await api.get(config.ENDPOINTS.PERIODS + '/staff/all', { params });
       } catch (staffError) {
         console.log('Staff endpoint not available, trying main endpoint...');
       }
       
       try {
-        return await api.get('/periods', { params });
+        return await api.get(config.ENDPOINTS.PERIODS, { params });
       } catch (mainError) {
         console.log('Main periods endpoint not accessible, using active only...');
       }
       
-      const activeResponse = await api.get('/periods/active');
+      const activeResponse = await api.get(config.ENDPOINTS.PERIODS + '/active');
       const activePeriod = activeResponse.data.data?.period || activeResponse.data.period;
       
       return {
         data: {
           data: {
             periods: activePeriod ? [activePeriod] : [],
-            pagination: {
-              currentPage: 1,
-              totalPages: 1,
-              totalCount: activePeriod ? 1 : 0,
-              limit: 50
-            }
+            pagination: { currentPage: 1, totalPages: 1, totalCount: activePeriod ? 1 : 0, limit: 50 }
           }
         }
       };
@@ -360,33 +405,27 @@ export const periodAPI = {
     }
   },
   
-  getByYearMonth: (tahun, bulan) => {
-    console.log('🔄 Getting period by year month:', tahun, bulan);
-    return api.get('/periods/search', { params: { tahun, bulan, limit: 1 } });
-  },
+  getByYearMonth: (tahun, bulan) => api.get(config.ENDPOINTS.PERIODS + '/search', { params: { tahun, bulan, limit: 1 } }),
+  getPrevious: () => api.get(config.ENDPOINTS.PERIODS + '/previous'),
   
-  getPrevious: () => {
-    console.log('🔄 Getting previous period from active...');
-    return api.get('/periods/previous');
-  },
-  
+  // Comprehensive periods with data generation
   getComprehensivePeriods: async () => {
     try {
       const allPeriods = new Map();
       
+      // Try to get all periods
       try {
         const allPeriodsResponse = await periodAPI.getAllSmart({ limit: 100 });
         const periods = allPeriodsResponse.data.data?.periods || allPeriodsResponse.data.periods || [];
-        periods.forEach(period => {
-          allPeriods.set(period.id, period);
-        });
+        periods.forEach(period => allPeriods.set(period.id, period));
         console.log('✅ Got periods from main source:', periods.length);
       } catch (error) {
         console.warn('⚠️ Could not get all periods:', error);
       }
       
+      // Try to get active period
       try {
-        const activeResponse = await api.get('/periods/active');
+        const activeResponse = await api.get(config.ENDPOINTS.PERIODS + '/active');
         const activePeriod = activeResponse.data.data?.period || activeResponse.data.period;
         if (activePeriod) {
           allPeriods.set(activePeriod.id, activePeriod);
@@ -396,6 +435,7 @@ export const periodAPI = {
         console.warn('⚠️ Could not get active period:', error);
       }
       
+      // Extract periods from evaluations
       try {
         const evaluationsResponse = await evaluationAPI.getMyEvaluations({ limit: 1000 });
         const evaluations = evaluationsResponse.data.data?.evaluations || evaluationsResponse.data.evaluations || [];
@@ -410,9 +450,7 @@ export const periodAPI = {
       }
       
       const periodsArray = Array.from(allPeriods.values());
-      const comprehensivePeriods = generateAllPossiblePeriods(periodsArray);
-      
-      return comprehensivePeriods;
+      return generateAllPossiblePeriods(periodsArray);
     } catch (error) {
       console.error('Error getting comprehensive periods:', error);
       return [];
@@ -438,9 +476,7 @@ const generateAllPossiblePeriods = (existingPeriods) => {
   
   yearsToGenerate.forEach(year => {
     for (let month = 1; month <= 12; month++) {
-      if (year === currentYear && month > currentMonth) {
-        continue;
-      }
+      if (year === currentYear && month > currentMonth) continue;
       
       const key = `${year}-${month}`;
       const monthName = getMonthName(month);
@@ -448,11 +484,7 @@ const generateAllPossiblePeriods = (existingPeriods) => {
       
       if (existingPeriodsMap.has(key)) {
         const existingPeriod = existingPeriodsMap.get(key);
-        allPeriods.push({
-          ...existingPeriod,
-          hasEvaluations: true,
-          isReal: true
-        });
+        allPeriods.push({ ...existingPeriod, hasEvaluations: true, isReal: true });
       } else {
         allPeriods.push({
           id: `generated-${year}-${month}`,
@@ -480,24 +512,16 @@ const generateAllPossiblePeriods = (existingPeriods) => {
 };
 
 const getMonthName = (month) => {
-  const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   return months[month - 1] || 'Unknown';
 };
 
 // =====================
-// 🔥 UPDATED: CERTIFICATE MANAGEMENT API WITH TEMPLATE SELECTION
+// 🏆 CERTIFICATE MANAGEMENT API - COMPLETE FIXED VERSION
 // =====================
 export const certificateManagementAPI = {
-  // 🔥 UPDATED: Get available templates (ADMIN & PIMPINAN)
-  getAvailableTemplates: () => {
-    console.log('🔄 Getting available certificate templates...');
-    return api.get('/certificate/templates');
-  },
-
-  // 🔥 UPDATED: Get all best employees for certificate management (ADMIN & PIMPINAN)
+  getAvailableTemplates: () => api.get(config.ENDPOINTS.CERTIFICATE + '/templates'),
+  
   getBestEmployees: (filters = {}) => {
     const params = new URLSearchParams();
     if (filters.tahun) params.append('tahun', filters.tahun);
@@ -505,162 +529,101 @@ export const certificateManagementAPI = {
     if (filters.status) params.append('status', filters.status);
     
     const queryString = params.toString();
-    const url = queryString ? `/certificate/management?${queryString}` : '/certificate/management';
+    const url = queryString ? 
+      `${config.ENDPOINTS.CERTIFICATE}/management?${queryString}` : 
+      `${config.ENDPOINTS.CERTIFICATE}/management`;
     
-    console.log('🔄 Getting best employees for certificate management with filters:', filters);
     return api.get(url);
   },
 
-  // 🔥 UPDATED: Generate template with template type selection and nomor sertifikat (ADMIN ONLY)
   generateTemplateWithNomor: (userId, periodId, nomorSertifikat, templateType = 'TTD_BASAH') => {
-    console.log('🔄 Generating template with type:', templateType, 'nomor:', nomorSertifikat);
-    console.log('👤 Current user role should be ADMIN for this action');
-    
-    return api.post(`/certificate/generate-template/${userId}/${periodId}`, {
+    return api.post(`${config.ENDPOINTS.CERTIFICATE}/generate-template/${userId}/${periodId}`, {
       nomorSertifikat: nomorSertifikat,
       templateType: templateType
     });
   },
 
-  // 🔥 UPDATED: Update certificate number (ADMIN & PIMPINAN)
   updateCertificateNumber: (userId, periodId, nomorSertifikat) => {
-    console.log('📝 Updating certificate number:', nomorSertifikat);
-    return api.put(`/certificate/update-number/${userId}/${periodId}`, {
+    return api.put(`${config.ENDPOINTS.CERTIFICATE}/update-number/${userId}/${periodId}`, {
       nomorSertifikat: nomorSertifikat
     });
   },
 
-  // 🔥 UPDATED: Delete certificate - Reset to beginning (ADMIN & PIMPINAN)
   deleteCertificate: (userId, periodId) => {
-    console.log('🗑️ Deleting certificate for user:', userId, 'period:', periodId);
-    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
-    console.log('🔗 DELETE URL:', `/certificate/delete/${userId}/${periodId}`);
-    
-    return api.delete(`/certificate/delete/${userId}/${periodId}`).then(response => {
-      console.log('✅ Delete response:', response.data);
-      return response;
-    }).catch(error => {
-      console.error('❌ Delete error:', error);
-      console.error('❌ Delete error response:', error.response?.data);
-      console.error('❌ Delete error status:', error.response?.status);
-      throw error;
+    return api.delete(`${config.ENDPOINTS.CERTIFICATE}/delete/${userId}/${periodId}`);
+  },
+
+  // ✅ FIXED: Download template menggunakan axios dengan responseType blob
+  downloadTemplate: async (userId, periodId) => {
+    return await api.get(`${config.ENDPOINTS.CERTIFICATE}/download-template/${userId}/${periodId}`, {
+      responseType: 'blob',
+      headers: { 'Accept': 'application/pdf' }
     });
   },
 
-  // 🔥 UPDATED: Download template with proper authentication (ADMIN & PIMPINAN)
-  downloadTemplate: async (userId, periodId) => {
-    try {
-      console.log('📥 Downloading template for user:', userId, 'period:', periodId);
-      console.log('👤 User role should be ADMIN or PIMPINAN for this action');
-      
-      const response = await api.get(`/certificate/download-template/${userId}/${periodId}`, {
-        responseType: 'blob',
-        headers: {
-          'Accept': 'application/pdf'
-        }
-      });
-      
-      return response;
-    } catch (error) {
-      console.error('❌ Template download API error:', error);
-      throw error;
-    }
+  // ✅ FIXED: Generate download URL menggunakan BACKEND_BASE_URL dari config
+  getTemplateDownloadUrl: (userId, periodId) => {
+    const token = localStorage.getItem(config.STORAGE_KEYS.TOKEN);
+    return `${BACKEND_BASE_URL}/api${config.ENDPOINTS.CERTIFICATE}/download-template/${userId}/${periodId}?token=${encodeURIComponent(token)}`;
   },
 
-  // 🔥 UPDATED: Get download URL (for window.open method) (ADMIN & PIMPINAN)
-  getTemplateDownloadUrl: (userId, periodId) => {
-    console.log('📥 Getting template download URL for user:', userId, 'period:', periodId);
-    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
-    const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    const token = localStorage.getItem('token');
-    return `${baseUrl}/api/certificate/download-template/${userId}/${periodId}?token=${encodeURIComponent(token)}`;
-  },
-  
-  // 🔥 UPDATED: Upload final certificate (ADMIN & PIMPINAN)
+  // ✅ FIXED: Upload certificate dengan proper timeout dari config
   uploadCertificate: (userId, periodId, file) => {
-    console.log('📤 Uploading certificate for user:', userId, 'period:', periodId);
-    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
-    console.log('📁 File:', file.name, 'Size:', file.size, 'Type:', file.type);
-    
     const formData = new FormData();
     formData.append('certificate', file);
-    
-    return api.post(`/certificate/upload/${userId}/${periodId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 60000, // 60 seconds for upload
+    return api.post(`${config.ENDPOINTS.CERTIFICATE}/upload/${userId}/${periodId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: config.SYSTEM.TIMEOUTS.FILE_UPLOAD,
     });
   },
 
-  // 🔥 UPDATED: Preview template (ADMIN & PIMPINAN)
+  // ✅ FIXED: Preview template (tidak digunakan lagi, diganti dengan direct URL)
   previewTemplate: (userId, periodId) => {
-    console.log('👁️ Previewing template for user:', userId, 'period:', periodId);
-    console.log('👤 User role should be ADMIN or PIMPINAN for this action');
-    
-    return api.get(`/certificate/preview-template/${userId}/${periodId}`, {
-      responseType: 'blob',
+    return api.get(`${config.ENDPOINTS.CERTIFICATE}/preview-template/${userId}/${periodId}`, { 
+      responseType: 'blob' 
     });
   },
-  
-  // 🔥 UPDATED: Download final certificate (ADMIN & PIMPINAN & STAFF for own certificates)
+
+  // ✅ FIXED: Download final certificate menggunakan config endpoint
   downloadCertificate: (certificateId) => {
-    console.log('📥 Downloading final certificate:', certificateId);
-    console.log('👤 User role: ADMIN/PIMPINAN can download any, STAFF can download own');
-    
-    return api.get(`/certificate/download/${certificateId}`, {
-      responseType: 'blob',
-    });
-  }
-};
-
-// 🔥 UPDATED: User Certificate API (ALL ROLES)
-export const userCertificateAPI = {
-  // Get user's own certificates (ALL ROLES)
-  getMyCertificates: () => {
-    console.log('🔄 Getting my certificates...');
-    console.log('👤 Available for all roles (STAFF, ADMIN, PIMPINAN)');
-    return api.get('/certificate/my-certificates');
-  },
-
-  // Get detailed certificates with scores (ALL ROLES)
-  getMyCertificatesDetailed: () => {
-    console.log('🔄 Getting my detailed certificates with scores...');
-    console.log('👤 Available for all roles (STAFF, ADMIN, PIMPINAN)');
-    return api.get('/certificate/my-certificates-detailed');
-  },
-  
-  // Download user's certificate (ALL ROLES for own certificates)
-  downloadMyCertificate: (certificateId) => {
-    console.log('⬇️ Downloading my certificate:', certificateId);
-    console.log('👤 User can only download their own certificates');
-    return api.get(`/certificate/download/${certificateId}`, {
-      responseType: 'blob'
+    return api.get(`${config.ENDPOINTS.CERTIFICATE}/download/${certificateId}`, { 
+      responseType: 'blob' 
     });
   }
 };
 
 // =====================
-// DASHBOARD API
+// 👤 USER CERTIFICATE API - FIXED CONFIG INTEGRATION
+// =====================
+export const userCertificateAPI = {
+  getMyCertificates: () => api.get(config.ENDPOINTS.CERTIFICATE + '/my-certificates'),
+  getMyCertificatesDetailed: () => api.get(config.ENDPOINTS.CERTIFICATE + '/my-certificates-detailed'),
+  downloadMyCertificate: (certificateId) => api.get(`${config.ENDPOINTS.CERTIFICATE}/download/${certificateId}`, { 
+    responseType: 'blob' 
+  })
+};
+
+// =====================
+// 📊 DASHBOARD API
 // =====================
 export const dashboardAPI = {
-  getStats: (params) => api.get('/dashboard/stats', { params }),
-  getEvaluationProgress: (params) => api.get('/dashboard/evaluation-progress', { params }),
-  getCharts: (params) => api.get('/dashboard/charts', { params }),
-  getActivities: (params) => api.get('/dashboard/activities', { params }),
+  getStats: (params) => api.get(config.ENDPOINTS.DASHBOARD + '/stats', { params }),
+  getEvaluationProgress: (params) => api.get(config.ENDPOINTS.DASHBOARD + '/evaluation-progress', { params }),
+  getCharts: (params) => api.get(config.ENDPOINTS.DASHBOARD + '/charts', { params }),
+  getActivities: (params) => api.get(config.ENDPOINTS.DASHBOARD + '/activities', { params }),
 };
 
 // =====================
-// MONITORING API
+// 🔍 MONITORING API
 // =====================
 export const monitoringAPI = {
-  getEvaluationStatus: (params) => api.get('/monitoring/evaluation-status', { params }),
-  getIncompleteUsers: (params) => api.get('/monitoring/incomplete-users', { params }),
-  getUserDetail: (userId, params) => api.get(`/monitoring/user/${userId}/detail`, { params }),
+  getEvaluationStatus: (params) => api.get(config.ENDPOINTS.MONITORING + '/evaluation-status', { params }),
+  getIncompleteUsers: (params) => api.get(config.ENDPOINTS.MONITORING + '/incomplete-users', { params }),
+  getUserDetail: (userId, params) => api.get(`${config.ENDPOINTS.MONITORING}/user/${userId}/detail`, { params }),
 };
 
 // =====================
-// FINAL EVALUATION API
+// 🏆 FINAL EVALUATION API
 // =====================
 export const finalEvaluationAPI = {
   calculate: (data) => api.post('/final-evaluation/calculate', data),
@@ -669,6 +632,7 @@ export const finalEvaluationAPI = {
   getLeaderboard: (params) => api.get('/final-evaluation/leaderboard', { params }),
 };
 
+// Alternative endpoints (for compatibility)
 export const finalEvaluationAPIAlternative = {
   calculate: (data) => api.post('/final-evaluations/calculate', data),
   getFinal: (params) => api.get('/final-evaluations', { params }),
@@ -677,91 +641,44 @@ export const finalEvaluationAPIAlternative = {
 };
 
 // =====================
-// REPORTS API
+// 📊 REPORTS API
 // =====================
 export const reportsAPI = {
   getComprehensive: (params = {}) => {
     console.log('📊 Getting comprehensive report data:', params);
-    return api.get('/reports/comprehensive', { 
+    return api.get(config.ENDPOINTS.REPORTS + '/comprehensive', { 
       params,
-      timeout: 60000
+      timeout: config.SYSTEM.TIMEOUTS.REPORT_GENERATION
     });
   },
-  getBerakhlak: (params = {}) => {
-    console.log('📊 Getting BerAKHLAK report:', params);
-    return api.get('/reports/berakhlak', { params });
-  },
-  getAttendance: (params = {}) => {
-    console.log('📊 Getting attendance report:', params);
-    return api.get('/reports/attendance', { params });
-  },
-  getCkp: (params = {}) => {
-    console.log('📊 Getting CKP report:', params);
-    return api.get('/reports/ckp', { params });
-  },
+  getBerakhlak: (params = {}) => api.get(config.ENDPOINTS.REPORTS + '/berakhlak', { params }),
+  getAttendance: (params = {}) => api.get(config.ENDPOINTS.REPORTS + '/attendance', { params }),
+  getCkp: (params = {}) => api.get(config.ENDPOINTS.REPORTS + '/ckp', { params }),
   exportToPDF: (data) => {
     console.log('📄 Exporting report to PDF:', data);
-    return api.post('/reports/export/pdf', data, {
+    return api.post(config.ENDPOINTS.REPORTS + '/export/pdf', data, {
       responseType: 'blob',
-      timeout: 120000
+      timeout: config.SYSTEM.TIMEOUTS.REPORT_GENERATION
     });
   }
 };
 
 // =====================
-// UTILITY FUNCTIONS
+// 🔧 ENHANCED UTILITY FUNCTIONS
 // =====================
 
-// CSS fix for cursor pointer issue
-export const fixCursorIssue = () => {
-  const style = document.createElement('style');
-  style.textContent = `
-    * {
-      cursor: auto !important;
-    }
-    
-    button, .btn, a, [role="button"], input[type="button"], input[type="submit"] {
-      cursor: pointer !important;
-    }
-    
-    .table-responsive {
-      cursor: auto !important;
-    }
-    
-    .form-control, .form-select, input, textarea, select {
-      cursor: text !important;
-    }
-    
-    .disabled, :disabled {
-      cursor: not-allowed !important;
-    }
-    
-    .text-muted {
-      cursor: auto !important;
-    }
-  `;
-  
-  const existingFix = document.getElementById('cursor-fix');
-  if (existingFix) {
-    existingFix.remove();
-  }
-  
-  style.id = 'cursor-fix';
-  document.head.appendChild(style);
-  
-  console.log('🔧 Applied cursor fix');
-};
-
-// Enhanced comprehensive report API call with better error handling
+/**
+ * Enhanced comprehensive report API call with better error handling
+ */
 export const getComprehensiveReportWithFix = async (params = {}) => {
   try {
     console.log('📊 Getting comprehensive report with cursor fix:', params);
     
     fixCursorIssue();
     
-    const response = await api.get('/reports/comprehensive', { 
+    const response = await api.get(config.ENDPOINTS.REPORTS + '/comprehensive', { 
       params,
-      timeout: 60000,
+      timeout: config.SYSTEM.TIMEOUTS.REPORT_GENERATION,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -784,5 +701,90 @@ export const getComprehensiveReportWithFix = async (params = {}) => {
     throw error;
   }
 };
+
+/**
+ * Generic file download helper
+ * @param {string} url - Download URL
+ * @param {string} filename - Default filename
+ */
+export const downloadFile = (url, filename = 'download') => {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  document.body.removeChild(link);
+};
+
+/**
+ * Format file size in human readable format
+ * @param {number} bytes - File size in bytes
+ * @returns {string} - Formatted file size
+ */
+export const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+/**
+ * Check if file type is allowed
+ * @param {File} file - File object
+ * @param {string[]} allowedTypes - Array of allowed MIME types
+ * @returns {boolean} - Whether file type is allowed
+ */
+export const isFileTypeAllowed = (file, allowedTypes) => {
+  return allowedTypes.includes(file.type);
+};
+
+/**
+ * Validate file size
+ * @param {File} file - File object
+ * @param {number} maxSize - Maximum file size in bytes
+ * @returns {boolean} - Whether file size is valid
+ */
+export const isFileSizeValid = (file, maxSize = config.MAX_FILE_SIZE) => {
+  return file.size <= maxSize;
+};
+
+/**
+ * Create blob URL for preview
+ * @param {Blob} blob - Blob object
+ * @returns {string} - Blob URL
+ */
+export const createBlobUrl = (blob) => {
+  return window.URL.createObjectURL(blob);
+};
+
+/**
+ * Revoke blob URL to free memory
+ * @param {string} url - Blob URL to revoke
+ */
+export const revokeBlobUrl = (url) => {
+  window.URL.revokeObjectURL(url);
+};
+
+/**
+ * Debug API configuration
+ */
+export const debugAPI = () => {
+  if (config.IS_DEVELOPMENT) {
+    console.group('🔧 API Configuration Debug');
+    console.log('API Base URL:', API_BASE_URL);
+    console.log('Backend Base URL:', BACKEND_BASE_URL);
+    console.log('Max File Size:', formatFileSize(config.MAX_FILE_SIZE));
+    console.log('Request Timeout:', config.SYSTEM.TIMEOUTS.API_REQUEST + 'ms');
+    console.log('Upload Timeout:', config.SYSTEM.TIMEOUTS.FILE_UPLOAD + 'ms');
+    console.log('Report Timeout:', config.SYSTEM.TIMEOUTS.REPORT_GENERATION + 'ms');
+    console.log('Environment:', config.IS_DEVELOPMENT ? 'Development' : 'Production');
+    console.groupEnd();
+  }
+};
+
+// Initialize debug on import (development only)
+if (config.IS_DEVELOPMENT) {
+  debugAPI();
+}
 
 export default api;

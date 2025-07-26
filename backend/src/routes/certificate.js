@@ -904,10 +904,11 @@ router.delete('/delete/:userId/:periodId', async (req, res) => {
       });
     }
     
-    if (req.user.role !== 'ADMIN') {
+    // ✅ FIXED: Allow both ADMIN and PIMPINAN to delete
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'PIMPINAN') {
       return res.status(403).json({
         success: false,
-        error: 'Hanya admin yang dapat menghapus sertifikat'
+        error: 'Hanya admin dan pimpinan yang dapat menghapus sertifikat'
       });
     }
 
@@ -975,7 +976,7 @@ router.delete('/delete/:userId/:periodId', async (req, res) => {
       where: { id: certificate.id }
     });
 
-    console.log('✅ Certificate deleted successfully');
+    console.log('✅ Certificate deleted successfully by:', req.user.nama, '(', req.user.role, ')');
 
     res.json({
       success: true,
@@ -985,7 +986,11 @@ router.delete('/delete/:userId/:periodId', async (req, res) => {
         employeeName: certificate.user.nama,
         periodName: certificate.period.namaPeriode,
         deletedFiles: deletedFiles,
-        canRestart: true
+        canRestart: true,
+        deletedBy: {
+          nama: req.user.nama,
+          role: req.user.role
+        }
       }
     });
 
@@ -1007,8 +1012,8 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
     
     let user = req.user;
     
-    // Handle token from query string first (untuk preview)
-    if (req.query.token) {
+    // ✅ FIXED: Handle token from query string FIRST (untuk preview)
+    if (req.query.token && !user) {
       try {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(req.query.token, process.env.JWT_SECRET || 'bps-secret-key');
@@ -1019,14 +1024,14 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
         
         if (foundUser) {
           user = foundUser;
-          console.log('✅ User authenticated via header token:', foundUser.nama);
+          console.log('✅ User authenticated via query token:', foundUser.nama, 'Role:', foundUser.role);
         }
-      } catch (headerTokenError) {
-        console.error('❌ Header token verification failed:', headerTokenError);
+      } catch (tokenError) {
+        console.error('❌ Query token verification failed:', tokenError.message);
         return res.status(401).json({
           success: false,
-          error: 'Token header tidak valid',
-          code: 'INVALID_HEADER_TOKEN'
+          error: 'Token tidak valid',
+          code: 'INVALID_TOKEN'
         });
       }
     }
@@ -1040,17 +1045,18 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
       });
     }
     
+    // ✅ FIXED: Allow both ADMIN and PIMPINAN
     if (user.role !== 'ADMIN' && user.role !== 'PIMPINAN') {
       console.error('❌ Insufficient permissions. User role:', user.role);
       return res.status(403).json({
         success: false,
-        error: 'Hanya admin dan pimpinan yang dapat mengakses sertifikat',
+        error: 'Hanya admin dan pimpinan yang dapat mengakses template sertifikat',
         code: 'INSUFFICIENT_PERMISSIONS'
       });
     }
 
     const { userId, periodId } = req.params;
-    console.log('📥 Processing request for user:', userId, 'period:', periodId);
+    console.log('📥 Processing request for user:', userId, 'period:', periodId, 'by:', user.nama);
 
     const certificate = await prisma.certificate.findFirst({
       where: { 
@@ -1067,7 +1073,7 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
       console.error('❌ Certificate record not found');
       return res.status(404).json({
         success: false,
-        error: 'Certificate record tidak ditemukan di database',
+        error: 'Certificate record tidak ditemukan',
         code: 'CERTIFICATE_NOT_FOUND'
       });
     }
@@ -1105,7 +1111,7 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
     
     console.log('📤 Setting filename:', properFilename);
     
-    // Check if this is a preview request
+    // ✅ FIXED: Check if this is a preview request
     const isPreview = req.query.preview === 'true' || req.headers['x-preview-mode'] === 'true';
     
     // Set comprehensive headers
@@ -1413,8 +1419,44 @@ router.get('/my-certificates-detailed', async (req, res) => {
 // Download certificate file
 router.get('/download/:certificateId', async (req, res) => {
   try {
+    console.log('📥 Download final certificate request');
+    console.log('📥 Certificate ID:', req.params.certificateId);
+    console.log('📥 User:', req.user?.nama, 'Role:', req.user?.role);
+    
+    let user = req.user;
+    
+    // Handle token from query string for direct URL access
+    if (req.query.token && !user) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(req.query.token, process.env.JWT_SECRET || 'bps-secret-key');
+        
+        const foundUser = await prisma.user.findUnique({
+          where: { id: decoded.userId }
+        });
+        
+        if (foundUser) {
+          user = foundUser;
+          console.log('✅ User authenticated via query token:', foundUser.nama, 'Role:', foundUser.role);
+        }
+      } catch (tokenError) {
+        console.error('❌ Query token verification failed:', tokenError.message);
+        return res.status(401).json({
+          success: false,
+          error: 'Token tidak valid',
+          code: 'INVALID_TOKEN'
+        });
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
     const { certificateId } = req.params;
-    const currentUserId = req.user.id;
 
     const certificate = await prisma.certificate.findUnique({
       where: { id: certificateId },
@@ -1431,8 +1473,16 @@ router.get('/download/:certificateId', async (req, res) => {
       });
     }
 
-    // Check access permissions
-    if (req.user.role === 'STAFF' && certificate.user_id !== currentUserId) {
+    // ✅ FIXED: Check access permissions
+    if (user.role === 'STAFF' && certificate.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Anda tidak memiliki akses untuk mengunduh sertifikat ini'
+      });
+    }
+
+    // ✅ ADMIN & PIMPINAN can download any certificate, STAFF only their own
+    if (user.role !== 'ADMIN' && user.role !== 'PIMPINAN' && certificate.user_id !== user.id) {
       return res.status(403).json({
         success: false,
         error: 'Anda tidak memiliki akses untuk mengunduh sertifikat ini'

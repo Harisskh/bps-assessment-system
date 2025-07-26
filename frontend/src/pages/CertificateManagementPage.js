@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { certificateManagementAPI, periodAPI, getImageUrl } from '../services/api';
 import '../styles/CertificateManagementPage.scss';
 import '../styles/TemplateSelectionModal.scss';
+import config, { BACKEND_BASE_URL } from '../config/config';
 
 const CertificateManagementPage = () => {
   const { user } = useAuth();
@@ -235,7 +236,7 @@ const CertificateManagementPage = () => {
         return;
       }
 
-      const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+      const baseUrl = BACKEND_BASE_URL;
       const apiUrl = `${baseUrl}/api/certificate/download-template/${userId}/${periodId}`;
       
       const response = await fetch(apiUrl, {
@@ -436,7 +437,7 @@ const CertificateManagementPage = () => {
         return;
       }
 
-      const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+      const baseUrl = BACKEND_BASE_URL;
       const downloadUrl = `${baseUrl}/api/certificate/download-template/${userId}/${periodId}`;
       
       const response = await fetch(downloadUrl, {
@@ -524,7 +525,7 @@ const CertificateManagementPage = () => {
         return;
       }
 
-      const baseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+      const baseUrl = BACKEND_BASE_URL;
       const apiUrl = `${baseUrl}/api/certificate/download/${certificateId}`;
       
       const response = await fetch(apiUrl, {

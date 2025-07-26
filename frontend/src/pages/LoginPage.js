@@ -173,7 +173,7 @@ const EnhancedFormStyles = () => (
             box-shadow: 0 0 0 0.18rem rgba(28,13,68,0.25);
         }
         
-        .logo-container, .bps-logo, .bps-title, .welcome-text, .glassmorphism, .glassmorphism-logo, .sipeka-logo, .floating-shapes, .shape, .alert, .form-section, .input-icon, .password-toggle, .btn-forgot-password {
+        .logo-container, .bps-logo, .bps-title, .welcome-text, .glassmorphism, .glassmorphism-logo, .Siapik-logo, .floating-shapes, .shape, .alert, .form-section, .input-icon, .password-toggle, .btn-forgot-password {
             /* All existing styles are preserved */
         }
         .logo-container { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 20px; padding: 1rem; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); }
@@ -183,7 +183,7 @@ const EnhancedFormStyles = () => (
         .glassmorphism { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1); }
         .glassmorphism-logo { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(15px); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); padding: 12px 16px; transition: all 0.3s ease; }
         .glassmorphism-logo:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15); }
-        .sipeka-logo { background: linear-gradient(135deg, #0d6efd, #3366ff); border-radius: 16px; padding: 0px; box-shadow: 0 8px 20px rgba(23, 68, 134, 0.4); display: flex; align-items: center; justify-content: center; }
+        .Siapik-logo { background: linear-gradient(135deg, #0d6efd, #3366ff); border-radius: 16px; padding: 0px; box-shadow: 0 8px 20px rgba(23, 68, 134, 0.4); display: flex; align-items: center; justify-content: center; }
         .floating-shapes { position: absolute; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
         .shape { position: absolute; opacity: 0.2; background: rgba(22, 17, 177, 0.1); animation: float 6s ease-in-out infinite; }
         .shape:nth-child(1) { top: 20%; left: 20%; animation-delay: 0s; }
@@ -261,9 +261,9 @@ const BpsLogo = () => (
     </div>
 );
 
-const SipekaLogo = () => (
+const SiapikLogo = () => (
     <div className="d-flex align-items-center justify-content-center text-white">
-        <div className="sipeka-logo me-3" style={{background: 'rgba(53, 45, 191, 0.8)', padding: '4px'}}>
+        <div className="Siapik-logo me-3" style={{background: 'rgba(53, 45, 191, 0.8)', padding: '4px'}}>
             <svg width="60" height="60" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13 29V18.5C13 16.567 14.567 15 16.5 15H20.5" stroke="white" strokeWidth="3" strokeLinecap="round"/>
                 <path d="M20.5 15H23.5C25.433 15 27 16.567 27 18.5V29" stroke="white" strokeWidth="3" strokeLinecap="round"/>
@@ -353,7 +353,7 @@ const LoginPage = () => {
                     <LoginIllustration />
                     <div className="col-lg-5 login-right">
                         <div className="login-header">
-                            <div className="container-fluid px-4"><SipekaLogo /></div>
+                            <div className="container-fluid px-4"><SiapikLogo /></div>
                         </div>
                         <div className="login-content">
                             <div className="w-100 position-relative form-section mx-auto" style={{ maxWidth: '420px' }}>

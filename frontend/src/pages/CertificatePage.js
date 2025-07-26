@@ -112,10 +112,10 @@ const CertificatePage = () => {
 
   if (loading) {
     return (
-      <div className="container-fluid p-4">
-        <div className="loading-container">
+      <div className="container-fluid p-4 d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
+        <div className="loading-container text-center">
           <div className="loading-content">
-            <div className="loading-spinner">
+            <div className="loading-spinner mb-3">
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading...</span>
               </div>
@@ -292,7 +292,7 @@ const CertificatePage = () => {
                         {getMonthName(cert.bulan)} {cert.tahun}
                       </div>
                       <h6 className="timeline-title">🏆 Prestasi Best Employee</h6>
-                      <p className="timeline-description">
+                      <div className="timeline-description">
                         Anda berhasil meraih penghargaan tertinggi sebagai Best Employee pada periode {cert.periodName}.
                         
                         {/* 🔥 NEW: Achievement highlight */}
@@ -335,7 +335,7 @@ const CertificatePage = () => {
                             </div>
                           </div>
                         )}
-                      </p>
+                      </div>
                       <small className="text-muted">
                         <i className="fas fa-calendar me-1"></i>
                         Sertifikat resmi diterbitkan: {new Date(cert.uploadedAt).toLocaleDateString('id-ID', {

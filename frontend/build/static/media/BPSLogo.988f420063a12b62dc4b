@@ -1,0 +1,130 @@
+import React, { useState } from 'react';
+
+const BPSLogo = ({ 
+  size = 'medium',
+  variant = 'horizontal',
+  showText = true,
+  className = ''
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  console.log('🎨 BPSLogo rendered:', { size, variant, showText, imageError });
+
+  // Size configurations
+  const sizeConfig = {
+    small: { logo: 'w-8 h-8', text: 'text-xs', title: 'text-xs' },
+    medium: { logo: 'w-12 h-12', text: 'text-sm', title: 'text-sm' },
+    large: { logo: 'w-16 h-16', text: 'text-base', title: 'text-base' },
+    xlarge: { logo: 'w-20 h-20', text: 'text-lg', title: 'text-xl' }
+  };
+
+  const config = sizeConfig[size] || sizeConfig.medium;
+
+  const handleImageError = () => {
+    console.log('❌ Logo image failed to load, using fallback');
+    setImageError(true);
+  };
+
+  // Horizontal layout (default)
+  if (variant === 'horizontal') {
+    return (
+      <div className={`text-center mb-6 ${className}`}>
+        <div className="inline-flex items-center space-x-3 text-gray-500">
+          {/* Logo */}
+          <div className={`${config.logo} flex items-center justify-center`}>
+            {!imageError ? (
+              <img 
+                src="/Logo-BPS.png" 
+                alt="Logo BPS" 
+                className="w-full h-full object-contain"
+                onError={handleImageError}
+                onLoad={() => console.log('✅ Logo BPS loaded successfully')}
+              />
+            ) : (
+              <div className={`${config.logo} bg-blue-600 rounded-lg flex items-center justify-center`}>
+                <span className="text-white font-bold text-sm">BPS</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Text */}
+          {showText && (
+            <div className="text-left">
+              <div className={`${config.title} font-semibold text-gray-900`}>
+                Sistem Penilaian Pegawai
+              </div>
+              <div className={`${config.text} text-gray-500`}>
+                BPS Kabupaten Pringsewu
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Vertical layout
+  if (variant === 'vertical') {
+    return (
+      <div className={`text-center mb-6 ${className}`}>
+        <div className="inline-flex flex-col items-center space-y-2 text-gray-500">
+          {/* Logo */}
+          <div className={`${config.logo} flex items-center justify-center`}>
+            {!imageError ? (
+              <img 
+                src="/Logo-BPS.png" 
+                alt="Logo BPS" 
+                className="w-full h-full object-contain"
+                onError={handleImageError}
+                onLoad={() => console.log('✅ Logo BPS loaded successfully')}
+              />
+            ) : (
+              <div className={`${config.logo} bg-blue-600 rounded-lg flex items-center justify-center`}>
+                <span className="text-white font-bold text-sm">BPS</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Text */}
+          {showText && (
+            <div className="text-center">
+              <div className={`${config.title} font-semibold text-gray-900`}>
+                Sistem Penilaian Pegawai
+              </div>
+              <div className={`${config.text} text-gray-500`}>
+                BPS Kabupaten Pringsewu
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Logo only
+  if (variant === 'logo-only') {
+    return (
+      <div className={`text-center mb-6 ${className}`}>
+        <div className={`${config.logo} mx-auto flex items-center justify-center`}>
+          {!imageError ? (
+            <img 
+              src="/Logo-BPS.png" 
+              alt="Logo BPS" 
+              className="w-full h-full object-contain"
+              onError={handleImageError}
+              onLoad={() => console.log('✅ Logo BPS loaded successfully')}
+            />
+          ) : (
+            <div className={`${config.logo} bg-blue-600 rounded-lg flex items-center justify-center`}>
+              <span className="text-white font-bold text-sm">BPS</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default BPSLogo;

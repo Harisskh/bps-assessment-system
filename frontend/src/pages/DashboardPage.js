@@ -653,7 +653,7 @@ const DashboardPage = () => {
                                     <div className="d-grid gap-3">
                                         <Link to="/attendance-input" className="btn btn-outline-success btn-action">
                                             <i className="fas fa-calendar-check text-success"></i>
-                                            <span>Input Presensi</span>
+                                            <span>Input Ketidakhadiran</span>
                                         </Link>
                                         <Link to="/ckp-input" className="btn btn-outline-warning btn-action">
                                             <i className="fas fa-chart-line text-warning"></i>

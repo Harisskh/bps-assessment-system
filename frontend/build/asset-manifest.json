@@ -1,14 +1,13 @@
 {
   "files": {
     "main.css": "/static/css/main.cd3c43b3.css",
-    "main.js": "/static/js/main.4fea0283.js",
-    "static/media/BPSLogo": "/static/media/BPSLogo.988f420063a12b62dc4b",
+    "main.js": "/static/js/main.97609be8.js",
     "index.html": "/index.html",
     "main.cd3c43b3.css.map": "/static/css/main.cd3c43b3.css.map",
-    "main.4fea0283.js.map": "/static/js/main.4fea0283.js.map"
+    "main.97609be8.js.map": "/static/js/main.97609be8.js.map"
   },
   "entrypoints": [
     "static/css/main.cd3c43b3.css",
-    "static/js/main.4fea0283.js"
+    "static/js/main.97609be8.js"
   ]
 }

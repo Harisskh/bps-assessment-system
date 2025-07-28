@@ -290,12 +290,13 @@ BPS-ASSESSMENT-SYSTEM/
 
 ### 1. 📝 Penilaian Tokoh BerAKHLAK
 ```
-User Login → Pilih Periode → Pilih 3 Pegawai → 
-Isi 8 Parameter (per pegawai) → Submit → Terima Kasih
+
+User Login as Admin → Atur Periode Penilaian → Staff Login → Mulai Menilai → Pilih Pegawai BerAKHLAK → 
+Isi 8 Parameter → Submit → Terima Kasih
 ```
 
 ### 2. ⚙️ Perhitungan Otomatis
-- **BerAKHLAK**: Rata-rata dari semua penilai per kategori
+- **BerAKHLAK**: Total Rata-rata dari semua penilai per kategori
 - **Presensi**: 100% - total pengurangan maksimal
 - **CKP**: Input manual oleh admin
 

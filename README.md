@@ -630,10 +630,6 @@ FRONTEND_URL="https://yourdomain.com"
 - Evaluation Report
   <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/0aabfff9-0a30-41d1-885a-bc433f953839" />
 
-  
-- 👥 User Management
-- 📈 Analytics Dashboard
-
 ## 🤝 Contributing
 
 1. **Fork** the repository
@@ -656,8 +652,8 @@ FRONTEND_URL="https://yourdomain.com"
 - **📱 Phone**: +62 (0729) 123456
 
 **👨‍💻 Developer Support**
-- **GitHub Issues**: [Report Issues](https://github.com/yourusername/bps-assessment-system/issues)
-- **Documentation**: [Wiki](https://github.com/yourusername/bps-assessment-system/wiki)
+- **GitHub Issues**: [Report Issues](https://github.com/Harisskh/bps-assessment-system/issues)
+- **Documentation**: [Wiki](https://github.com/Harisskh/bps-assessment-system/wiki)
 
 ## 📄 License
 

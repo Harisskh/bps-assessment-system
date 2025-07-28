@@ -42,6 +42,7 @@ app.use(cors({
     'http://localhost:3000',
     'http://localhost:3001', 
     'http://127.0.0.1:3000',
+    'http://192.168.12.188:3000', 
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true,

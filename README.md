@@ -290,12 +290,13 @@ BPS-ASSESSMENT-SYSTEM/
 
 ### 1. 📝 Penilaian Tokoh BerAKHLAK
 ```
-User Login → Pilih Periode → Pilih 3 Pegawai → 
-Isi 8 Parameter (per pegawai) → Submit → Terima Kasih
+
+User Login as Admin → Atur Periode Penilaian → Staff Login → Mulai Menilai → Pilih Pegawai BerAKHLAK → 
+Isi 8 Parameter → Submit → Terima Kasih
 ```
 
 ### 2. ⚙️ Perhitungan Otomatis
-- **BerAKHLAK**: Rata-rata dari semua penilai per kategori
+- **BerAKHLAK**: Total Rata-rata dari semua penilai per kategori
 - **Presensi**: 100% - total pengurangan maksimal
 - **CKP**: Input manual oleh admin
 
@@ -577,12 +578,58 @@ FRONTEND_URL="https://yourdomain.com"
 
 > Add screenshots of your application here:
 
-- 🔐 Login Page
-- 📊 Admin Dashboard
-- 📝 Evaluation Form
-- 🏆 Best Employee Report
-- 👥 User Management
-- 📈 Analytics Dashboard
+- Login Page
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/7c3554e9-8c86-4a36-b413-5f0d1a3af87f" />
+ 
+- Admin Dashboard
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/6ce85836-58fe-4a81-af4f-e6adb86b88ed" />
+
+- Staff Dashboard
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/0be142bf-0926-4d8a-b750-f17999cc3492" />
+
+- Pimpinan Dashboard
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/abe65c4f-30f4-4f45-9f55-3f0611c6c7e7" />
+
+- Evaluation Form
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/df761ba1-acc1-4857-b00b-d11efe4c31b7" />
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/fed9c087-1c01-4a18-a890-8c3e23f0b663" />
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/6d1b064f-c00a-4372-9c20-97788d62e91b" />
+
+- Evaluation History
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/841f9396-09c0-48a1-a25e-2930259e4190" />
+ 
+- Certificate Collection Staff
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/f6767502-8e17-4c5a-9b76-eebc3ed25dc5" />
+
+- Profile Management
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/fa0d0475-0612-4faf-8d8d-ac86ccd08717" />
+
+- Period Management
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/4d00eb25-2b8e-42fd-bda0-bdc4c95a19f4" />
+
+- Evaluation Management
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/518316c1-9c7a-4871-843f-715a4699c1a3" />
+
+- User Management
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/5fba5c5d-3544-4d41-8a37-949ce7857ea8" />
+
+- Rekap Ketidakhadiran
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/3a6015d7-e513-4f15-887d-331be8b41f7e" />
+
+- Rekap Capaian Kinerja Pegawai
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/d2771b52-9ccf-41e4-9146-d39d57296c5f" />
+
+- Certificate Management
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/4726b34c-b273-4b8e-b8cb-6add566d227c" />
+
+- Final Calculation
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/f223c38d-9968-45ae-b812-c9b8f151c315" />
+
+- Monitoring
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/d0d06f2f-ced4-4c1b-959b-6d255ff40fde" />
+
+- Evaluation Report
+  <img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/0aabfff9-0a30-41d1-885a-bc433f953839" />
 
 ## 🤝 Contributing
 
@@ -606,8 +653,8 @@ FRONTEND_URL="https://yourdomain.com"
 - **📱 Phone**: +62 (0729) 123456
 
 **👨‍💻 Developer Support**
-- **GitHub Issues**: [Report Issues](https://github.com/yourusername/bps-assessment-system/issues)
-- **Documentation**: [Wiki](https://github.com/yourusername/bps-assessment-system/wiki)
+- **GitHub Issues**: [Report Issues](https://github.com/Harisskh/bps-assessment-system/issues)
+- **Documentation**: [Wiki](https://github.com/Harisskh/bps-assessment-system/wiki)
 
 ## 📄 License
 

@@ -4,7 +4,7 @@ generator client {
   binaryTargets = ["native", "debian-openssl-1.0.x"]
 }
 
-datasource db {
+datasource db { 
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }

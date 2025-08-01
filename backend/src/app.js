@@ -1,4 +1,4 @@
-// backend/src/app.js - COMPLETE VERSION WITH CERTIFICATE ROUTES
+// backend/src/app.js - FIXED FOR CPANEL PRODUCTION
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -9,19 +9,20 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
+// 🔥 FIXED: Use environment PORT for cPanel/Passenger
 const PORT = process.env.PORT || 5000;
 
 // 🔥 CRITICAL: ENSURE UPLOAD DIRECTORIES EXIST FIRST
 const uploadDir = path.join(__dirname, '../uploads');
 const profilesDir = path.join(__dirname, '../uploads/profiles');
 const tempDir = path.join(__dirname, '../uploads/temp');
-const templatesDir = path.join(__dirname, '../templates'); // 🔥 NEW: Templates directory
+const templatesDir = path.join(__dirname, '../templates');
 
 console.log('📁 Checking upload directories...');
 console.log('📂 Upload dir path:', uploadDir);
 console.log('📂 Profiles dir path:', profilesDir);
 console.log('📂 Temp dir path:', tempDir);
-console.log('📂 Templates dir path:', templatesDir); // 🔥 NEW
+console.log('📂 Templates dir path:', templatesDir);
 
 // Create directories if they don't exist
 [uploadDir, profilesDir, tempDir, templatesDir].forEach(dir => {
@@ -34,21 +35,36 @@ console.log('📂 Templates dir path:', templatesDir); // 🔥 NEW
 console.log('📂 Upload dir exists:', fs.existsSync(uploadDir));
 console.log('📂 Profiles dir exists:', fs.existsSync(profilesDir));
 console.log('📂 Temp dir exists:', fs.existsSync(tempDir));
-console.log('📂 Templates dir exists:', fs.existsSync(templatesDir)); // 🔥 NEW
+console.log('📂 Templates dir exists:', fs.existsSync(templatesDir));
 
-// Enhanced CORS configuration
+// 🔥 FIXED: Enhanced CORS configuration for production
 app.use(cors({
   origin: [
-    'http://localhost:3000',
-    'http://localhost:3001', 
-    'http://127.0.0.1:3000',
-    'http://192.168.12.188:3000', 
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+    'https://siapik1810.web.bps.go.id',    // Production HTTPS
+    'http://siapik1810.web.bps.go.id',     // Production HTTP
+    'http://localhost:3000',               // Development
+    'http://localhost:3001',               // Development
+    'http://127.0.0.1:3000',              // Development
+    process.env.FRONTEND_URL,              // Environment variable
+    process.env.CORS_ORIGIN                // Environment variable
+  ].filter(Boolean), // Remove null/undefined values
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Preview-Mode']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'X-Preview-Mode',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'Pragma'
+  ],
+  optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Security middleware
 app.use(helmet({
@@ -56,8 +72,13 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
+// Trust proxy for cPanel/shared hosting
+app.set('trust proxy', 1);
+
 // Logging
-app.use(morgan('combined'));
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('combined'));
+}
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -81,9 +102,8 @@ app.use('/uploads', express.static(uploadDir, {
     res.set({
       'Access-Control-Allow-Origin': '*',
       'Cross-Origin-Resource-Policy': 'cross-origin',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
+      'Cache-Control': 'public, max-age=3600', // 1 hour cache
+      'Pragma': 'public'
     });
     console.log('📤 Serving file:', path);
   }
@@ -106,9 +126,8 @@ app.get('/uploads/profiles/:filename', (req, res) => {
       'Content-Type': 'image/jpeg',
       'Access-Control-Allow-Origin': '*',
       'Cross-Origin-Resource-Policy': 'cross-origin',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
+      'Cache-Control': 'public, max-age=3600',
+      'Pragma': 'public'
     });
     
     res.sendFile(filePath);
@@ -126,18 +145,20 @@ app.get('/uploads/profiles/:filename', (req, res) => {
 
 // Add request logging for debugging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  
-  if (req.path.startsWith('/uploads')) {
-    console.log('📁 Static file request:', {
-      path: req.path,
-      fullPath: path.join(uploadDir, req.path.replace('/uploads', '')),
-      exists: fs.existsSync(path.join(uploadDir, req.path.replace('/uploads', '')))
-    });
-  }
-  
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    
+    if (req.path.startsWith('/uploads')) {
+      console.log('📁 Static file request:', {
+        path: req.path,
+        fullPath: path.join(uploadDir, req.path.replace('/uploads', '')),
+        exists: fs.existsSync(path.join(uploadDir, req.path.replace('/uploads', '')))
+      });
+    }
+    
+    if (req.body && Object.keys(req.body).length > 0) {
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+    }
   }
   next();
 });
@@ -159,17 +180,26 @@ app.get('/api/health', (req, res) => {
     uploadDir: uploadDir,
     profilesDir: profilesDir,
     tempDir: tempDir,
-    templatesDir: templatesDir, // 🔥 NEW
+    templatesDir: templatesDir,
     uploadDirExists: fs.existsSync(uploadDir),
     profilesDirExists: fs.existsSync(profilesDir),
     tempDirExists: fs.existsSync(tempDir),
-    templatesDirExists: fs.existsSync(templatesDir), // 🔥 NEW
+    templatesDirExists: fs.existsSync(templatesDir),
+    // 🔥 NEW: Environment info for debugging
+    envInfo: {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: PORT,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      CORS_ORIGIN: process.env.CORS_ORIGIN,
+      BACKEND_URL: process.env.BACKEND_URL,
+      DATABASE_CONNECTED: !!process.env.DATABASE_URL
+    },
     features: {
       importExcel: 'enabled',
       multer: 'enabled',
       xlsx: 'enabled',
       reports: 'enabled',
-      certificates: 'enabled' // 🔥 NEW
+      certificates: 'enabled'
     }
   });
 });
@@ -180,7 +210,18 @@ app.get('/api/test', (req, res) => {
     message: 'Backend connection successful!',
     timestamp: new Date().toISOString(),
     method: req.method,
-    url: req.originalUrl
+    url: req.originalUrl,
+    origin: req.get('Origin'),
+    userAgent: req.get('User-Agent'),
+    cors: {
+      allowedOrigins: [
+        'https://siapik1810.web.bps.go.id',
+        'http://siapik1810.web.bps.go.id',
+        'http://localhost:3000',
+        process.env.FRONTEND_URL,
+        process.env.CORS_ORIGIN
+      ].filter(Boolean)
+    }
   });
 });
 
@@ -199,7 +240,7 @@ app.get('/api/debug/files', (req, res) => {
       ? fs.readdirSync(tempDir)
       : [];
 
-    const templateFiles = fs.existsSync(templatesDir) // 🔥 NEW
+    const templateFiles = fs.existsSync(templatesDir)
       ? fs.readdirSync(templatesDir)
       : [];
       
@@ -209,25 +250,32 @@ app.get('/api/debug/files', (req, res) => {
       uploadsDir: uploadDir,
       profilesDir: profilesDir,
       tempDir: tempDir,
-      templatesDir: templatesDir, // 🔥 NEW
+      templatesDir: templatesDir,
       uploadsDirExists: fs.existsSync(uploadDir),
       profilesDirExists: fs.existsSync(profilesDir),
       tempDirExists: fs.existsSync(tempDir),
-      templatesDirExists: fs.existsSync(templatesDir), // 🔥 NEW
+      templatesDirExists: fs.existsSync(templatesDir),
       uploadFiles: uploadFiles,
       profileFiles: profileFiles,
       tempFiles: tempFiles,
-      templateFiles: templateFiles, // 🔥 NEW
+      templateFiles: templateFiles,
       staticMiddlewareSetup: 'express.static() configured for /uploads',
-      backendBaseUrl: 'http://localhost:5000',
-      testUrl: testFilePath ? `http://localhost:5000/uploads/profiles/${testFilePath}` : null,
-      manualTestUrl: testFilePath ? `http://localhost:5000/api/test-file/${testFilePath}` : null,
+      // 🔥 FIXED: Use environment-based URLs
+      backendBaseUrl: process.env.BACKEND_URL?.replace('/api', '') || `http://localhost:${PORT}`,
+      testUrl: testFilePath ? `${process.env.BACKEND_URL?.replace('/api', '') || `http://localhost:${PORT}`}/uploads/profiles/${testFilePath}` : null,
+      manualTestUrl: testFilePath ? `${process.env.BACKEND_URL || `http://localhost:${PORT}/api`}/test-file/${testFilePath}` : null,
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: PORT,
+        FRONTEND_URL: process.env.FRONTEND_URL,
+        CORS_ORIGIN: process.env.CORS_ORIGIN,
+        BACKEND_URL: process.env.BACKEND_URL
+      },
       importEndpoints: {
         template: '/api/import/template',
         users: '/api/import/users',
         debug: '/api/import/debug'
       },
-      // 🔥 NEW: Certificate endpoints
       certificateEndpoints: {
         myAwards: '/api/certificate/my-awards',
         preview: '/api/certificate/preview/:periodId',
@@ -279,6 +327,9 @@ app.get('/', (req, res) => {
     debug: '/api/debug/files',
     testFile: '/api/test-file/filename.jpg',
     staticFiles: '/uploads/profiles/filename.jpg',
+    environment: process.env.NODE_ENV || 'development',
+    // 🔥 FIXED: Environment-based URLs
+    baseUrl: process.env.BACKEND_URL?.replace('/api', '') || `http://localhost:${PORT}`,
     endpoints: {
       auth: {
         login: 'POST /api/auth/login',
@@ -297,7 +348,6 @@ app.get('/', (req, res) => {
         users: 'POST /api/import/users (with multipart/form-data)',
         debug: 'GET /api/import/debug'
       },
-      // 🔥 NEW: Certificate endpoints documentation
       certificate: {
         myAwards: 'GET /api/certificate/my-awards',
         preview: 'GET /api/certificate/preview/:periodId',
@@ -383,7 +433,6 @@ app.use('/api/*', (req, res) => {
         '/api/import/users',
         '/api/import/debug'
       ],
-      // 🔥 NEW: Certificate endpoints in 404 response
       certificate: [
         '/api/certificate/my-awards',
         '/api/certificate/preview/:periodId',
@@ -466,7 +515,9 @@ app.use((err, req, res, next) => {
   console.error('Time:', new Date().toISOString());
   console.error('Request:', req.method, req.originalUrl);
   console.error('Error:', err.message);
-  console.error('Stack:', err.stack);
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Stack:', err.stack);
+  }
   console.error('=============');
   
   // Prisma error handling
@@ -496,9 +547,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server with enhanced logging
-app.listen(PORT, () => {
-  console.log(`
+// 🔥 FIXED: Export app for cPanel/Passenger (NO app.listen in production)
+if (require.main === module) {
+  // Only start server if run directly (development)
+  app.listen(PORT, () => {
+    console.log(`
 🚀 BPS Assessment System Backend Started!
 📍 Port: ${PORT}
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
@@ -511,68 +564,17 @@ app.listen(PORT, () => {
 📂 Temp directory: ${tempDir}
 📂 Templates directory: ${templatesDir}
 ⏰ Started at: ${new Date().toISOString()}
-
-🔧 Route Configuration:
-   ✅ /api/auth/* -> Authentication
-   ✅ /api/users/* -> User Management
-   ✅ /api/certificate/* -> Certificate Generation (NEW)
-   ✅ /api/import/* -> Excel Import System
-   ✅ /api/evaluations/* -> Evaluation System
-   ✅ /api/attendance -> Attendance Management
-   ✅ /api/ckp -> CKP Management
-   ✅ /api/periods/* -> Period Management
-   ✅ /uploads/* -> Static File Serving
-
-📜 Certificate Features:
-   ✅ GET /api/certificate/my-awards -> Get user's best employee awards
-   ✅ POST /api/certificate/generate/:periodId -> Generate certificate  
-   ✅ GET /api/certificate/preview/:periodId -> Preview certificate data
-   ✅ GET /api/certificate/history -> Certificate history (admin only)
-
-📊 Import Excel Features:
-   ✅ GET /api/import/template -> Download template
-   ✅ POST /api/import/users -> Import users from Excel
-   ✅ GET /api/import/debug -> Debug import system
 `);
-
-  // Verify upload directories at startup
-  console.log('📁 Final verification of directories...');
-  console.log('📂 Upload dir exists:', fs.existsSync(uploadDir));
-  console.log('📂 Profiles dir exists:', fs.existsSync(profilesDir));
-  console.log('📂 Temp dir exists:', fs.existsSync(tempDir));
-  console.log('📂 Templates dir exists:', fs.existsSync(templatesDir));
-  
-  if (fs.existsSync(profilesDir)) {
-    const files = fs.readdirSync(profilesDir);
-    console.log('📄 Files in profiles directory:', files.length);
-    files.forEach(file => {
-      console.log(`   - ${file}`);
-    });
-  }
-
-  if (fs.existsSync(templatesDir)) {
-    const files = fs.readdirSync(templatesDir);
-    console.log('📄 Files in templates directory:', files.length);
-    files.forEach(file => {
-      console.log(`   - ${file}`);
-    });
-  }
-  
-  console.log('✅ All directories verified!');
-  console.log('🔗 Test static serving: http://localhost:5000/uploads/profiles/');
-  console.log('📊 Import Excel template: http://localhost:5000/api/import/template');
-  console.log('📜 Certificate endpoints ready!');
-  
-  // Startup health check
-  console.log('🏥 Performing startup health checks...');
-  console.log('   ✅ Express server running');
-  console.log('   ✅ CORS configured');
-  console.log('   ✅ Static file serving enabled');
-  console.log('   ✅ Import Excel routes enabled');
-  console.log('   ✅ Certificate routes enabled (NEW)');
-  console.log('   ✅ Route handlers registered');
-  console.log('   ✅ Error handlers configured');
-  console.log('🎉 All systems ready!');
-});
+  });
+} else {
+  console.log('📦 App exported for cPanel/Passenger deployment');
+  console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+  console.log('🔗 CORS Origins:', [
+    'https://siapik1810.web.bps.go.id',
+    'http://siapik1810.web.bps.go.id',
+    process.env.FRONTEND_URL,
+    process.env.CORS_ORIGIN
+  ].filter(Boolean));
+}
 
 module.exports = app;

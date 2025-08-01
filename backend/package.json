@@ -4,7 +4,7 @@
   "description": "Sistem Penilaian Kinerja Pegawai BPS Kabupaten Pringsewu",
   "main": "src/app.js",
   "scripts": {
-    "dev": "nodemon src/app.js",
+    "dev": "node src/app.js",
     "start": "node src/app.js",
     "prod": "cross-env NODE_ENV=production node src/app.js",
     "db:generate": "npx prisma generate",
@@ -30,14 +30,14 @@
     "fontkit": "^2.0.4",
     "form-data": "^4.0.3",
     "helmet": "^7.1.0",
+    "jimp": "^0.16.13",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.17.1",
     "puppeteer-core": "^24.13.0",
-    "xlsx": "^0.18.5",
-    "sharp": "0.30.7"
+    "xlsx": "^0.18.5"
   },
   "engines": {
     "node": ">=16.0.0"

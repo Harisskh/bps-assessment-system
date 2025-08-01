@@ -1,14 +1,36 @@
-// frontend/src/config/config.js
-// FINAL OPTIMIZED CONFIG - PRODUCTION READY
+// frontend/src/config/config.js - FIXED untuk Development & Production
 
 const config = {
-  // 🔥 API Configuration - Environment Based
-  API_BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  // 🔥 DYNAMIC API Configuration based on environment
+  API_BASE_URL: (() => {
+    // Development environment detection
+    const isDevelopment = process.env.NODE_ENV === 'development' || 
+                         window.location.hostname === 'localhost' ||
+                         window.location.hostname === '127.0.0.1';
+    
+    if (isDevelopment) {
+      // Development: Use localhost backend
+      return process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    } else {
+      // Production: Use production backend
+      return process.env.REACT_APP_API_URL || 'https://siapik1810.web.bps.go.id/api';
+    }
+  })(),
   
   // Backend base URL (for uploads, static files)
-  BACKEND_BASE_URL: (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace('/api', ''),
+  BACKEND_BASE_URL: (() => {
+    const isDevelopment = process.env.NODE_ENV === 'development' || 
+                         window.location.hostname === 'localhost' ||
+                         window.location.hostname === '127.0.0.1';
+    
+    if (isDevelopment) {
+      return process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    } else {
+      return process.env.REACT_APP_API_URL?.replace('/api', '') || 'https://siapik1810.web.bps.go.id';
+    }
+  })(),
   
-  // File upload configuration (matching backend limits)
+  // File upload configuration
   MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'],
   ALLOWED_EXCEL_TYPES: [
@@ -17,31 +39,29 @@ const config = {
   ],
   
   // Environment detection
-  IS_DEVELOPMENT: process.env.NODE_ENV === 'development',
-  IS_PRODUCTION: process.env.NODE_ENV === 'production',
-  IS_TEST: process.env.NODE_ENV === 'test',
+  IS_DEVELOPMENT: process.env.NODE_ENV === 'development' || 
+                  window.location.hostname === 'localhost',
+  IS_PRODUCTION: process.env.NODE_ENV === 'production' && 
+                 window.location.hostname !== 'localhost',
   
-  // 🎯 BPS Assessment System Settings (ACTUAL IMPLEMENTATION)
+  // System configuration
   SYSTEM: {
     NAME: 'SiAPIK - Sistem Penilaian dan Penentuan Pegawai Terbaik',
     COMPANY: 'BPS Kabupaten Pringsewu',
     VERSION: '1.0.0',
     
-    // Evaluation weights (from final spec)
     WEIGHTS: {
       PRESENSI: 40,        // 40%
       TOKOH_BERAKHLAK: 30, // 30%  
       CKP: 30              // 30%
     },
     
-    // Single BerAKHLAK category (current implementation)
     BERAKHLAK: {
       MIN_SCORE: 80,
       MAX_SCORE: 100,
       PARAMETERS_COUNT: 8
     },
     
-    // Timeouts and limits
     TIMEOUTS: {
       API_REQUEST: 30000,     // 30 seconds
       FILE_UPLOAD: 60000,     // 60 seconds
@@ -49,7 +69,6 @@ const config = {
     }
   },
   
-  // Local Storage keys (actually used in app)
   STORAGE_KEYS: {
     TOKEN: 'token',
     USER: 'user',
@@ -57,7 +76,6 @@ const config = {
     THEME: 'theme'
   },
   
-  // UI Configuration
   UI_SETTINGS: {
     DEFAULT_PAGE_SIZE: 10,
     MAX_PAGE_SIZE: 100,
@@ -65,7 +83,6 @@ const config = {
     DEBOUNCE_DELAY: 500
   },
   
-  // API Endpoints (for consistency)
   ENDPOINTS: {
     AUTH: '/auth',
     USERS: '/users',
@@ -83,66 +100,36 @@ const config = {
   }
 };
 
-// 🔧 HELPER FUNCTIONS - NO DUPLICATION WITH API.JS
+// Debug configuration
+if (config.IS_DEVELOPMENT) {
+  console.group('🔧 SiAPIK Config Debug');
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Hostname:', window.location.hostname);
+  console.log('API Base URL:', config.API_BASE_URL);
+  console.log('Backend Base URL:', config.BACKEND_BASE_URL);
+  console.log('Is Development:', config.IS_DEVELOPMENT);
+  console.log('Is Production:', config.IS_PRODUCTION);
+  console.groupEnd();
+}
 
-/**
- * Get full API URL
- * @param {string} endpoint - API endpoint (e.g., '/users')
- * @returns {string} - Full API URL
- */
+// Helper functions
 export const getApiUrl = (endpoint) => {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
   return config.API_BASE_URL + cleanEndpoint;
 };
 
-/**
- * Get backend base URL (without /api)
- * @returns {string} - Backend base URL
- */
-export const getBackendUrl = () => {
-  return config.BACKEND_BASE_URL;
-};
+export const getBackendUrl = () => config.BACKEND_BASE_URL;
 
-/**
- * Get upload/static file URL
- * @param {string} path - File path
- * @returns {string} - Full static file URL
- */
 export const getStaticUrl = (path) => {
   if (!path) return null;
   const cleanPath = path.startsWith('/') ? path : '/' + path;
   return config.BACKEND_BASE_URL + cleanPath;
 };
 
-/**
- * Check if current environment is development
- * @returns {boolean}
- */
 export const isDevelopment = () => config.IS_DEVELOPMENT;
-
-/**
- * Check if current environment is production
- * @returns {boolean}
- */
 export const isProduction = () => config.IS_PRODUCTION;
 
-/**
- * Debug configuration (development only)
- */
-export const debugConfig = () => {
-  if (config.IS_DEVELOPMENT) {
-    console.group('🔧 Config Debug Info');
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('API Base URL:', config.API_BASE_URL);
-    console.log('Backend Base URL:', config.BACKEND_BASE_URL);
-    console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
-    console.log('File Upload Max Size:', config.MAX_FILE_SIZE);
-    console.log('System Version:', config.SYSTEM.VERSION);
-    console.groupEnd();
-  }
-};
-
-// Export individual items for easier imports
+// Export config
 export const {
   API_BASE_URL,
   BACKEND_BASE_URL,  

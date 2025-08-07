@@ -1,198 +1,271 @@
-// src/styles/ProfilePage.scss - FIXED PHOTO UPLOAD UI
+// src/styles/ProfilePage.scss - BLUE COLOR THEME LIKE DASHBOARD
 .profile-page {
+  min-height: calc(100vh - 140px);
+  background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 25%, #f8fbff 50%, #e9f4ff 75%, #f5f9ff 100%);
+  padding: 20px 0;
+
+  .container-fluid {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  // 🔥 BLUE THEME Profile Card
   .profile-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     border: none;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-    border-radius: 15px;
-    
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+    &:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+
     .card-body {
-      padding: 2rem;
+      padding: 40px 30px;
     }
   }
 
+  // 🚀 BLUE THEME Profile Picture Container
   .profile-picture-container {
     position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 1rem;
-    width: 150px;
-    height: 150px;
-    margin-left: auto;
-    margin-right: auto;
+    display: inline-block;
+    margin-bottom: 20px;
 
-    .profile-picture-wrapper,
-    .profile-picture-placeholder {
-      position: relative;
+    .profile-picture-wrapper {
       width: 150px;
       height: 150px;
       border-radius: 50%;
       overflow: hidden;
-      border: 4px solid #0A4D68;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+      position: relative;
+      margin: 0 auto;
+      border: 4px solid #fff;
+      box-shadow: 0 8px 25px rgba(44, 84, 156, 0.15); // Blue shadow
+      transition: all 0.3s ease;
 
-    .profile-picture-wrapper {
-      background: #f8f9fa;
-    }
+      // 🔥 Clickable effect with blue theme
+      &.clickable {
+        cursor: pointer;
+        
+        &:hover {
+          transform: scale(1.05);
+          box-shadow: 0 12px 35px rgba(44, 84, 156, 0.25); // Stronger blue shadow
+          
+          &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(44, 84, 156, 0.1); // Blue overlay
+            border-radius: 50%;
+            transition: all 0.3s ease;
+          }
+        }
+      }
 
-    .profile-picture {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
+      .profile-picture {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: opacity 0.3s ease-in-out;
+        
+        &.loading {
+          opacity: 0;
+        }
+        
+        &.loaded {
+          opacity: 1;
+        }
+      }
 
-    .profile-picture-placeholder {
-      background: linear-gradient(135deg, #0A4D68, #1e6091);
-
-      .initials {
-        font-size: 3rem;
-        font-weight: bold;
-        color: white;
-        text-transform: uppercase;
+      // Loading spinner with blue theme
+      .profile-picture-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         z-index: 2;
+        
+        .spinner-border {
+          width: 2rem;
+          height: 2rem;
+          color: #2c549c; // Blue spinner
+        }
       }
     }
 
-    // 🔥 FIXED: Perfect overlay positioning
+    .profile-picture-placeholder {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2c549c 0%, #1e3d7a 100%); // Blue gradient
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+      border: 4px solid #fff;
+      box-shadow: 0 8px 25px rgba(44, 84, 156, 0.15);
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      &.clickable:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 35px rgba(44, 84, 156, 0.25);
+      }
+
+      .initials {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    // Edit overlay with blue theme
     .profile-picture-overlay {
       position: absolute;
       top: 0;
       left: 0;
-      width: 150px;
-      height: 150px;
+      right: 0;
+      bottom: 0;
+      background: rgba(44, 84, 156, 0.8); // Blue overlay background
       border-radius: 50%;
-      background: rgba(0, 0, 0, 0.7);
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      z-index: 10;
-      
-      // Show overlay immediately when editing (no hover needed)
-      opacity: 1;
-      
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 3;
+
       .btn {
-        padding: 0.75rem;
-        font-size: 1.5rem;
         border-radius: 50%;
-        width: 60px;
-        height: 60px;
+        width: 50px;
+        height: 50px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 3px solid white;
-        background: #0A4D68;
-        color: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
-        
+        border: none;
+        background: #2c549c; // Blue button
+        box-shadow: 0 4px 15px rgba(44, 84, 156, 0.4);
+
         &:hover {
-          background: #083a52;
-          transform: scale(1.1);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+          background: #1e3d7a; // Darker blue on hover
         }
-        
+
         i {
-          margin: 0 !important;
-          font-size: 1.25rem;
+          font-size: 1.2rem;
+          color: white;
         }
       }
     }
 
-    // Hide overlay when not editing
-    &:not(.editing) .profile-picture-overlay {
-      display: none;
+    &:hover .profile-picture-overlay {
+      opacity: 1;
     }
-  }
 
-  // Add editing class when in edit mode
-  &.editing {
-    .profile-picture-container {
-      .profile-picture-overlay {
-        display: flex;
+    // 🔥 Click hint with blue theme
+    .image-click-hint {
+      margin-top: 10px;
+      opacity: 0.7;
+      transition: opacity 0.3s ease;
+      color: #2c549c; // Blue color
+
+      &:hover {
+        opacity: 1;
+      }
+
+      i {
+        font-size: 0.8rem;
       }
     }
   }
 
+  // Information Card with blue theme
   .card {
     border: none;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
     border-radius: 15px;
-    margin-bottom: 1.5rem;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
 
     .card-header {
-      background: linear-gradient(135deg, #0A4D68, #1e6091);
+      background: linear-gradient(135deg, #2c549c 0%, #1e3d7a 100%); // Blue gradient
       color: white;
-      border-radius: 15px 15px 0 0 !important;
-      padding: 1.25rem 1.5rem;
       border: none;
+      padding: 20px 30px;
 
       .card-title {
         font-weight: 600;
-        font-size: 1.1rem;
+        font-size: 1.25rem;
       }
     }
 
     .card-body {
-      padding: 1.5rem;
+      padding: 30px;
     }
   }
 
+  // Form styling with blue theme
   .form-label {
     font-weight: 600;
-    color: #0A4D68;
-    margin-bottom: 0.5rem;
+    color: #2c549c; // Blue labels
+    margin-bottom: 8px;
   }
 
   .form-control {
+    border-radius: 10px;
     border: 2px solid #e9ecef;
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
+    padding: 12px 16px;
     font-size: 0.95rem;
     transition: all 0.3s ease;
 
     &:focus {
-      border-color: #0A4D68;
-      box-shadow: 0 0 0 0.2rem rgba(10, 77, 104, 0.25);
+      border-color: #2c549c; // Blue focus
+      box-shadow: 0 0 0 0.2rem rgba(44, 84, 156, 0.25);
     }
 
     &:disabled {
       background-color: #f8f9fa;
-      border-color: #dee2e6;
-      color: #6c757d;
+      border-color: #e9ecef;
     }
   }
 
+  textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  // Buttons with blue theme
   .btn {
-    border-radius: 8px;
-    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
     font-weight: 600;
+    padding: 12px 24px;
     transition: all 0.3s ease;
 
     &.btn-primary {
-      background: linear-gradient(135deg, #0A4D68, #1e6091);
+      background: linear-gradient(135deg, #2c549c 0%, #1e3d7a 100%); // Blue gradient
       border: none;
-      
+      box-shadow: 0 4px 15px rgba(44, 84, 156, 0.4);
+
       &:hover {
-        background: linear-gradient(135deg, #083a52, #1a547d);
+        background: linear-gradient(135deg, #1e3d7a 0%, #152c5a 100%); // Darker blue
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(10, 77, 104, 0.3);
+        box-shadow: 0 6px 20px rgba(44, 84, 156, 0.6);
       }
     }
 
     &.btn-secondary {
       background: #6c757d;
       border: none;
-      
+      box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+
       &:hover {
-        background: #5a6268;
+        background: #545b62;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
       }
     }
 
@@ -205,102 +278,239 @@
         background: #dc3545;
         color: white;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
       }
+    }
+
+    &.btn-sm {
+      padding: 8px 16px;
+      font-size: 0.875rem;
+    }
+
+    i {
+      margin-right: 6px;
     }
   }
 
+  // Alerts with blue theme
   .alert {
     border: none;
-    border-radius: 10px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 1.5rem;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-weight: 500;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 
-    &.alert-danger {
-      background: linear-gradient(135deg, #dc3545, #c82333);
+    &.alert-success {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
       color: white;
-      
+
       .btn-close {
         filter: brightness(0) invert(1);
       }
     }
 
-    &.alert-success {
-      background: linear-gradient(135deg, #28a745, #218838);
+    &.alert-danger {
+      background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
       color: white;
-      
+
       .btn-close {
         filter: brightness(0) invert(1);
       }
+    }
+
+    i {
+      margin-right: 8px;
+    }
+  }
+
+  // Editing state with blue theme
+  &.editing {
+    .profile-card {
+      border: 2px solid #2c549c; // Blue border
+      box-shadow: 0 0 0 0.2rem rgba(44, 84, 156, 0.25);
     }
   }
 
   // Responsive design
   @media (max-width: 768px) {
     .profile-picture-container {
-      width: 120px;
-      height: 120px;
-
       .profile-picture-wrapper,
-      .profile-picture-placeholder,
-      .profile-picture-overlay {
+      .profile-picture-placeholder {
         width: 120px;
         height: 120px;
       }
 
       .profile-picture-placeholder .initials {
-        font-size: 2.5rem;
-      }
-
-      .profile-picture-overlay .btn {
-        width: 50px;
-        height: 50px;
-        font-size: 1rem;
-
-        i {
-          font-size: 1rem;
-        }
+        font-size: 2rem;
       }
     }
 
     .card-body {
-      padding: 1rem;
+      padding: 20px !important;
     }
 
-    .profile-card .card-body {
-      padding: 1.5rem;
+    .row > div {
+      margin-bottom: 15px;
     }
   }
 }
 
-// Animation for smooth transitions
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
+// 🔥 SIMPLE PHOTO MODAL LIKE DASHBOARD
+.photo-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  
+  &.show {
     opacity: 1;
-    transform: translateY(0);
+    visibility: visible;
+  }
+  
+  .photo-modal-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    transform: scale(0.7);
+    transition: transform 0.3s ease;
+    
+    &.show {
+      transform: scale(1);
+    }
+    
+    img {
+      width: 100%;
+      height: auto;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 1rem;
+    }
+    
+    // For placeholder display
+    .placeholder-display {
+      width: 400px;
+      height: 400px;
+      background: linear-gradient(135deg, #2c549c 0%, #1e3d7a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 6rem;
+      font-weight: bold;
+      border-radius: 1rem;
+    }
+    
+    .photo-modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(44, 84, 156, 0.9); // Blue close button
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: rgba(44, 84, 156, 1);
+        transform: scale(1.1);
+      }
+      
+      i {
+        font-size: 1.2rem;
+      }
+    }
+    
+    .photo-modal-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(44, 84, 156, 0.9)); // Blue gradient
+      color: white;
+      padding: 2rem 1.5rem 1.5rem;
+      text-align: center;
+      
+      h5 {
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+      }
+      
+      p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.9rem;
+      }
+      
+      small {
+        opacity: 0.8;
+        font-size: 0.8rem;
+      }
+    }
   }
 }
 
-.profile-page .card {
-  animation: fadeIn 0.5s ease-out;
+// Loading states
+.spinner-border-sm {
+  width: 1.2rem !important;
+  height: 1.2rem !important;
+  color: #2c549c !important; // Blue spinner
 }
 
-// Additional animation for overlay
-@keyframes overlayFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
+// Accessibility improvements
+@media (prefers-reduced-motion: reduce) {
+  .profile-picture-wrapper,
+  .profile-picture-placeholder,
+  .btn,
+  .card,
+  .profile-card {
+    transition: none !important;
+    transform: none !important;
   }
 }
 
-.profile-page.editing .profile-picture-overlay {
-  animation: overlayFadeIn 0.3s ease-out;
+// High contrast mode
+@media (prefers-contrast: high) {
+  .profile-picture-wrapper {
+    border: 3px solid #2c549c; // Blue border
+  }
+  
+  .profile-picture-placeholder {
+    border: 3px solid #2c549c;
+    background: #2c549c;
+    color: #fff;
+  }
+}
+
+// Print styles
+@media print {
+  .profile-page {
+    .btn,
+    .profile-picture-overlay,
+    .image-click-hint {
+      display: none !important;
+    }
+    
+    .card {
+      box-shadow: none !important;
+      border: 1px solid #dee2e6 !important;
+    }
+  }
 }

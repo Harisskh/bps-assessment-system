@@ -1,41 +1,20 @@
-// backend/src/controllers/authController.js - ULTRA FIXED VERSION
+// backend/src/controllers/authController.js - SEQUELIZE VERSION
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const { User } = require('../../models');
 
 // GET current user - /auth/me
 const getCurrentUser = async (req, res) => {
   try {
     console.log('🔍 getCurrentUser called for user ID:', req.user.id);
     
-    const user = await prisma.user.findUnique({
+    const user = await User.findOne({
       where: { 
         id: req.user.id,
         isActive: true
       },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        status: true,
-        instansi: true,
-        kantor: true,
-        jabatan: true,
-        golongan: true,
-        username: true,
-        profilePicture: true, // 🔥 CRITICAL: Make sure this is included
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
+      attributes: {
+        exclude: ['password']
       }
     });
 
@@ -53,7 +32,6 @@ const getCurrentUser = async (req, res) => {
       profilePicture: user.profilePicture
     });
 
-    // 🔥 CRITICAL: Return consistent format
     res.json({
       success: true,
       data: {
@@ -87,7 +65,7 @@ const login = async (req, res) => {
     }
 
     // Cari user berdasarkan username
-    const user = await prisma.user.findFirst({
+    const user = await User.findOne({
       where: {
         username: username,
         isActive: true
@@ -124,28 +102,7 @@ const login = async (req, res) => {
     );
 
     // User data untuk response (tanpa password)
-    const userData = {
-      id: user.id,
-      nip: user.nip,
-      nama: user.nama,
-      email: user.email,
-      role: user.role,
-      jenisKelamin: user.jenisKelamin,
-      tanggalLahir: user.tanggalLahir,
-      alamat: user.alamat,
-      mobilePhone: user.mobilePhone,
-      pendidikanTerakhir: user.pendidikanTerakhir,
-      status: user.status,
-      instansi: user.instansi,
-      kantor: user.kantor,
-      jabatan: user.jabatan,
-      golongan: user.golongan,
-      username: user.username,
-      profilePicture: user.profilePicture, // 🔥 INCLUDE PROFILE PICTURE
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    };
+    const { password: _, ...userData } = user.toJSON();
 
     console.log('✅ Login successful for user:', {
       id: userData.id,
@@ -215,7 +172,7 @@ const register = async (req, res) => {
     }
 
     // Cek duplikasi NIP
-    const existingNip = await prisma.user.findFirst({
+    const existingNip = await User.findOne({
       where: { nip: nip }
     });
     if (existingNip) {
@@ -226,7 +183,7 @@ const register = async (req, res) => {
     }
 
     // Cek duplikasi username
-    const existingUsername = await prisma.user.findFirst({
+    const existingUsername = await User.findOne({
       where: { username: username }
     });
     if (existingUsername) {
@@ -237,7 +194,7 @@ const register = async (req, res) => {
     }
 
     // Cek duplikasi email
-    const existingEmail = await prisma.user.findFirst({
+    const existingEmail = await User.findOne({
       where: { email: email }
     });
     if (existingEmail) {
@@ -252,69 +209,48 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Create user
-    const newUser = await prisma.user.create({
-      data: {
-        nip,
-        nama,
-        email,
-        jenisKelamin: jenisKelamin || null,
-        tanggalLahir: tanggalLahir ? new Date(tanggalLahir) : null,
-        alamat: alamat || null,
-        mobilePhone: mobilePhone || null,
-        pendidikanTerakhir: pendidikanTerakhir || null,
-        status: status || 'PNS',
-        instansi: instansi || 'BPS Kabupaten Pringsewu',
-        kantor: kantor || null,
-        jabatan: jabatan || null,
-        golongan: golongan || null,
-        username,
-        password: hashedPassword,
-        role: role || 'STAFF',
-        profilePicture: null, // 🔥 EXPLICITLY SET NULL
-        isActive: true
-      },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        status: true,
-        instansi: true,
-        kantor: true,
-        jabatan: true,
-        golongan: true,
-        username: true,
-        profilePicture: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      }
+    const newUser = await User.create({
+      nip,
+      nama,
+      email,
+      jenisKelamin: jenisKelamin || null,
+      tanggalLahir: tanggalLahir ? new Date(tanggalLahir) : null,
+      alamat: alamat || null,
+      mobilePhone: mobilePhone || null,
+      pendidikanTerakhir: pendidikanTerakhir || null,
+      status: status || 'PNS',
+      instansi: instansi || 'BPS Kabupaten Pringsewu',
+      kantor: kantor || null,
+      jabatan: jabatan || null,
+      golongan: golongan || null,
+      username,
+      password: hashedPassword,
+      role: role || 'STAFF',
+      profilePicture: null,
+      isActive: true
     });
 
+    // Remove password from response
+    const { password: _, ...userResponse } = newUser.toJSON();
+
     console.log('✅ User registered successfully:', {
-      id: newUser.id,
-      nama: newUser.nama,
-      username: newUser.username
+      id: userResponse.id,
+      nama: userResponse.nama,
+      username: userResponse.username
     });
 
     res.status(201).json({
       success: true,
       message: 'User berhasil didaftarkan',
       data: {
-        user: newUser
+        user: userResponse
       }
     });
 
   } catch (error) {
     console.error('❌ Error in register:', error);
     
-    if (error.code === 'P2002') {
+    if (error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({
         success: false,
         message: 'Data sudah terdaftar (NIP, username, atau email duplikat)'
@@ -360,10 +296,7 @@ const changePassword = async (req, res) => {
     }
 
     // Get current user
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, password: true, nama: true }
-    });
+    const user = await User.findByPk(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -386,12 +319,8 @@ const changePassword = async (req, res) => {
     const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password
-    await prisma.user.update({
-      where: { id: userId },
-      data: { 
-        password: hashedNewPassword,
-        updatedAt: new Date()
-      }
+    await user.update({
+      password: hashedNewPassword
     });
 
     console.log('✅ Password changed successfully for user:', user.nama);
@@ -415,9 +344,6 @@ const changePassword = async (req, res) => {
 const logout = async (req, res) => {
   try {
     console.log('👋 Logout request for user:', req.user.id);
-    
-    // In a more complex system, you might want to blacklist the token
-    // For now, we'll just return success and let client handle token removal
     
     res.json({
       success: true,

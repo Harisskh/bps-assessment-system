@@ -1,4 +1,4 @@
-// src/pages/CertificatePage.js - FIXED PROFILE PICTURE & ENHANCED SCORE DISPLAY
+// src/pages/CertificatePage.js - FIXED WITH ENHANCED ERROR HANDLING & DEBUG
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userCertificateAPI, getImageUrl } from '../services/api';
@@ -10,6 +10,7 @@ const CertificatePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloadingCert, setDownloadingCert] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     fetchMyCertificates();
@@ -17,30 +18,93 @@ const CertificatePage = () => {
 
   const fetchMyCertificates = async () => {
     setLoading(true);
+    setError('');
+    
     try {
-      console.log('🔄 Fetching user certificates...');
-      // 🔥 UPDATED: Use detailed endpoint to get scores
-      const response = await userCertificateAPI.getMyCertificatesDetailed();
+      console.log('🔄 Fetching user certificates for:', user?.nama);
       
-      if (response.data.success) {
-        console.log('✅ Certificates loaded:', response.data.data.certificates.length);
-        setCertificates(response.data.data.certificates || []);
-      } else {
-        setError('Gagal memuat sertifikat: ' + response.data.error);
+      // 🔥 ENHANCED: Try detailed endpoint first with comprehensive error handling
+      let response;
+      let certificates = [];
+      let debugData = null;
+      
+      try {
+        console.log('📡 Trying detailed certificates endpoint...');
+        response = await userCertificateAPI.getMyCertificatesDetailed();
+        console.log('✅ Detailed endpoint response:', response.data);
+        
+        if (response.data.success) {
+          certificates = response.data.data.certificates || [];
+          debugData = response.data.debug || null;
+          console.log('✅ Certificates loaded from detailed endpoint:', certificates.length);
+        } else {
+          console.warn('⚠️ Detailed endpoint returned unsuccessful response:', response.data);
+          throw new Error(response.data.error || 'Detailed endpoint failed');
+        }
+      } catch (detailedError) {
+        console.warn('⚠️ Detailed endpoint failed, trying fallback:', detailedError);
+        
+        // 🔥 FALLBACK: Try regular endpoint
+        try {
+          console.log('📡 Trying regular certificates endpoint...');
+          const fallbackResponse = await userCertificateAPI.getMyCertificates();
+          console.log('✅ Regular endpoint response:', fallbackResponse.data);
+          
+          if (fallbackResponse.data.success) {
+            certificates = fallbackResponse.data.data.certificates || [];
+            console.log('✅ Certificates loaded from regular endpoint:', certificates.length);
+            
+            // Add placeholder scores for regular endpoint
+            certificates = certificates.map(cert => ({
+              ...cert,
+              berakhlakScore: null,
+              presensiScore: null,
+              ckpScore: null,
+              finalScore: null,
+              totalVoters: 0,
+              ranking: null,
+              debugInfo: {
+                source: 'regular_endpoint',
+                note: 'Detailed scores not available from regular endpoint'
+              }
+            }));
+          } else {
+            throw new Error(fallbackResponse.data.error || 'Regular endpoint also failed');
+          }
+        } catch (fallbackError) {
+          console.error('❌ Both endpoints failed:', fallbackError);
+          throw new Error('Gagal memuat sertifikat: ' + fallbackError.message);
+        }
       }
+
+      // 🔥 ENHANCED: Process and validate certificates
+      const processedCertificates = certificates.map(cert => {
+        console.log(`📋 Processing certificate: ${cert.periodName}`, {
+          berakhlakScore: cert.berakhlakScore,
+          totalVoters: cert.totalVoters,
+          debugInfo: cert.debugInfo
+        });
+        
+        return {
+          ...cert,
+          // Ensure numeric values are properly handled
+          berakhlakScore: cert.berakhlakScore !== null ? Number(cert.berakhlakScore) : null,
+          presensiScore: cert.presensiScore !== null ? Number(cert.presensiScore) : null,
+          ckpScore: cert.ckpScore !== null ? Number(cert.ckpScore) : null,
+          finalScore: cert.finalScore !== null ? Number(cert.finalScore) : null,
+          totalVoters: Number(cert.totalVoters) || 0,
+          ranking: cert.ranking ? Number(cert.ranking) : null
+        };
+      });
+
+      setCertificates(processedCertificates);
+      setDebugInfo(debugData);
+      
+      console.log('✅ Final processed certificates:', processedCertificates);
+      
     } catch (error) {
       console.error('❌ Error fetching certificates:', error);
-      // 🔥 FALLBACK: Try regular endpoint if detailed fails
-      try {
-        const fallbackResponse = await userCertificateAPI.getMyCertificates();
-        if (fallbackResponse.data.success) {
-          setCertificates(fallbackResponse.data.data.certificates || []);
-        } else {
-          setError('Gagal memuat sertifikat: ' + error.message);
-        }
-      } catch (fallbackError) {
-        setError('Terjadi kesalahan: ' + (error.response?.data?.message || error.message));
-      }
+      setError('Terjadi kesalahan: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -96,10 +160,18 @@ const CertificatePage = () => {
       .slice(0, 2);
   };
 
-  // 🔥 NEW: Format score for display
+  // 🔥 ENHANCED: Format score for display with better handling
   const formatScore = (score) => {
-    if (score === null || score === undefined) return 'N/A';
+    if (score === null || score === undefined || isNaN(score)) return 'N/A';
     return typeof score === 'number' ? score.toFixed(2) : score;
+  };
+
+  // 🔥 ENHANCED: Check if score data is available
+  const hasScoreData = (cert) => {
+    return cert.berakhlakScore !== null || 
+           cert.presensiScore !== null || 
+           cert.ckpScore !== null || 
+           cert.totalVoters > 0;
   };
 
   const getProfilePictureUrl = () => {
@@ -130,7 +202,7 @@ const CertificatePage = () => {
 
   return (
     <div className="container-fluid p-4 certificate-page">
-      {/* 🔥 UPDATED: Header yang diperkecil */}
+      {/* Header */}
       <div className="page-header">
         <div className="header-content">
           <div className="header-title">
@@ -163,7 +235,7 @@ const CertificatePage = () => {
         </div>
       )}
 
-      {/* 🔥 UPDATED: Certificates Grid dengan background kuning keemasan */}
+      {/* Certificates Grid */}
       <div className="certificates-grid">
         {certificates.map((cert) => (
           <div key={cert.id} className="certificate-card">
@@ -172,7 +244,7 @@ const CertificatePage = () => {
             </div>
             
             <div className="certificate-content">
-              {/* 🔥 NEW: Star dengan foto profile */}
+              {/* Profile picture */}
               <div className="certificate-icon">
                 <div className="profile-overlay">
                   {getProfilePictureUrl() ? (
@@ -244,7 +316,7 @@ const CertificatePage = () => {
         ))}
       </div>
 
-      {/* 🔥 ENHANCED: Empty State dengan konten yang lebih menarik */}
+      {/* Empty State */}
       {certificates.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon">
@@ -255,20 +327,10 @@ const CertificatePage = () => {
             Anda belum memiliki sertifikat prestasi sebagai Best Employee. 
             Wujudkan dedikasi terbaik Anda dan raih kesempatan untuk menjadi Best Employee bulan depan!
           </p>
-          <div className="empty-tips">
-            <h6>💡 Strategi Meraih Prestasi Best Employee:</h6>
-            <ul>
-              <li><strong>Konsistensi Penilaian:</strong> Berikan penilaian BerAKHLAK secara rutin kepada rekan kerja</li>
-              <li><strong>Kedisiplinan Kerja:</strong> Jaga kehadiran, ketepatan waktu, dan komitmen kerja</li>
-              <li><strong>Capaian Kinerja:</strong> Tingkatkan dan pertahankan hasil evaluasi CKP yang optimal</li>
-              <li><strong>Nilai-nilai BPS:</strong> Terapkan prinsip BerAKHLAK dalam setiap aspek pekerjaan</li>
-              <li><strong>Inovasi & Kolaborasi:</strong> Berperan aktif dalam tim dan berkontribusi positif</li>
-            </ul>
-          </div>
         </div>
       )}
 
-      {/* 🔥 UPDATED: Achievement Timeline yang diperkecil dengan highlight dan score details */}
+      {/* Achievement Timeline dengan enhanced score display */}
       {certificates.length > 0 && (
         <div className="achievement-timeline mt-5">
           <div className="card">
@@ -293,16 +355,13 @@ const CertificatePage = () => {
                       </div>
                       <h6 className="timeline-title">🏆 Prestasi Best Employee</h6>
                       <div className="timeline-description">
-                        Anda berhasil meraih penghargaan tertinggi sebagai Best Employee pada periode {cert.periodName}.
-                        
-                        {/* 🔥 NEW: Achievement highlight */}
                         <div className="achievement-highlight">
                           Anda berhasil meraih penghargaan tertinggi sebagai Best Employee pada periode {cert.periodName}, 
                           yang menunjukkan dedikasi dan kinerja luar biasa dalam menjalankan tugas.
                         </div>
 
-                        {/* 🔥 NEW: Score details */}
-                        {(cert.berakhlakScore || cert.presensiScore || cert.ckpScore || cert.totalVoters) && (
+                        {/* 🔥 ENHANCED: Score details with better error handling */}
+                        {hasScoreData(cert) ? (
                           <div className="score-details">
                             <div className="score-header">
                               📊 Detail Pencapaian Skor
@@ -314,23 +373,41 @@ const CertificatePage = () => {
                                   <div className="score-value">{cert.totalVoters}</div>
                                 </div>
                               )}
-                              {cert.berakhlakScore && (
+                              {cert.berakhlakScore !== null && (
                                 <div className="score-item berakhlak">
                                   <div className="score-label">Skor BerAKHLAK</div>
                                   <div className="score-value">{formatScore(cert.berakhlakScore)}</div>
                                 </div>
                               )}
-                              {cert.presensiScore && (
+                              {cert.presensiScore !== null && (
                                 <div className="score-item presensi">
                                   <div className="score-label">Skor Presensi</div>
                                   <div className="score-value">{formatScore(cert.presensiScore)}%</div>
                                 </div>
                               )}
-                              {cert.ckpScore && (
+                              {cert.ckpScore !== null && (
                                 <div className="score-item ckp">
                                   <div className="score-label">Skor CKP</div>
-                                  <div className="score-value">{formatScore(cert.ckpScore)}%</div>
+                                  <div className="score-value">{formatScore(cert.ckpScore)}</div>
                                 </div>
+                              )}
+                              {cert.finalScore !== null && (
+                                <div className="score-item final">
+                                  <div className="score-label">Skor Akhir</div>
+                                  <div className="score-value">{formatScore(cert.finalScore)}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="score-details">
+                            <div className="alert alert-warning">
+                              <i className="fas fa-info-circle me-2"></i>
+                              Detail skor pencapaian tidak tersedia untuk periode ini.
+                              {cert.debugInfo?.note && (
+                                <small className="d-block mt-1">
+                                  ({cert.debugInfo.note})
+                                </small>
                               )}
                             </div>
                           </div>
@@ -353,7 +430,7 @@ const CertificatePage = () => {
         </div>
       )}
 
-      {/* 🔥 ENHANCED: Congratulations Message untuk multiple certificates */}
+      {/* Congratulations Message for multiple certificates */}
       {certificates.length > 1 && (
         <div className="congratulations-section mt-4">
           <div className="card congratulations-card">
@@ -383,7 +460,7 @@ const CertificatePage = () => {
         </div>
       )}
 
-      {/* 🔥 NEW: Motivational Quote untuk single certificate */}
+      {/* Motivational Quote for single certificate */}
       {certificates.length === 1 && (
         <div className="motivation-section mt-4">
           <div className="card border-0" style={{ 
@@ -406,7 +483,7 @@ const CertificatePage = () => {
         </div>
       )}
 
-      {/* 🔥 NEW: Call to Action untuk user tanpa sertifikat */}
+      {/* Call to Action for user without certificates */}
       {certificates.length === 0 && (
         <div className="cta-section mt-4">
           <div className="card" style={{
@@ -426,17 +503,17 @@ const CertificatePage = () => {
                 <div className="col-md-6">
                   <h6 className="text-success">🏃‍♀️ Langkah Praktis:</h6>
                   <ul className="list-unstyled small text-muted">
-                    <li> Aktif dalam penilaian BerAKHLAK</li>
-                    <li> Jaga konsistensi kehadiran</li>
-                    <li> Tingkatkan capaian CKP</li>
+                    <li>✅ Aktif dalam penilaian BerAKHLAK</li>
+                    <li>✅ Jaga konsistensi kehadiran</li>
+                    <li>✅ Tingkatkan capaian CKP</li>
                   </ul>
                 </div>
                 <div className="col-md-6">
                   <h6 className="text-success">🎨 Nilai Tambah:</h6>
                   <ul className="list-unstyled small text-muted">
-                    <li> Proaktif dalam berbagi pengetahuan</li>
-                    <li> Kolaboratif dengan tim</li>
-                    <li> Inovatif dalam menyelesaikan tugas</li>
+                    <li>✅ Proaktif dalam berbagi pengetahuan</li>
+                    <li>✅ Kolaboratif dengan tim</li>
+                    <li>✅ Inovatif dalam menyelesaikan tugas</li>
                   </ul>
                 </div>
               </div>

@@ -1,10 +1,9 @@
-// backend/src/controllers/profileController.js - SMART RESIZE VERSION
-const { PrismaClient } = require('@prisma/client');
+// controllers/profileController.js - OPTIMIZED FOR INSTANT LOADING
+const { User } = require('../../models');
+const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
-const Jimp = require('jimp');
-
-const prisma = new PrismaClient();
+const sharp = require('sharp');
 
 const ensureDirectoryExistence = (filePath) => {
   const dirname = path.dirname(filePath);
@@ -18,29 +17,9 @@ const ensureDirectoryExistence = (filePath) => {
 // GET current user profile
 const getCurrentProfile = async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        status: true,
-        instansi: true,
-        kantor: true,
-        jabatan: true,
-        golongan: true,
-        username: true,
-        profilePicture: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
+    const user = await User.findByPk(req.user.id, {
+      attributes: {
+        exclude: ['password']
       }
     });
 
@@ -66,68 +45,106 @@ const getCurrentProfile = async (req, res) => {
   }
 };
 
-// 🔥 SMART IMAGE PROCESSING FUNCTION
-const processProfileImage = async (inputPath, outputPath) => {
+// 🚀 OPTIMIZED SHARP PROCESSING - INSTANT LOADING
+const processProfileImageOptimized = async (inputPath, outputPath) => {
   try {
-    console.log('🖼️ Starting smart image processing...');
+    console.log('⚡ Starting OPTIMIZED image processing...');
+    const startTime = Date.now();
     
-    // Load image
-    const image = await Jimp.read(inputPath);
-    const originalWidth = image.getWidth();
-    const originalHeight = image.getHeight();
+    // Get image metadata
+    const metadata = await sharp(inputPath).metadata();
+    const { width: originalWidth, height: originalHeight, format: originalFormat } = metadata;
     
-    console.log('📏 Original dimensions:', { width: originalWidth, height: originalHeight });
+    console.log('📏 Original image:', { 
+      width: originalWidth, 
+      height: originalHeight, 
+      format: originalFormat,
+      size: `${Math.round(metadata.size / 1024)}KB`
+    });
     
-    const targetSize = 400; // Target size 400x400 (lebih kecil dari 500x500 untuk kualitas lebih baik)
+    // 🔥 SMALLER TARGET SIZE for faster loading
+    const targetSize = 300; // Reduced from 400 to 300 (33% smaller)
     
-    // 🔥 SMART RESIZE ALGORITHM
-    let processedImage;
+    // Smart resize strategy
+    let sharpInstance = sharp(inputPath);
     
-    if (originalWidth === originalHeight) {
-      // Perfect square - just resize
-      console.log('✨ Perfect square image - simple resize');
-      processedImage = image.resize(targetSize, targetSize, Jimp.RESIZE_LANCZOS);
+    const aspectRatio = originalWidth / originalHeight;
+    const isSquare = Math.abs(aspectRatio - 1) < 0.1;
+    const isNearSquare = Math.abs(aspectRatio - 1) < 0.2;
+    
+    if (isSquare) {
+      console.log('✨ Square image - direct resize');
+      sharpInstance = sharpInstance.resize(targetSize, targetSize, {
+        kernel: sharp.kernel.lanczos2, // Changed from lanczos3 to lanczos2 (faster)
+        fit: 'fill'
+      });
       
-    } else if (Math.abs(originalWidth - originalHeight) < Math.min(originalWidth, originalHeight) * 0.1) {
-      // Nearly square (difference < 10%) - resize to square
-      console.log('✨ Nearly square image - resize to square');
-      processedImage = image.resize(targetSize, targetSize, Jimp.RESIZE_LANCZOS);
+    } else if (isNearSquare) {
+      console.log('✨ Near-square image - resize to square');
+      sharpInstance = sharpInstance.resize(targetSize, targetSize, {
+        kernel: sharp.kernel.lanczos2,
+        fit: 'fill'
+      });
       
     } else {
-      // Rectangular image - smart crop to center
-      console.log('✨ Rectangular image - smart center crop');
+      console.log('✨ Rectangular image - smart crop');
       
       const minDimension = Math.min(originalWidth, originalHeight);
-      const maxDimension = Math.max(originalWidth, originalHeight);
+      const cropLeft = Math.round((originalWidth - minDimension) / 2);
+      const cropTop = Math.round((originalHeight - minDimension) / 2);
       
-      // Only crop if the difference is significant
-      if (maxDimension / minDimension > 1.3) {
-        // Crop to square first (center crop)
-        const cropSize = minDimension;
-        const cropX = Math.floor((originalWidth - cropSize) / 2);
-        const cropY = Math.floor((originalHeight - cropSize) / 2);
-        
-        processedImage = image
-          .crop(cropX, cropY, cropSize, cropSize)
-          .resize(targetSize, targetSize, Jimp.RESIZE_LANCZOS);
-      } else {
-        // Minor difference - just resize
-        processedImage = image.resize(targetSize, targetSize, Jimp.RESIZE_LANCZOS);
-      }
+      sharpInstance = sharpInstance
+        .extract({
+          left: cropLeft,
+          top: cropTop,
+          width: minDimension,
+          height: minDimension
+        })
+        .resize(targetSize, targetSize, {
+          kernel: sharp.kernel.lanczos2,
+          fit: 'inside'
+        });
     }
     
-    // Apply quality settings
-    await processedImage
-      .quality(95) // Increase quality to 95% (was 90%)
-      .writeAsync(outputPath);
+    // 🔥 OPTIMIZED OUTPUT FOR INSTANT LOADING
+    const outputBuffer = await sharpInstance
+      .jpeg({
+        quality: 85,           // Reduced from 92 to 85 (smaller file)
+        progressive: false,    // 🚨 DISABLED progressive loading!
+        mozjpeg: true,         // Keep mozjpeg for better compression
+        trellisQuantisation: false,  // Disable for faster processing
+        overshootDeringing: false,   // Disable for faster processing
+        optimiseScans: false,  // Disable for faster processing
+        optimiseCoding: true   // Enable for better compression
+      })
+      .toBuffer();
     
-    console.log('✅ Smart image processing completed');
-    console.log('📄 Output file size:', fs.statSync(outputPath).size, 'bytes');
+    // Write to file
+    await fs.promises.writeFile(outputPath, outputBuffer);
     
-    return { success: true };
+    const processingTime = Date.now() - startTime;
+    const outputSize = outputBuffer.length;
+    const compressionRatio = ((metadata.size - outputSize) / metadata.size * 100).toFixed(1);
+    
+    console.log('✅ OPTIMIZED processing completed:', {
+      processingTime: `${processingTime}ms`,
+      originalSize: `${Math.round(metadata.size / 1024)}KB`,
+      outputSize: `${Math.round(outputSize / 1024)}KB`,
+      compressionRatio: `${compressionRatio}% smaller`,
+      dimensions: `${targetSize}x${targetSize}px`,
+      progressive: 'DISABLED'
+    });
+    
+    return { 
+      success: true, 
+      processingTime,
+      originalSize: metadata.size,
+      outputSize: outputSize,
+      compressionRatio: parseFloat(compressionRatio)
+    };
     
   } catch (error) {
-    console.error('❌ Image processing error:', error);
+    console.error('❌ SHARP processing error:', error);
     return { success: false, error: error.message };
   }
 };
@@ -147,7 +164,8 @@ const updateProfile = async (req, res) => {
       userId: req.user.id,
       body: req.body,
       hasFile: !!req.file,
-      fileName: req.file?.filename
+      fileName: req.file?.filename,
+      fileSize: req.file?.size ? `${Math.round(req.file.size / 1024)}KB` : null
     });
 
     // Validasi input
@@ -168,10 +186,10 @@ const updateProfile = async (req, res) => {
     }
 
     // Cek apakah email sudah digunakan user lain
-    const existingUserByEmail = await prisma.user.findFirst({
+    const existingUserByEmail = await User.findOne({
       where: {
         email: email,
-        id: { not: req.user.id }
+        id: { [Op.ne]: req.user.id }
       }
     });
 
@@ -182,12 +200,12 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    // Cek apakah username sudah digunakan user lain (jika username diisi)
+    // Cek apakah username sudah digunakan user lain
     if (username) {
-      const existingUserByUsername = await prisma.user.findFirst({
+      const existingUserByUsername = await User.findOne({
         where: {
           username: username,
-          id: { not: req.user.id }
+          id: { [Op.ne]: req.user.id }
         }
       });
 
@@ -209,23 +227,25 @@ const updateProfile = async (req, res) => {
       updatedAt: new Date()
     };
 
-    // 🔥 SMART IMAGE PROCESSING WITH JIMP
+    // 🚀 OPTIMIZED IMAGE PROCESSING
     if (req.file) {
-        console.log('🔍 Processing file upload with smart algorithm...');
+        console.log('🔍 Processing file with OPTIMIZED settings...');
+        const uploadStartTime = Date.now();
         
-        // Basic file validation
-        if (!req.file.mimetype.startsWith('image/')) {
+        // File validation
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(req.file.mimetype)) {
             if (fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
             }
             return res.status(400).json({ 
                 success: false, 
-                error: 'File harus berupa gambar' 
+                error: 'File harus berupa gambar (JPEG, PNG, atau WebP)' 
             });
         }
 
-        // File size validation (max 10MB for higher quality)
-        if (req.file.size > 10 * 1024 * 1024) {
+        // Reduced file size limit for faster processing
+        if (req.file.size > 10 * 1024 * 1024) { // Reduced from 15MB to 10MB
             if (fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
             }
@@ -235,10 +255,28 @@ const updateProfile = async (req, res) => {
             });
         }
 
+        // Quick image validation
+        try {
+            const metadata = await sharp(req.file.path).metadata();
+            if (!metadata.width || !metadata.height) {
+                throw new Error('Invalid image format');
+            }
+            
+            // Skip validation logging for faster processing
+            console.log('📊 Image validated:', `${metadata.width}x${metadata.height}`);
+        } catch (validationError) {
+            if (fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            return res.status(400).json({ 
+                success: false, 
+                error: 'File gambar tidak valid' 
+            });
+        }
+
         // Delete old profile picture
-        const currentUser = await prisma.user.findUnique({
-            where: { id: req.user.id },
-            select: { profilePicture: true }
+        const currentUser = await User.findByPk(req.user.id, {
+            attributes: ['profilePicture']
         });
 
         if (currentUser?.profilePicture) {
@@ -251,18 +289,17 @@ const updateProfile = async (req, res) => {
             }
         }
 
-        // Generate new filename with timestamp
-        const fileExtension = path.extname(req.file.originalname);
-        const newFileName = `profile-${req.user.id}-${Date.now()}${fileExtension}`;
+        // Generate new filename
+        const timestamp = Date.now();
+        const newFileName = `profile-${req.user.id}-${timestamp}.jpg`;
         const newPath = path.join(__dirname, '../../uploads/profiles', newFileName);
         
         ensureDirectoryExistence(newPath);
 
-        // Process image with smart algorithm
-        const processingResult = await processProfileImage(req.file.path, newPath);
+        // 🚀 Process with OPTIMIZED settings
+        const processingResult = await processProfileImageOptimized(req.file.path, newPath);
         
         if (!processingResult.success) {
-            // Cleanup and return error
             if (fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
             }
@@ -272,49 +309,46 @@ const updateProfile = async (req, res) => {
             });
         }
 
-        // Delete original uploaded file
+        // Cleanup original file
         if (fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
 
-        // Save new image path
         updateData.profilePicture = `/uploads/profiles/${newFileName}`;
         
-        console.log('💾 New profile picture saved:', updateData.profilePicture);
+        const totalProcessingTime = Date.now() - uploadStartTime;
+        console.log('💾 OPTIMIZED processing completed:', {
+            fileName: newFileName,
+            totalTime: `${totalProcessingTime}ms`,
+            sharpTime: `${processingResult.processingTime}ms`,
+            finalSize: `${Math.round(processingResult.outputSize / 1024)}KB`,
+            expectedLoadTime: '< 1 second'
+        });
     }
 
     // Update user
-    const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
-      data: updateData,
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        status: true,
-        instansi: true,
-        kantor: true,
-        jabatan: true,
-        golongan: true,
-        username: true,
-        profilePicture: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
+    const [affectedRows] = await User.update(updateData, {
+      where: { id: req.user.id }
+    });
+
+    if (affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User tidak ditemukan'
+      });
+    }
+
+    // Get updated user data
+    const updatedUser = await User.findByPk(req.user.id, {
+      attributes: {
+        exclude: ['password']
       }
     });
 
     console.log('✅ Profile updated successfully:', {
       userId: updatedUser.id,
       profilePicture: updatedUser.profilePicture,
-      username: updatedUser.username
+      hasNewImage: !!req.file
     });
 
     res.json({
@@ -334,14 +368,14 @@ const updateProfile = async (req, res) => {
       console.log('🗑️ Cleanup: Deleted uploaded file due to error');
     }
 
-    if (error.code === 'P2002') {
-      if (error.meta?.target?.includes('email')) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      if (error.fields && error.fields.email) {
         return res.status(400).json({ 
           success: false,
           error: 'Email sudah digunakan' 
         });
       }
-      if (error.meta?.target?.includes('username')) {
+      if (error.fields && error.fields.username) {
         return res.status(400).json({ 
           success: false,
           error: 'Username sudah digunakan' 
@@ -363,9 +397,8 @@ const updateProfile = async (req, res) => {
 // DELETE profile picture
 const deleteProfilePicture = async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { profilePicture: true }
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['profilePicture']
     });
 
     if (!user?.profilePicture) {
@@ -387,30 +420,18 @@ const deleteProfilePicture = async (req, res) => {
     }
 
     // Update database
-    const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
-      data: { profilePicture: null },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        status: true,
-        instansi: true,
-        kantor: true,
-        jabatan: true,
-        golongan: true,
-        username: true,
-        profilePicture: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
+    await User.update(
+      { 
+        profilePicture: null,
+        updatedAt: new Date()
+      },
+      { where: { id: req.user.id } }
+    );
+
+    // Get updated user data
+    const updatedUser = await User.findByPk(req.user.id, {
+      attributes: {
+        exclude: ['password']
       }
     });
 
@@ -426,7 +447,7 @@ const deleteProfilePicture = async (req, res) => {
     console.error('❌ Error deleting profile picture:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Terjadi kesalahan saat menghapus foto' 
+      error: 'Terjadi kesalahan saat menghapus foto profile' 
     });
   }
 };

@@ -1,11 +1,10 @@
-// backend/src/controllers/importController.js - COMPLETELY NEW VERSION
+// controllers/importController.js - SEQUELIZE VERSION
 const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
+const { User } = require('../../models') ;
+const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
-
-const prisma = new PrismaClient();
 
 // 🔥 NEW: Excel Headers sesuai permintaan
 const EXCEL_HEADERS = {
@@ -263,14 +262,14 @@ const importUsers = async (req, res) => {
     }
     
     // Check for duplicates in database
-    const existingNips = await prisma.user.findMany({
-      where: { nip: { in: nips } },
-      select: { nip: true, nama: true }
+    const existingNips = await User.findAll({
+      where: { nip: { [Op.in]: nips } },
+      attributes: ['nip', 'nama']
     });
     
-    const existingUsernames = await prisma.user.findMany({
-      where: { username: { in: usernames } },
-      select: { username: true, nama: true }
+    const existingUsernames = await User.findAll({
+      where: { username: { [Op.in]: usernames } },
+      attributes: ['username', 'nama']
     });
     
     if (existingNips.length > 0) {
@@ -305,7 +304,7 @@ const importUsers = async (req, res) => {
           password: hashedPassword
         };
         
-        await prisma.user.create({ data: userData });
+        await User.create(userData);
         successCount++;
         console.log(`✅ User imported: ${userData.nama}`);
         
@@ -313,7 +312,7 @@ const importUsers = async (req, res) => {
         failCount++;
         console.error(`❌ Import failed for row ${userItem.rowNumber}:`, importError);
         
-        if (importError.code === 'P2002') {
+        if (importError.name === 'SequelizeUniqueConstraintError') {
           importErrors.push(`Baris ${userItem.rowNumber}: Data sudah ada (${userItem.data.nama})`);
         } else {
           importErrors.push(`Baris ${userItem.rowNumber}: ${importError.message}`);

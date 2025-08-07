@@ -1,4 +1,4 @@
-// routes/dashboard.js - ENHANCED WITH DEBUG ENDPOINT
+// routes/dashboard.js - SEQUELIZE VERSION ENHANCED WITH DEBUG ENDPOINT
 const express = require('express');
 const router = express.Router();
 
@@ -17,8 +17,9 @@ const {
   requireStaffOrAbove
 } = require('../middleware/auth');
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Import Sequelize models
+const { User, Period, Evaluation, Attendance, CkpScore, FinalEvaluation } = require('../../models');
+const { Op, fn, col } = require('sequelize');
 
 // All routes require authentication
 router.use(authenticateToken);
@@ -31,9 +32,9 @@ router.get('/debug-data', requireStaffOrAbove, async (req, res) => {
     // Get active period
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -53,51 +54,67 @@ router.get('/debug-data', requireStaffOrAbove, async (req, res) => {
       sampleUsers
     ] = await Promise.all([
       // Total users
-      prisma.user.count({ where: { isActive: true } }),
+      User.count({ where: { isActive: true } }),
       
       // Total evaluations for period
-      prisma.evaluation.count({ where: { periodId: targetPeriod.id } }),
+      Evaluation.count({ where: { periodId: targetPeriod.id } }),
       
       // Evaluation details
-      prisma.evaluation.findMany({
+      Evaluation.findAll({
         where: { periodId: targetPeriod.id },
-        include: {
-          evaluator: { select: { nama: true, role: true } },
-          target: { select: { nama: true } }
-        },
-        take: 10,
-        orderBy: { submitDate: 'desc' }
+        include: [
+          {
+            model: User,
+            as: 'evaluator',
+            attributes: ['nama', 'role']
+          },
+          {
+            model: User,
+            as: 'target',
+            attributes: ['nama']
+          }
+        ],
+        limit: 10,
+        order: [['submitDate', 'DESC']]
       }),
       
       // Evaluation counts by user
-      prisma.evaluation.groupBy({
-        by: ['evaluatorId'],
+      Evaluation.findAll({
         where: { periodId: targetPeriod.id },
-        _count: { evaluatorId: true }
+        attributes: [
+          'evaluatorId',
+          [fn('COUNT', col('evaluatorId')), 'count']
+        ],
+        group: ['evaluatorId'],
+        raw: true
       }),
       
       // All periods
-      prisma.period.findMany({
-        orderBy: [{ isActive: 'desc' }, { tahun: 'desc' }, { bulan: 'desc' }],
-        take: 5
+      Period.findAll({
+        order: [
+          ['isActive', 'DESC'],
+          ['tahun', 'DESC'],
+          ['bulan', 'DESC']
+        ],
+        limit: 5
       }),
       
       // Sample users
-      prisma.user.findMany({
+      User.findAll({
         where: { isActive: true },
-        select: { id: true, nama: true, role: true },
-        take: 10
+        attributes: ['id', 'nama', 'role'],
+        limit: 10
       })
     ]);
 
     // Calculate completed evaluations
-    const completedEvaluations = evaluationCounts.filter(e => e._count.evaluatorId >= 3);
+    const completedEvaluations = evaluationCounts.filter(e => e.count >= 3);
     
     // Enhanced user evaluation status
     const userEvaluationStatus = await Promise.all(
       sampleUsers.map(async (user) => {
         const userEvalCount = evaluationCounts.find(e => e.evaluatorId === user.id);
-        const count = userEvalCount ? userEvalCount._count.evaluatorId : 0;
+        const count = userEvalCount ? userEvalCount.count : 0;
         
         return {
           userId: user.id,
@@ -125,14 +142,13 @@ router.get('/debug-data', requireStaffOrAbove, async (req, res) => {
       },
       evaluationCounts: evaluationCounts.map(e => ({
         evaluatorId: e.evaluatorId,
-        count: e._count.evaluatorId
+        count: e.count
       })),
       recentEvaluations: evaluationDetails.map(e => ({
         id: e.id,
         evaluator: e.evaluator.nama,
         evaluatorRole: e.evaluator.role,
         target: e.target.nama,
-        ranking: e.ranking,
         submitDate: e.submitDate
       })),
       userStatus: userEvaluationStatus,
@@ -169,9 +185,9 @@ router.get('/stats-force', requireStaffOrAbove, async (req, res) => {
     // Get active period
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -187,16 +203,24 @@ router.get('/stats-force', requireStaffOrAbove, async (req, res) => {
     // Get fresh data with detailed logging
     console.log('🔄 FORCE REFRESH - Period:', targetPeriod.namaPeriode);
     
-    const totalUsers = await prisma.user.count({ 
+    const totalUsers = await User.count({ 
       where: { isActive: true } 
     });
     
-    const allEvaluations = await prisma.evaluation.findMany({
+    const allEvaluations = await Evaluation.findAll({
       where,
-      include: {
-        evaluator: { select: { nama: true, role: true } },
-        target: { select: { nama: true } }
-      }
+      include: [
+        {
+          model: User,
+          as: 'evaluator',
+          attributes: ['nama', 'role']
+        },
+        {
+          model: User,
+          as: 'target',
+          attributes: ['nama']
+        }
+      ]
     });
     
     console.log('📊 FORCE REFRESH DATA:', {

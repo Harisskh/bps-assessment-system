@@ -114,49 +114,49 @@ const EvaluationPage = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const loadMasterData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        const [paramsRes, periodRes, usersRes, myEvalsRes] = await Promise.all([
-          evaluationAPI.getParameters(),
-          evaluationAPI.getActivePeriod(),
-          evaluationAPI.getEligibleUsers(),
-          evaluationAPI.getMyEvaluations()
-        ]);
-        
-        const period = periodRes.data.data.period;
-        setParameters(paramsRes.data.data.parameters);
-        setActivePeriod(period);
-        setEligibleUsers(usersRes.data.data.users);
+  const loadMasterData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const [paramsRes, periodRes, usersRes, myEvalsRes] = await Promise.all([
+        evaluationAPI.getParameters(),
+        evaluationAPI.getActivePeriod(),
+        evaluationAPI.getEligibleUsers(),
+        evaluationAPI.getMyEvaluations()
+      ]);
+      
+      const period = periodRes.data.data.period;
+      setParameters(paramsRes.data.data.parameters);
+      setActivePeriod(period);
+      setEligibleUsers(usersRes.data.data.users);
         
         // 🔥 UPDATED: Check if user has evaluated anyone in current period
         const currentPeriodEvaluations = myEvalsRes.data.data.evaluations.filter(
-          ev => ev.period.id === period.id
-        );
-        
-        if (currentPeriodEvaluations.length > 0) {
-          setHasEvaluated(true);
-          setStep(4); // Skip to success page
-        } else {
-          // Initialize scores
-          const initialScores = {};
-          paramsRes.data.data.parameters.forEach(param => {
-            initialScores[param.id] = '';
-          });
-          setEvaluation(prev => ({ ...prev, scores: initialScores }));
-        }
-        
-      } catch (err) {
-        setError(`Gagal memuat data: ${err.response?.data?.message || err.message}`);
-      } finally {
-        setLoading(false);
+        ev => (ev.period?.id || ev.periodId) === period.id
+      );
+      
+      if (currentPeriodEvaluations.length > 0) {
+        setHasEvaluated(true);
+        setStep(4); // Skip to success page
+      } else {
+        // Initialize scores
+        const initialScores = {};
+        paramsRes.data.data.parameters.forEach(param => {
+          initialScores[param.id] = '';
+        });
+        setEvaluation(prev => ({ ...prev, scores: initialScores }));
       }
-    };
-    
-    loadMasterData();
-  }, []);
+      
+    } catch (err) {
+      setError(`Gagal memuat data: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  loadMasterData();
+}, []);
 
   // 🔥 UPDATED: Single user selection
   const handleUserSelection = (userId) => {

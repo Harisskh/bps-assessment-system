@@ -1,7 +1,6 @@
-// controllers/periodController.js - UPDATED WITH READ-ONLY FIELDS PROTECTION
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+// controllers/periodController.js - SEQUELIZE VERSION WITH READ-ONLY FIELDS PROTECTION
+const { Period, Evaluation, Attendance, CkpScore, FinalEvaluation, Certificate } = require('../../models');
+const { Op } = require('sequelize');
 
 // GET ALL PERIODS
 const getAllPeriods = async (req, res) => {
@@ -17,15 +16,14 @@ const getAllPeriods = async (req, res) => {
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
+    const offset = (pageNum - 1) * limitNum;
 
     // Build where clause
     const where = {};
     
     if (search) {
       where.namaPeriode = {
-        contains: search,
-        mode: 'insensitive'
+        [Op.iLike]: `%${search}%`
       };
     }
     
@@ -41,18 +39,15 @@ const getAllPeriods = async (req, res) => {
       where.isActive = isActive === 'true';
     }
 
-    const [periods, totalCount] = await Promise.all([
-      prisma.period.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: [
-          { tahun: 'desc' },
-          { bulan: 'desc' }
-        ]
-      }),
-      prisma.period.count({ where })
-    ]);
+    const { rows: periods, count: totalCount } = await Period.findAndCountAll({
+      where,
+      offset,
+      limit: limitNum,
+      order: [
+        ['tahun', 'DESC'],
+        ['bulan', 'DESC']
+      ]
+    });
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
@@ -131,12 +126,10 @@ const createPeriod = async (req, res) => {
     console.log('🔍 Checking existing period:', { tahun: tahunInt, bulan: bulanInt });
 
     // Check if period already exists
-    const existingPeriod = await prisma.period.findFirst({
+    const existingPeriod = await Period.findOne({
       where: {
-        AND: [
-          { tahun: tahunInt },
-          { bulan: bulanInt }
-        ]
+        tahun: tahunInt,
+        bulan: bulanInt
       }
     });
 
@@ -151,10 +144,10 @@ const createPeriod = async (req, res) => {
     // If setting as active, deactivate other periods
     if (isActive) {
       console.log('🔄 Deactivating other periods...');
-      await prisma.period.updateMany({
-        where: { isActive: true },
-        data: { isActive: false }
-      });
+      await Period.update(
+        { isActive: false },
+        { where: { isActive: true } }
+      );
     }
 
     // Prepare data
@@ -195,9 +188,7 @@ const createPeriod = async (req, res) => {
     console.log('💾 Creating period with data:', periodData);
 
     // Create period
-    const period = await prisma.period.create({
-      data: periodData
-    });
+    const period = await Period.create(periodData);
 
     console.log('✅ Period created successfully:', period.id);
 
@@ -210,8 +201,8 @@ const createPeriod = async (req, res) => {
   } catch (error) {
     console.error('❌ Create period error:', error);
     
-    // Handle specific Prisma errors
-    if (error.code === 'P2002') {
+    // Handle specific Sequelize errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({
         success: false,
         message: 'Periode untuk bulan dan tahun tersebut sudah ada'
@@ -237,9 +228,7 @@ const updatePeriod = async (req, res) => {
     console.log('📥 Update request body:', requestBody);
 
     // Check if period exists
-    const existingPeriod = await prisma.period.findUnique({
-      where: { id }
-    });
+    const existingPeriod = await Period.findByPk(id);
 
     if (!existingPeriod) {
       return res.status(404).json({
@@ -274,13 +263,15 @@ const updatePeriod = async (req, res) => {
     // If setting as active, deactivate other periods
     if (filteredData.isActive && !existingPeriod.isActive) {
       console.log('🔄 Deactivating other periods...');
-      await prisma.period.updateMany({
-        where: { 
-          isActive: true,
-          id: { not: id }
-        },
-        data: { isActive: false }
-      });
+      await Period.update(
+        { isActive: false },
+        { 
+          where: { 
+            isActive: true,
+            id: { [Op.ne]: id }
+          }
+        }
+      );
     }
 
     // Handle dates properly
@@ -321,26 +312,23 @@ const updatePeriod = async (req, res) => {
     console.log('💾 Final update data:', filteredData);
 
     // Perform update with filtered data only
-    const updatedPeriod = await prisma.period.update({
-      where: { id },
-      data: filteredData
-    });
+    await existingPeriod.update(filteredData);
 
     console.log('✅ Period updated successfully');
     console.log('🔒 Protected fields that remained unchanged:', {
-      tahun: updatedPeriod.tahun,
-      bulan: updatedPeriod.bulan,
-      namaPeriode: updatedPeriod.namaPeriode
+      tahun: existingPeriod.tahun,
+      bulan: existingPeriod.bulan,
+      namaPeriode: existingPeriod.namaPeriode
     });
 
     res.json({
       success: true,
       message: 'Periode berhasil diperbarui (tahun, bulan, dan nama periode tidak dapat diubah)',
-      data: { period: updatedPeriod },
+      data: { period: existingPeriod },
       protectedFields: {
-        tahun: updatedPeriod.tahun,
-        bulan: updatedPeriod.bulan,
-        namaPeriode: updatedPeriod.namaPeriode,
+        tahun: existingPeriod.tahun,
+        bulan: existingPeriod.bulan,
+        namaPeriode: existingPeriod.namaPeriode,
         note: 'Field ini tidak dapat diubah setelah periode dibuat'
       }
     });
@@ -362,19 +350,7 @@ const deletePeriod = async (req, res) => {
     const { id } = req.params;
 
     // Check if period exists and get related data count
-    const existingPeriod = await prisma.period.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            evaluations: true,
-            attendances: true,
-            ckpScores: true,
-            finalEvaluations: true
-          }
-        }
-      }
-    });
+    const existingPeriod = await Period.findByPk(id);
 
     if (!existingPeriod) {
       return res.status(404).json({
@@ -391,73 +367,104 @@ const deletePeriod = async (req, res) => {
       });
     }
 
-    // Check if period has related data
-    const hasRelatedData = 
-      existingPeriod._count.evaluations > 0 ||
-      existingPeriod._count.attendances > 0 ||
-      existingPeriod._count.ckpScores > 0 ||
-      existingPeriod._count.finalEvaluations > 0;
+    // Get related data counts
+    const [evaluationCount, attendanceCount, ckpCount, finalEvalCount, certificateCount] = await Promise.all([
+      Evaluation.count({ where: { periodId: id } }),
+      Attendance.count({ where: { periodId: id } }),
+      CkpScore.count({ where: { periodId: id } }),
+      FinalEvaluation.count({ where: { periodId: id } }),
+      Certificate.count({ where: { period_id: id } })
+    ]);
+
+    const hasRelatedData = evaluationCount > 0 || attendanceCount > 0 || ckpCount > 0 || finalEvalCount > 0 || certificateCount > 0;
 
     console.log('📊 Period has related data:', hasRelatedData);
-    console.log('📈 Data counts:', existingPeriod._count);
+    console.log('📈 Data counts:', {
+      evaluations: evaluationCount,
+      attendances: attendanceCount,
+      ckpScores: ckpCount,
+      finalEvaluations: finalEvalCount,
+      certificates: certificateCount
+    });
 
     if (hasRelatedData) {
       // Force delete all related data using transaction
       console.log('🔄 Force deleting period with all related data...');
       
-      await prisma.$transaction(async (tx) => {
+      const { sequelize } = require('../../models');
+      const transaction = await sequelize.transaction();
+
+      try {
         // Delete in correct order to avoid foreign key constraints
         
         // 1. Delete final evaluations first
-        await tx.finalEvaluation.deleteMany({
-          where: { periodId: id }
-        });
+        if (finalEvalCount > 0) {
+          await FinalEvaluation.destroy({
+            where: { periodId: id },
+            transaction
+          });
+        }
         
         // 2. Delete evaluations
-        await tx.evaluation.deleteMany({
-          where: { periodId: id }
-        });
+        if (evaluationCount > 0) {
+          await Evaluation.destroy({
+            where: { periodId: id },
+            transaction
+          });
+        }
         
         // 3. Delete attendances
-        await tx.attendance.deleteMany({
-          where: { periodId: id }
-        });
+        if (attendanceCount > 0) {
+          await Attendance.destroy({
+            where: { periodId: id },
+            transaction
+          });
+        }
         
         // 4. Delete CKP scores
-        await tx.ckpScore.deleteMany({
-          where: { periodId: id }
-        });
+        if (ckpCount > 0) {
+          await CkpScore.destroy({
+            where: { periodId: id },
+            transaction
+          });
+        }
 
         // 5. Delete certificates if exists
-        await tx.certificate.deleteMany({
-          where: { period_id: id }
-        });
+        if (certificateCount > 0) {
+          await Certificate.destroy({
+            where: { period_id: id },
+            transaction
+          });
+        }
 
         // 6. Finally delete the period
-        await tx.period.delete({
-          where: { id }
-        });
-      });
+        await existingPeriod.destroy({ transaction });
 
-      console.log('✅ Period and all related data deleted successfully');
-      
-      res.json({
-        success: true,
-        message: `Periode ${existingPeriod.namaPeriode} beserta semua data terkait berhasil dihapus`,
-        deletedData: {
-          evaluations: existingPeriod._count.evaluations,
-          attendances: existingPeriod._count.attendances,
-          ckpScores: existingPeriod._count.ckpScores,
-          finalEvaluations: existingPeriod._count.finalEvaluations
-        }
-      });
+        await transaction.commit();
+
+        console.log('✅ Period and all related data deleted successfully');
+        
+        res.json({
+          success: true,
+          message: `Periode ${existingPeriod.namaPeriode} beserta semua data terkait berhasil dihapus`,
+          deletedData: {
+            evaluations: evaluationCount,
+            attendances: attendanceCount,
+            ckpScores: ckpCount,
+            finalEvaluations: finalEvalCount,
+            certificates: certificateCount
+          }
+        });
+
+      } catch (transactionError) {
+        await transaction.rollback();
+        throw transactionError;
+      }
     } else {
       // No related data, simple delete
       console.log('🗑️ Deleting period without related data...');
       
-      await prisma.period.delete({
-        where: { id }
-      });
+      await existingPeriod.destroy();
 
       console.log('✅ Period deleted successfully');
 
@@ -484,9 +491,7 @@ const activatePeriod = async (req, res) => {
     const { id } = req.params;
 
     // Check if period exists
-    const existingPeriod = await prisma.period.findUnique({
-      where: { id }
-    });
+    const existingPeriod = await Period.findByPk(id);
 
     if (!existingPeriod) {
       return res.status(404).json({
@@ -501,30 +506,39 @@ const activatePeriod = async (req, res) => {
         message: 'Periode sudah aktif'
       });
     }
+          
+    const { sequelize } = require('../../models');
+    const transaction = await sequelize.transaction();
 
-    // Deactivate all other periods and activate this one
-    await prisma.$transaction([
-      prisma.period.updateMany({
-        where: { isActive: true },
-        data: { isActive: false }
-      }),
-      prisma.period.update({
-        where: { id },
-        data: { isActive: true }
-      })
-    ]);
+    try {
+      // Deactivate all other periods and activate this one
+      await Period.update(
+        { isActive: false },
+        { 
+          where: { isActive: true },
+          transaction
+        }
+      );
 
-    const activatedPeriod = await prisma.period.findUnique({
-      where: { id }
-    });
+      await existingPeriod.update(
+        { isActive: true },
+        { transaction }
+      );
 
-    console.log('✅ Period activated successfully:', activatedPeriod.namaPeriode);
+      await transaction.commit();
 
-    res.json({
-      success: true,
-      message: `Periode ${activatedPeriod.namaPeriode} berhasil diaktifkan`,
-      data: { period: activatedPeriod }
-    });
+      console.log('✅ Period activated successfully:', existingPeriod.namaPeriode);
+
+      res.json({
+        success: true,
+        message: `Periode ${existingPeriod.namaPeriode} berhasil diaktifkan`,
+        data: { period: existingPeriod }
+      });
+
+    } catch (transactionError) {
+      await transaction.rollback();
+      throw transactionError;
+    }
 
   } catch (error) {
     console.error('❌ Activate period error:', error);
@@ -542,19 +556,7 @@ const getPeriodById = async (req, res) => {
     console.log('🔍 Getting period by ID...');
     const { id } = req.params;
 
-    const period = await prisma.period.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            evaluations: true,
-            attendances: true,
-            ckpScores: true,
-            finalEvaluations: true
-          }
-        }
-      }
-    });
+    const period = await Period.findByPk(id);
 
     if (!period) {
       return res.status(404).json({
@@ -563,12 +565,32 @@ const getPeriodById = async (req, res) => {
       });
     }
 
+    // Get related data counts
+    const [evaluationCount, attendanceCount, ckpCount, finalEvalCount, certificateCount] = await Promise.all([
+      Evaluation.count({ where: { periodId: id } }),
+      Attendance.count({ where: { periodId: id } }),
+      CkpScore.count({ where: { periodId: id } }),
+      FinalEvaluation.count({ where: { periodId: id } }),
+      Certificate.count({ where: { period_id: id } })
+    ]);
+
+    const periodWithCounts = {
+      ...period.toJSON(),
+      _count: {
+        evaluations: evaluationCount,
+        attendances: attendanceCount,
+        ckpScores: ckpCount,
+        finalEvaluations: finalEvalCount,
+        certificates: certificateCount
+      }
+    };
+
     console.log('✅ Period found:', period.namaPeriode);
-    console.log('📊 Data counts:', period._count);
+    console.log('📊 Data counts:', periodWithCounts._count);
 
     res.json({
       success: true,
-      data: { period }
+      data: { period: periodWithCounts }
     });
 
   } catch (error) {
@@ -584,9 +606,9 @@ const getPeriodById = async (req, res) => {
 // GET ACTIVE PERIOD
 const getActivePeriod = async (req, res) => {
   try {
-    const period = await prisma.period.findFirst({
+    const period = await Period.findOne({
       where: { isActive: true },
-      orderBy: { createdAt: 'desc' }
+      order: [['createdAt', 'DESC']]
     });
 
     if (!period) {
@@ -622,7 +644,7 @@ const getPeriodByYearMonth = async (req, res) => {
       });
     }
 
-    const period = await prisma.period.findFirst({
+    const period = await Period.findOne({
       where: {
         tahun: parseInt(tahun),
         bulan: parseInt(bulan)
@@ -654,9 +676,9 @@ const getPeriodByYearMonth = async (req, res) => {
 const getPreviousPeriod = async (req, res) => {
   try {
     // Get active period first
-    const activePeriod = await prisma.period.findFirst({
+    const activePeriod = await Period.findOne({
       where: { isActive: true },
-      orderBy: { createdAt: 'desc' }
+      order: [['createdAt', 'DESC']]
     });
 
     if (!activePeriod) {
@@ -676,7 +698,7 @@ const getPreviousPeriod = async (req, res) => {
     }
 
     // Find previous period in database
-    const previousPeriod = await prisma.period.findFirst({
+    const previousPeriod = await Period.findOne({
       where: {
         tahun: previousYear,
         bulan: previousMonth

@@ -1,0 +1,1 @@
+{"config":{"target":"http://localhost:5000","phases":[{"duration":30,"arrivalRate":1}]},"scenarios":[{"name":"Health check","requests":[{"get":{"url":"/api/health"}}]}]} 

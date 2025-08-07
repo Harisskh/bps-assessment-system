@@ -1,15 +1,14 @@
-// backend/routes/certificate.js - UPDATED WITH TEMPLATE SELECTION
+// backend/routes/certificate.js - SEQUELIZE VERSION WITH TEMPLATE SELECTION
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const multer = require('multer');
 const fontkit = require('fontkit')
-const { PrismaClient } = require('@prisma/client');
+const { User, Period, FinalEvaluation, Certificate } = require('../../models');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // 🔥 NEW: Updated folder structure
 const FOLDERS = {
@@ -209,57 +208,37 @@ const cleanEmployeeName = (fullName) => {
 const getKepalaBpsData = async () => {
   try {
     // Prioritas 1: Cari berdasarkan jabatan "Kepala BPS Kabupaten/Kota"
-    let kepalaBps = await prisma.user.findFirst({
+    let kepalaBps = await User.findOne({
       where: {
         jabatan: {
-          contains: 'Kepala BPS Kabupaten/Kota',
-          mode: 'insensitive'
+          [Op.iLike]: '%Kepala BPS Kabupaten/Kota%'
         },
         isActive: true
       },
-      select: {
-        id: true,
-        nama: true,
-        nip: true,
-        jabatan: true,
-        role: true
-      }
+      attributes: ['id', 'nama', 'nip', 'jabatan', 'role']
     });
 
     // Prioritas 2: Jika tidak ada, cari berdasarkan role PIMPINAN
     if (!kepalaBps) {
-      kepalaBps = await prisma.user.findFirst({
+      kepalaBps = await User.findOne({
         where: {
           role: 'PIMPINAN',
           isActive: true
         },
-        select: {
-          id: true,
-          nama: true,
-          nip: true,
-          jabatan: true,
-          role: true
-        }
+        attributes: ['id', 'nama', 'nip', 'jabatan', 'role']
       });
     }
 
     // Prioritas 3: Jika masih tidak ada, cari yang jabatannya mengandung "kepala"
     if (!kepalaBps) {
-      kepalaBps = await prisma.user.findFirst({
+      kepalaBps = await User.findOne({
         where: {
           jabatan: {
-            contains: 'kepala',
-            mode: 'insensitive'
+            [Op.iLike]: '%kepala%'
           },
           isActive: true
         },
-        select: {
-          id: true,
-          nama: true,
-          nip: true,
-          jabatan: true,
-          role: true
-        }
+        attributes: ['id', 'nama', 'nip', 'jabatan', 'role']
       });
     }
 
@@ -362,36 +341,29 @@ router.get('/management', async (req, res) => {
     // Step 1: Get all best employees with optional period filter
     console.log('🔍 Searching for best employees...');
     
-    const bestEmployees = await prisma.finalEvaluation.findMany({
-      where: { 
-        isBestEmployee: true,
-        ...(Object.keys(periodFilter).length > 0 && {
-          period: periodFilter
-        })
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            nip: true,
-            jabatan: true,
-            profilePicture: true
-          }
+    const whereClause = { 
+      isBestEmployee: true
+    };
+
+    const bestEmployees = await FinalEvaluation.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'nip', 'jabatan', 'profilePicture']
         },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
+        {
+          model: Period,
+          as: 'period',
+          where: Object.keys(periodFilter).length > 0 ? periodFilter : undefined,
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
         }
-      },
-      orderBy: [
-        { period: { tahun: 'desc' } },
-        { period: { bulan: 'desc' } },
-        { finalScore: 'desc' }
+      ],
+      order: [
+        [{ model: Period, as: 'period' }, 'tahun', 'DESC'],
+        [{ model: Period, as: 'period' }, 'bulan', 'DESC'],
+        ['finalScore', 'DESC']
       ]
     });
 
@@ -421,19 +393,23 @@ router.get('/management', async (req, res) => {
     let certificateData = await Promise.all(
       bestEmployees.map(async (emp) => {
         try {
-          const certificate = await prisma.certificate.findFirst({
+          const certificate = await Certificate.findOne({
             where: {
               user_id: emp.userId,
               period_id: emp.periodId
             },
-            include: {
-              generatedByUser: { 
-                select: { nama: true } 
+            include: [
+              {
+                model: User,
+                as: 'generatedByUser',
+                attributes: ['nama']
               },
-              uploadedByUser: { 
-                select: { nama: true } 
+              {
+                model: User,
+                as: 'uploadedByUser',
+                attributes: ['nama']
               }
-            }
+            ]
           });
 
           return {
@@ -536,16 +512,22 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
     console.log('📝 Nomor sertifikat:', nomorSertifikat);
 
     // Verify this is a best employee
-    const bestEmployee = await prisma.finalEvaluation.findFirst({
+    const bestEmployee = await FinalEvaluation.findOne({
       where: {
         userId: userId,
         periodId: periodId,
         isBestEmployee: true
       },
-      include: {
-        user: true,
-        period: true
-      }
+      include: [
+        {
+          model: User,
+          as: 'user'
+        },
+        {
+          model: Period,
+          as: 'period'
+        }
+      ]
     });
 
     if (!bestEmployee) {
@@ -576,7 +558,7 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
     console.log('👨‍💼 Kepala BPS data:', kepalaBpsData);
 
     // Check if template already exists
-    let certificate = await prisma.certificate.findFirst({
+    let certificate = await Certificate.findOne({
       where: { 
         user_id: userId, 
         period_id: periodId 
@@ -768,31 +750,26 @@ router.post('/generate-template/:userId/:periodId', async (req, res) => {
 
     // Update or create certificate record
     if (certificate) {
-      certificate = await prisma.certificate.update({
-        where: { id: certificate.id },
-        data: {
-          template_generated: true,
-          template_path: `/uploads/cert/${filename}`,
-          generated_by: req.user.id,
-          generated_at: new Date(),
-          certificate_number: nomorSertifikat,
-          template_type: templateType,
-          status: 'TEMPLATE_GENERATED'
-        }
+      await certificate.update({
+        template_generated: true,
+        template_path: `/uploads/cert/${filename}`,
+        generated_by: req.user.id,
+        generated_at: new Date(),
+        certificate_number: nomorSertifikat,
+        template_type: templateType,
+        status: 'TEMPLATE_GENERATED'
       });
     } else {
-      certificate = await prisma.certificate.create({
-        data: {
-          user_id: userId,
-          period_id: periodId,
-          template_generated: true,
-          template_path: `/uploads/cert/${filename}`,
-          generated_by: req.user.id,
-          generated_at: new Date(),
-          certificate_number: nomorSertifikat,
-          template_type: templateType,
-          status: 'TEMPLATE_GENERATED'
-        }
+      certificate = await Certificate.create({
+        user_id: userId,
+        period_id: periodId,
+        template_generated: true,
+        template_path: `/uploads/cert/${filename}`,
+        generated_by: req.user.id,
+        generated_at: new Date(),
+        certificate_number: nomorSertifikat,
+        template_type: templateType,
+        status: 'TEMPLATE_GENERATED'
       });
     }
 
@@ -853,7 +830,7 @@ router.put('/update-number/:userId/:periodId', async (req, res) => {
       });
     }
 
-    const certificate = await prisma.certificate.findFirst({
+    const certificate = await Certificate.findOne({
       where: { 
         user_id: userId, 
         period_id: periodId 
@@ -867,18 +844,15 @@ router.put('/update-number/:userId/:periodId', async (req, res) => {
       });
     }
 
-    const updatedCertificate = await prisma.certificate.update({
-      where: { id: certificate.id },
-      data: {
-        certificate_number: nomorSertifikat,
-        updated_at: new Date()
-      }
+    await certificate.update({
+      certificate_number: nomorSertifikat,
+      updated_at: new Date()
     });
 
     res.json({
       success: true,
       message: 'Nomor sertifikat berhasil diupdate',
-      data: { certificate: updatedCertificate }
+      data: { certificate }
     });
 
   } catch (error) {
@@ -917,19 +891,23 @@ router.delete('/delete/:userId/:periodId', async (req, res) => {
     console.log('🗑️ Processing delete for user:', userId, 'period:', periodId);
 
     // Find the certificate
-    const certificate = await prisma.certificate.findFirst({
+    const certificate = await Certificate.findOne({
       where: { 
         user_id: userId, 
         period_id: periodId 
       },
-      include: {
-        user: {
-          select: { nama: true }
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama']
         },
-        period: {
-          select: { namaPeriode: true }
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['namaPeriode']
         }
-      }
+      ]
     });
 
     if (!certificate) {
@@ -972,9 +950,7 @@ router.delete('/delete/:userId/:periodId', async (req, res) => {
     }
 
     // Delete certificate record from database
-    await prisma.certificate.delete({
-      where: { id: certificate.id }
-    });
+    await certificate.destroy();
 
     console.log('✅ Certificate deleted successfully by:', req.user.nama, '(', req.user.role, ')');
 
@@ -1018,9 +994,7 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(req.query.token, process.env.JWT_SECRET || 'bps-secret-key');
         
-        const foundUser = await prisma.user.findUnique({
-          where: { id: decoded.userId }
-        });
+        const foundUser = await User.findByPk(decoded.userId);
         
         if (foundUser) {
           user = foundUser;
@@ -1058,15 +1032,21 @@ router.get('/download-template/:userId/:periodId', async (req, res) => {
     const { userId, periodId } = req.params;
     console.log('📥 Processing request for user:', userId, 'period:', periodId, 'by:', user.nama);
 
-    const certificate = await prisma.certificate.findFirst({
+    const certificate = await Certificate.findOne({
       where: { 
         user_id: userId, 
         period_id: periodId 
       },
-      include: {
-        user: true,
-        period: true
-      }
+      include: [
+        {
+          model: User,
+          as: 'user'
+        },
+        {
+          model: Period,
+          as: 'period'
+        }
+      ]
     });
 
     if (!certificate) {
@@ -1183,15 +1163,21 @@ router.post('/upload/:userId/:periodId', upload.single('certificate'), async (re
     const { userId, periodId } = req.params;
     console.log('📤 Uploading certificate for user:', userId, 'period:', periodId);
 
-    let certificate = await prisma.certificate.findFirst({
+    let certificate = await Certificate.findOne({
       where: { 
         user_id: userId, 
         period_id: periodId 
       },
-      include: {
-        user: true,
-        period: true
-      }
+      include: [
+        {
+          model: User,
+          as: 'user'
+        },
+        {
+          model: Period,
+          as: 'period'
+        }
+      ]
     });
 
     if (!certificate) {
@@ -1213,17 +1199,14 @@ router.post('/upload/:userId/:periodId', upload.single('certificate'), async (re
     const newPath = path.join(path.dirname(oldPath), finalFilename);
     fs.renameSync(oldPath, newPath);
 
-    certificate = await prisma.certificate.update({
-      where: { id: certificate.id },
-      data: {
-        is_uploaded: true,
-        file_name: finalFilename,
-        file_url: `/uploads/certificates/${finalFilename}`,
-        file_path: newPath,
-        uploaded_by: req.user.id,
-        uploaded_at: new Date(),
-        status: 'COMPLETED'
-      }
+    await certificate.update({
+      is_uploaded: true,
+      file_name: finalFilename,
+      file_url: `/uploads/certificates/${finalFilename}`,
+      file_path: newPath,
+      uploaded_by: req.user.id,
+      uploaded_at: new Date(),
+      status: 'COMPLETED'
     });
 
     console.log('✅ Certificate uploaded successfully:', finalFilename);
@@ -1256,21 +1239,26 @@ router.get('/my-certificates', async (req, res) => {
     console.log('🔄 Getting certificates for user:', req.user.id, 'nama:', req.user.nama);
     const currentUserId = req.user.id;
     
-    const certificates = await prisma.certificate.findMany({
+    const certificates = await Certificate.findAll({
       where: { 
         user_id: currentUserId,
         is_uploaded: true,
         status: 'COMPLETED'
       },
-      include: {
-        period: true,
-        user: {
-          select: { nama: true }
+      include: [
+        {
+          model: Period,
+          as: 'period'
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama']
         }
-      },
-      orderBy: [
-        { period: { tahun: 'desc' } },
-        { period: { bulan: 'desc' } }
+      ],
+      order: [
+        [{ model: Period, as: 'period' }, 'tahun', 'DESC'],
+        [{ model: Period, as: 'period' }, 'bulan', 'DESC']
       ]
     });
 
@@ -1313,49 +1301,169 @@ router.get('/my-certificates-detailed', async (req, res) => {
     console.log('🔄 Getting detailed certificates for user:', req.user.id, 'nama:', req.user.nama);
     const currentUserId = req.user.id;
     
-    const certificates = await prisma.certificate.findMany({
+    // 🔥 STEP 1: Get certificates first
+    const certificates = await Certificate.findAll({
       where: { 
         user_id: currentUserId,
         is_uploaded: true,
         status: 'COMPLETED'
       },
-      include: {
-        period: true,
-        user: {
-          select: { nama: true }
+      include: [
+        {
+          model: Period,
+          as: 'period'
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama']
         }
-      },
-      orderBy: [
-        { period: { tahun: 'desc' } },
-        { period: { bulan: 'desc' } }
+      ],
+      order: [
+        [{ model: Period, as: 'period' }, 'tahun', 'DESC'],
+        [{ model: Period, as: 'period' }, 'bulan', 'DESC']
       ]
     });
 
     console.log('📋 Found', certificates.length, 'certificates, getting detailed scores...');
 
-    // Get detailed scores for each certificate
+    if (certificates.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          totalCertificates: 0,
+          certificates: [],
+          hasCertificates: false
+        }
+      });
+    }
+
+    // 🔥 STEP 2: Get detailed scores for each certificate with enhanced error handling
     const detailedCerts = await Promise.all(
       certificates.map(async (cert) => {
         try {
-          // Get final evaluation data
-          const finalEval = await prisma.finalEvaluation.findFirst({
-            where: {
-              userId: currentUserId,
-              periodId: cert.period_id,
-              isBestEmployee: true
-            }
-          });
+          console.log(`🔍 Processing certificate for period: ${cert.period.namaPeriode} (ID: ${cert.period_id})`);
+          
+          // 🔥 FIXED: Get final evaluation data with multiple fallback attempts
+          let finalEval = null;
+          
+          // Try method 1: Direct query
+          try {
+            finalEval = await FinalEvaluation.findOne({
+              where: {
+                userId: currentUserId,
+                periodId: cert.period_id,
+                isBestEmployee: true
+              }
+            });
+            console.log(`📊 Method 1 - Direct FinalEvaluation query: ${finalEval ? 'Found' : 'Not found'}`);
+          } catch (method1Error) {
+            console.warn('⚠️ Method 1 failed:', method1Error.message);
+          }
 
-          // Get total evaluators count
-          const evaluatorCount = await prisma.evaluation.count({
-            where: {
-              targetUserId: currentUserId,
-              periodId: cert.period_id,
-              status: 'SUBMITTED'
+          // Try method 2: If not found, try without isBestEmployee filter
+          if (!finalEval) {
+            try {
+              finalEval = await FinalEvaluation.findOne({
+                where: {
+                  userId: currentUserId,
+                  periodId: cert.period_id
+                },
+                order: [['finalScore', 'DESC']] // Get the highest score
+              });
+              console.log(`📊 Method 2 - Without isBestEmployee filter: ${finalEval ? 'Found' : 'Not found'}`);
+            } catch (method2Error) {
+              console.warn('⚠️ Method 2 failed:', method2Error.message);
             }
-          });
+          }
 
-          return {
+          // Try method 3: Raw SQL query as fallback
+          let evaluatorCount = 0;
+          if (!finalEval) {
+            try {
+              const { sequelize } = require('../../models');
+              const [results] = await sequelize.query(`
+                SELECT 
+                  fe."userId",
+                  fe."periodId",
+                  fe."berakhlakScore",
+                  fe."presensiScore", 
+                  fe."ckpScore",
+                  fe."finalScore",
+                  fe."ranking",
+                  fe."isBestEmployee"
+                FROM "FinalEvaluations" fe
+                WHERE fe."userId" = :userId AND fe."periodId" = :periodId
+                ORDER BY fe."finalScore" DESC
+                LIMIT 1
+              `, {
+                replacements: { userId: currentUserId, periodId: cert.period_id },
+                type: sequelize.QueryTypes.SELECT
+              });
+              
+              if (results) {
+                finalEval = results;
+                console.log(`📊 Method 3 - Raw SQL query: Found`);
+              }
+            } catch (method3Error) {
+              console.warn('⚠️ Method 3 (Raw SQL) failed:', method3Error.message);
+            }
+          }
+
+          // 🔥 FIXED: Get total evaluators count with enhanced query
+          try {
+            // Try to get evaluator count
+            const { sequelize } = require('../../models');
+            const [countResults] = await sequelize.query(`
+              SELECT COUNT(*) as count
+              FROM "Evaluations" e
+              WHERE e."targetUserId" = :userId 
+              AND e."periodId" = :periodId
+              AND e."submitDate" IS NOT NULL
+            `, {
+              replacements: { userId: currentUserId, periodId: cert.period_id },
+              type: sequelize.QueryTypes.SELECT
+            });
+            
+            evaluatorCount = countResults ? parseInt(countResults.count) : 0;
+            console.log(`👥 Evaluator count for ${cert.period.namaPeriode}: ${evaluatorCount}`);
+            
+          } catch (countError) {
+            console.warn('⚠️ Error getting evaluator count:', countError.message);
+            evaluatorCount = 0;
+          }
+
+          // 🔥 FALLBACK: If still no finalEval, try to get basic evaluation data
+          let berakhlakScore = null;
+          if (!finalEval) {
+            try {
+              const { sequelize } = require('../../models');
+              const [evalResults] = await sequelize.query(`
+                SELECT AVG(
+                  (SELECT AVG(es.score) 
+                   FROM "EvaluationScores" es 
+                   WHERE es."evaluationId" = e.id)
+                ) as avg_score
+                FROM "Evaluations" e
+                WHERE e."targetUserId" = :userId 
+                AND e."periodId" = :periodId
+                AND e."submitDate" IS NOT NULL
+              `, {
+                replacements: { userId: currentUserId, periodId: cert.period_id },
+                type: sequelize.QueryTypes.SELECT
+              });
+              
+              if (evalResults && evalResults.avg_score) {
+                berakhlakScore = parseFloat(evalResults.avg_score);
+                console.log(`📊 Fallback BerAKHLAK score: ${berakhlakScore}`);
+              }
+            } catch (fallbackError) {
+              console.warn('⚠️ Fallback evaluation query failed:', fallbackError.message);
+            }
+          }
+
+          // 🔥 ENHANCED: Return comprehensive certificate data
+          const result = {
             id: cert.id,
             periodId: cert.period_id,
             periodName: cert.period.namaPeriode,
@@ -1366,16 +1474,35 @@ router.get('/my-certificates-detailed', async (req, res) => {
             uploadedAt: cert.uploaded_at,
             certificateNumber: cert.certificate_number,
             templateType: cert.template_type,
-            // Detailed scores
-            berakhlakScore: finalEval?.berakhlakScore || null,
+            // 🔥 FIXED: Enhanced scores with fallback values
+            berakhlakScore: finalEval?.berakhlakScore || berakhlakScore || null,
             presensiScore: finalEval?.presensiScore || null,
             ckpScore: finalEval?.ckpScore || null,
             finalScore: finalEval?.finalScore || null,
             totalVoters: evaluatorCount || 0,
-            ranking: finalEval?.ranking || null
+            ranking: finalEval?.ranking || null,
+            // 🔥 DEBUG: Add debug info
+            debugInfo: {
+              hasFinalEval: !!finalEval,
+              finalEvalMethod: finalEval ? 
+                (finalEval.berakhlakScore ? 'Direct Query' : 'Raw SQL') : 'None',
+              evaluatorCountMethod: 'Raw SQL Query',
+              fallbackScore: berakhlakScore
+            }
           };
+
+          console.log(`✅ Certificate processed for ${cert.period.namaPeriode}:`, {
+            berakhlakScore: result.berakhlakScore,
+            totalVoters: result.totalVoters,
+            hasFinalEval: result.debugInfo.hasFinalEval
+          });
+
+          return result;
+
         } catch (scoreError) {
           console.error('❌ Error getting scores for certificate:', cert.id, scoreError);
+          
+          // Return certificate with null scores but still functional
           return {
             id: cert.id,
             periodId: cert.period_id,
@@ -1392,11 +1519,23 @@ router.get('/my-certificates-detailed', async (req, res) => {
             ckpScore: null,
             finalScore: null,
             totalVoters: 0,
-            ranking: null
+            ranking: null,
+            debugInfo: {
+              error: scoreError.message,
+              hasFinalEval: false,
+              finalEvalMethod: 'Error',
+              evaluatorCountMethod: 'Error'
+            }
           };
         }
       })
     );
+
+    // 🔥 LOG: Final summary
+    console.log('📋 Final detailed certificates summary:');
+    detailedCerts.forEach(cert => {
+      console.log(`- ${cert.periodName}: Voters=${cert.totalVoters}, BerAKHLAK=${cert.berakhlakScore}, Final=${cert.finalScore}`);
+    });
 
     res.json({
       success: true,
@@ -1404,6 +1543,12 @@ router.get('/my-certificates-detailed', async (req, res) => {
         totalCertificates: detailedCerts.length,
         certificates: detailedCerts,
         hasCertificates: detailedCerts.length > 0
+      },
+      debug: {
+        userId: currentUserId,
+        userName: req.user.nama,
+        processedCertificates: detailedCerts.length,
+        timestamp: new Date().toISOString()
       }
     });
 
@@ -1411,7 +1556,8 @@ router.get('/my-certificates-detailed', async (req, res) => {
     console.error('❌ Detailed certificates error:', error);
     res.status(500).json({ 
       success: false,
-      error: error.message 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -1431,9 +1577,7 @@ router.get('/download/:certificateId', async (req, res) => {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(req.query.token, process.env.JWT_SECRET || 'bps-secret-key');
         
-        const foundUser = await prisma.user.findUnique({
-          where: { id: decoded.userId }
-        });
+        const foundUser = await User.findByPk(decoded.userId);
         
         if (foundUser) {
           user = foundUser;
@@ -1458,12 +1602,17 @@ router.get('/download/:certificateId', async (req, res) => {
 
     const { certificateId } = req.params;
 
-    const certificate = await prisma.certificate.findUnique({
-      where: { id: certificateId },
-      include: {
-        user: true,
-        period: true
-      }
+    const certificate = await Certificate.findByPk(certificateId, {
+      include: [
+        {
+          model: User,
+          as: 'user'
+        },
+        {
+          model: Period,
+          as: 'period'
+        }
+      ]
     });
 
     if (!certificate) {

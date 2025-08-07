@@ -1,7 +1,6 @@
-// controllers/reportController.js - FIXED WITH PROPER DATA INTEGRATION
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+// controllers/reportController.js - SEQUELIZE VERSION FIXED WITH PROPER DATA INTEGRATION
+const { User, Period, Evaluation, EvaluationScore, Attendance, CkpScore, FinalEvaluation } = require('../..models');
+const { Op, fn, col } = require('sequelize');
 
 // 🔥 FIXED: GET COMPREHENSIVE REPORT DATA WITH PROPER INTEGRATION
 const getComprehensiveReportData = async (req, res) => {
@@ -13,9 +12,9 @@ const getComprehensiveReportData = async (req, res) => {
     // Get period info
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -26,34 +25,29 @@ const getComprehensiveReportData = async (req, res) => {
     }
 
     // Get all active users - FIXED: Proper user selection
-    const users = await prisma.user.findMany({
+    const users = await User.findAll({
       where: { 
         isActive: true,
-        role: { in: ['STAFF', 'PIMPINAN'] }
+        role: { [Op.in]: ['STAFF', 'PIMPINAN'] }
       },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        jabatan: true,
-        role: true
-      },
-      orderBy: { nama: 'asc' }
+      attributes: ['id', 'nip', 'nama', 'jabatan', 'role'],
+      order: [['nama', 'ASC']]
     });
 
     // 🔥 FIXED: Get evaluation data with proper voter counting
-    const evaluations = await prisma.evaluation.findMany({
+    const evaluations = await Evaluation.findAll({
       where: { periodId: targetPeriod.id },
-      include: {
-        target: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'target',
+          attributes: ['id', 'nama', 'jabatan']
         },
-        scores: true
-      }
+        {
+          model: EvaluationScore,
+          as: 'scores'
+        }
+      ]
     });
 
     // Calculate BerAKHLAK scores per user with proper formula
@@ -78,26 +72,23 @@ const getComprehensiveReportData = async (req, res) => {
       voterCounts[targetId]++;
     });
 
-    // 🔥 FIXED: Get attendance data - check both possible table names
+    // 🔥 FIXED: Get attendance data
     let attendanceData = [];
     try {
-      // Try attendance table first
-      attendanceData = await prisma.attendance.findMany({
+      attendanceData = await Attendance.findAll({
         where: { periodId: targetPeriod.id },
-        select: {
-          userId: true,
-          jumlahTidakKerja: true,
-          jumlahPulangAwal: true,
-          jumlahTelat: true,
-          jumlahAbsenApel: true,
-          jumlahCuti: true,
-          nilaiPresensi: true,
-          nilaiPresensi: true // Alternative field name
-        }
+        attributes: [
+          'userId',
+          'jumlahTidakKerja',
+          'jumlahPulangAwal',
+          'jumlahTelat',
+          'jumlahAbsenApel',
+          'jumlahCuti',
+          'nilaiPresensi'
+        ]
       });
     } catch (attendanceError) {
-      console.warn('⚠️ Attendance table query failed, trying alternative:', attendanceError.message);
-      // If that fails, provide empty data
+      console.warn('⚠️ Attendance table query failed:', attendanceError.message);
       attendanceData = [];
     }
 
@@ -109,38 +100,20 @@ const getComprehensiveReportData = async (req, res) => {
         jumlahTelat: att.jumlahTelat || 0,
         jumlahAbsenApel: att.jumlahAbsenApel || 0,
         jumlahCuti: att.jumlahCuti || 0,
-        nilaiPresensi: att.nilaiPresensi || att.nilaiPresensi || 100
+        nilaiPresensi: att.nilaiPresensi || 100
       };
     });
 
-    // 🔥 FIXED: Get CKP data - check both possible table names
+    // 🔥 FIXED: Get CKP data
     let ckpData = [];
     try {
-      // Try ckpScore table first
-      ckpData = await prisma.ckpScore.findMany({
+      ckpData = await CkpScore.findAll({
         where: { periodId: targetPeriod.id },
-        select: {
-          userId: true,
-          score: true,
-          keterangan: true
-        }
+        attributes: ['userId', 'score', 'keterangan']
       });
     } catch (ckpError) {
-      console.warn('⚠️ CKP table query failed, trying alternative:', ckpError.message);
-      try {
-        // Try ckp table as alternative
-        ckpData = await prisma.ckp.findMany({
-          where: { periodId: targetPeriod.id },
-          select: {
-            userId: true,
-            score: true,
-            keterangan: true
-          }
-        });
-      } catch (ckpError2) {
-        console.warn('⚠️ Alternative CKP table also failed:', ckpError2.message);
-        ckpData = [];
-      }
+      console.warn('⚠️ CKP table query failed:', ckpError.message);
+      ckpData = [];
     }
 
     const ckpMap = {};
@@ -151,18 +124,18 @@ const getComprehensiveReportData = async (req, res) => {
     // 🔥 FIXED: Get final evaluations for candidate determination
     let finalEvaluations = [];
     try {
-      finalEvaluations = await prisma.finalEvaluation.findMany({
+      finalEvaluations = await FinalEvaluation.findAll({
         where: { periodId: targetPeriod.id },
-        select: {
-          userId: true,
-          isCandidate: true,
-          isBestEmployee: true,
-          ranking: true,
-          finalScore: true,
-          berakhlakScore: true,
-          presensiScore: true,
-          ckpScore: true
-        }
+        attributes: [
+          'userId',
+          'isCandidate',
+          'isBestEmployee',
+          'ranking',
+          'finalScore',
+          'berakhlakScore',
+          'presensiScore',
+          'ckpScore'
+        ]
       });
     } catch (finalError) {
       console.warn('⚠️ Final evaluation table query failed:', finalError.message);
@@ -288,9 +261,9 @@ const getBerakhlakReport = async (req, res) => {
 
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -301,39 +274,35 @@ const getBerakhlakReport = async (req, res) => {
     }
 
     // Get evaluations with scores
-    const evaluations = await prisma.evaluation.findMany({
+    const evaluations = await Evaluation.findAll({
       where: { periodId: targetPeriod.id },
-      include: {
-        target: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true,
-            nip: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'target',
+          attributes: ['id', 'nama', 'jabatan', 'nip']
         },
-        evaluator: {
-          select: {
-            nama: true
-          }
+        {
+          model: User,
+          as: 'evaluator',
+          attributes: ['nama']
         },
-        scores: {
-          include: {
-            parameter: {
-              select: {
-                namaParameter: true,
-                urutan: true
-              }
+        {
+          model: EvaluationScore,
+          as: 'scores',
+          include: [
+            {
+              model: EvaluationParameter,
+              as: 'parameter',
+              attributes: ['namaParameter', 'urutan']
             }
-          },
-          orderBy: {
-            parameter: {
-              urutan: 'asc'
-            }
-          }
+          ],
+          order: [
+            [{ model: EvaluationParameter, as: 'parameter' }, 'urutan', 'ASC']
+          ]
         }
-      },
-      orderBy: { submitDate: 'desc' }
+      ],
+      order: [['submitDate', 'DESC']]
     });
 
     // Group by target user and calculate scores
@@ -406,9 +375,9 @@ const getAttendanceReport = async (req, res) => {
 
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -419,23 +388,18 @@ const getAttendanceReport = async (req, res) => {
     }
 
     // 🔥 FIXED: Get attendance data with proper table name
-    const attendanceData = await prisma.attendance.findMany({
+    const attendanceData = await Attendance.findAll({
       where: { periodId: targetPeriod.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true,
-            nip: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'jabatan', 'nip']
         }
-      },
-      orderBy: {
-        user: {
-          nama: 'asc'
-        }
-      }
+      ],
+      order: [
+        [{ model: User, as: 'user' }, 'nama', 'ASC']
+      ]
     });
 
     // Calculate statistics
@@ -473,9 +437,9 @@ const getCkpReport = async (req, res) => {
 
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -486,21 +450,18 @@ const getCkpReport = async (req, res) => {
     }
 
     // 🔥 FIXED: Get CKP data with proper table name
-    const ckpData = await prisma.ckpScore.findMany({
+    const ckpData = await CkpScore.findAll({
       where: { periodId: targetPeriod.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true,
-            nip: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'jabatan', 'nip']
         }
-      },
-      orderBy: [
-        { score: 'desc' },
-        { user: { nama: 'asc' } }
+      ],
+      order: [
+        ['score', 'DESC'],
+        [{ model: User, as: 'user' }, 'nama', 'ASC']
       ]
     });
 

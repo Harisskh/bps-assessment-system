@@ -333,18 +333,34 @@ const LoginPage = () => {
             const result = await login(credentials);
 
             if (result.success) {
-                setFailedAttempts(0); // Reset pada saat sukses login
+                setFailedAttempts(0);
                 navigate('/dashboard');
             } else {
-                handleFailure('Username atau password salah.');
+                handleFailure(result.message || 'Username atau password salah.');
             }
         } catch (err) {
-            handleFailure('Tidak dapat terhubung ke server. Coba lagi nanti.');
-            console.error(err);
+            console.error('Login error:', err);
+            
+            // 🔥 ENHANCED: Better error messages based on error type
+            let errorMessage = 'Username atau password salah.';
+            
+            if (err.code === 'NETWORK_ERROR' || !err.response) {
+                errorMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+            } else if (err.response?.status === 401) {
+                errorMessage = 'Username atau password salah.';
+            } else if (err.response?.status === 403) {
+                errorMessage = 'Akun Anda tidak memiliki akses.';
+            } else if (err.response?.status >= 500) {
+                errorMessage = 'Server sedang mengalami gangguan. Coba lagi nanti.';
+            } else if (err.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            }
+            
+            handleFailure(errorMessage);
         }
         setLoading(false);
     };
-
+    
     return (
         <>
             <EnhancedFormStyles />

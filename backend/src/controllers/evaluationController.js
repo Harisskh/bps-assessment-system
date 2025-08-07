@@ -1,7 +1,6 @@
-// controllers/evaluationController.js - FIXED SUBMISSION LOGIC
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+// controllers/evaluationController.js - SEQUELIZE VERSION
+const { User, Period, EvaluationParameter, Evaluation, EvaluationScore } = require('../../models');
+const { Op } = require('sequelize');
 
 // EXCLUDED JOB POSITIONS FROM BEING EVALUATED
 const EXCLUDED_POSITIONS = [
@@ -59,9 +58,9 @@ const getEvaluationParameters = async (req, res) => {
   try {
     console.log('🔄 Getting evaluation parameters...');
     
-    const parameters = await prisma.evaluationParameter.findMany({
+    const parameters = await EvaluationParameter.findAll({
       where: { isActive: true },
-      orderBy: { urutan: 'asc' }
+      order: [['urutan', 'ASC']]
     });
 
     console.log(`✅ Found ${parameters.length} evaluation parameters`);
@@ -80,7 +79,7 @@ const getEvaluationParameters = async (req, res) => {
   }
 };
 
-// 🔥 UPDATED: GET SCORE RANGES - Single range 80-100
+// GET SCORE RANGES - Single range 80-100
 const getScoreRanges = async (req, res) => {
   try {
     console.log('🔄 Getting score ranges...');
@@ -116,7 +115,7 @@ const getActivePeriod = async (req, res) => {
   try {
     console.log('🔄 Getting active period...');
     
-    const activePeriod = await prisma.period.findFirst({
+    const activePeriod = await Period.findOne({
       where: { isActive: true }
     });
 
@@ -144,35 +143,27 @@ const getActivePeriod = async (req, res) => {
   }
 };
 
-// GET ELIGIBLE USERS FOR EVALUATION - UPDATED LOGIC
+// GET ELIGIBLE USERS FOR EVALUATION
 const getEligibleUsers = async (req, res) => {
   try {
     console.log('🔄 Getting eligible users...');
     const currentUserId = req.user.id;
 
-    const users = await prisma.user.findMany({
+    const users = await User.findAll({
       where: {
         isActive: true,
-        role: { not: 'ADMIN' }, // Exclude ADMIN role completely
+        role: { [Op.ne]: 'ADMIN' }
       },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        jabatan: true,
-        role: true
-      },
-      orderBy: { nama: 'asc' }
+      attributes: ['id', 'nip', 'nama', 'jabatan', 'role'],
+      order: [['nama', 'ASC']]
     });
 
     // Filter out users with excluded positions, but include current user
     const eligibleUsers = users.filter(user => {
-      // Always include current user (self evaluation allowed)
       if (user.id === currentUserId) {
         return true;
       }
       
-      // For other users, check if their position is excluded
       return !isExcludedFromEvaluation(user.jabatan);
     });
 
@@ -196,7 +187,7 @@ const getEligibleUsers = async (req, res) => {
   }
 };
 
-// 🔥 FIXED: SUBMIT EVALUATION - Single category logic with proper validation
+// SUBMIT EVALUATION - Single category logic
 const submitEvaluation = async (req, res) => {
   try {
     console.log('📥 Received evaluation submission:', JSON.stringify(req.body, null, 2));
@@ -204,7 +195,7 @@ const submitEvaluation = async (req, res) => {
     const evaluatorId = req.user.id;
     const { periodId, targetUserId, scores } = req.body;
 
-    // 🔥 FIXED: Validation for single user evaluation
+    // Validation
     if (!periodId) {
       return res.status(400).json({
         success: false,
@@ -227,9 +218,7 @@ const submitEvaluation = async (req, res) => {
     }
 
     // Check if period is active
-    const period = await prisma.period.findUnique({
-      where: { id: periodId }
-    });
+    const period = await Period.findByPk(periodId);
 
     if (!period) {
       return res.status(400).json({
@@ -271,8 +260,8 @@ const submitEvaluation = async (req, res) => {
       }
     }
 
-    // 🔥 FIXED: Check if evaluator has already submitted for this period and target
-    const existingEvaluation = await prisma.evaluation.findFirst({
+    // Check if evaluator has already submitted for this period and target
+    const existingEvaluation = await Evaluation.findOne({
       where: {
         evaluatorId,
         periodId,
@@ -288,9 +277,9 @@ const submitEvaluation = async (req, res) => {
     }
 
     // Get evaluation parameters
-    const parameters = await prisma.evaluationParameter.findMany({
+    const parameters = await EvaluationParameter.findAll({
       where: { isActive: true },
-      orderBy: { urutan: 'asc' }
+      order: [['urutan', 'ASC']]
     });
 
     if (parameters.length !== 8) {
@@ -300,7 +289,7 @@ const submitEvaluation = async (req, res) => {
       });
     }
 
-    // 🔥 FIXED: Validate scores for single category (80-100)
+    // Validate scores for single category (80-100)
     if (scores.length !== 8) {
       return res.status(400).json({
         success: false,
@@ -334,9 +323,7 @@ const submitEvaluation = async (req, res) => {
     }
 
     // Check if target user exists and is eligible
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId }
-    });
+    const targetUser = await User.findByPk(targetUserId);
 
     if (!targetUser || !targetUser.isActive) {
       return res.status(400).json({
@@ -345,7 +332,6 @@ const submitEvaluation = async (req, res) => {
       });
     }
 
-    // Check if target user is ADMIN (not allowed to be evaluated)
     if (targetUser.role === 'ADMIN') {
       return res.status(400).json({
         success: false,
@@ -353,7 +339,6 @@ const submitEvaluation = async (req, res) => {
       });
     }
 
-    // Check if target user has excluded position (except if it's self-evaluation)
     if (targetUserId !== evaluatorId && isExcludedFromEvaluation(targetUser.jabatan)) {
       return res.status(400).json({
         success: false,
@@ -361,20 +346,20 @@ const submitEvaluation = async (req, res) => {
       });
     }
 
-    // 🔥 FIXED: Create single evaluation record
-    const result = await prisma.$transaction(async (tx) => {
+    // Create evaluation with transaction
+    const { sequelize } = require('../../models');
+    const transaction = await sequelize.transaction();
+
+    try {
       console.log('🔄 Creating evaluation record...');
       
-      // Create evaluation record
-      const createdEvaluation = await tx.evaluation.create({
-        data: {
-          evaluatorId,
-          periodId,
-          targetUserId,
-          status: 'SUBMITTED',
-          submitDate: new Date()
-        }
-      });
+      const createdEvaluation = await Evaluation.create({
+        evaluatorId,
+        periodId,
+        targetUserId,
+        status: 'SUBMITTED',
+        submitDate: new Date()
+      }, { transaction });
 
       console.log('✅ Evaluation record created:', createdEvaluation.id);
 
@@ -387,22 +372,24 @@ const submitEvaluation = async (req, res) => {
 
       console.log('🔄 Creating evaluation scores:', scoreData.length);
 
-      await tx.evaluationScore.createMany({
-        data: scoreData
-      });
+      await EvaluationScore.bulkCreate(scoreData, { transaction });
 
       console.log('✅ Evaluation scores created');
 
-      return createdEvaluation;
-    });
+      await transaction.commit();
 
-    console.log('✅ Evaluation submission completed successfully');
+      console.log('✅ Evaluation submission completed successfully');
 
-    res.status(201).json({
-      success: true,
-      message: 'Evaluasi berhasil disimpan',
-      data: { evaluation: result }
-    });
+      res.status(201).json({
+        success: true,
+        message: 'Evaluasi berhasil disimpan',
+        data: { evaluation: createdEvaluation }
+      });
+
+    } catch (transactionError) {
+      await transaction.rollback();
+      throw transactionError;
+    }
 
   } catch (error) {
     console.error('❌ Submit evaluation error:', error);
@@ -414,79 +401,96 @@ const submitEvaluation = async (req, res) => {
   }
 };
 
-// 🔥 UPDATED: GET USER'S EVALUATIONS - Updated for single category
+// GET USER'S EVALUATIONS
 const getMyEvaluations = async (req, res) => {
   try {
-    console.log('🔄 Getting my evaluations...');
+    console.log('🔄 Getting my evaluations for user:', req.user.nama);
     const evaluatorId = req.user.id;
-    const { periodId } = req.query;
+    const { periodId, limit = 50 } = req.query;
 
     const where = { evaluatorId };
     if (periodId) {
       where.periodId = periodId;
     }
 
-    const evaluations = await prisma.evaluation.findMany({
+    // 🔥 FIXED: Add proper includes with aliases
+    const evaluations = await Evaluation.findAll({
       where,
-      include: {
-        target: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'target', // 🔥 FIXED: Use alias yang benar
+          attributes: ['id', 'nama', 'jabatan', 'nip']
         },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
+        {
+          model: User,
+          as: 'evaluator', // 🔥 FIXED: Use alias yang benar
+          attributes: ['id', 'nama', 'jabatan', 'nip']
         },
-        scores: {
-          include: {
-            parameter: {
-              select: {
-                id: true,
-                namaParameter: true,
-                urutan: true
-              }
+        {
+          model: Period,
+          as: 'period', // 🔥 FIXED: Use alias yang benar
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan', 'isActive']
+        },
+        {
+          model: EvaluationScore,
+          as: 'scores', // 🔥 FIXED: Use alias yang benar
+          include: [
+            {
+              model: EvaluationParameter,
+              as: 'parameter', // 🔥 FIXED: Use alias yang benar
+              attributes: ['id', 'namaParameter', 'urutan']
             }
-          },
-          orderBy: {
-            parameter: {
-              urutan: 'asc'
-            }
-          }
+          ],
+          order: [['parameter', 'urutan', 'ASC']]
         }
-      },
-      orderBy: [
-        { periodId: 'desc' },
-        { createdAt: 'desc' }
-      ]
+      ],
+      order: [
+        ['createdAt', 'DESC'],
+        // 🔥 FIXED: Proper nested ordering untuk scores
+        [{ model: EvaluationScore, as: 'scores' }, { model: EvaluationParameter, as: 'parameter' }, 'urutan', 'ASC']
+      ],
+      limit: parseInt(limit)
     });
 
-    console.log(`✅ Found ${evaluations.length} evaluations`);
+    console.log(`✅ Found ${evaluations.length} evaluations with complete data`);
+
+    // 🔥 DEBUGGING: Log sample data untuk memastikan struktur benar
+    if (evaluations.length > 0) {
+      console.log('📋 Sample evaluation structure:');
+      console.log('- ID:', evaluations[0].id);
+      console.log('- Target:', evaluations[0].target?.nama);
+      console.log('- Period:', evaluations[0].period?.namaPeriode);
+      console.log('- Scores count:', evaluations[0].scores?.length);
+    }
 
     res.json({
       success: true,
-      data: { evaluations }
+      data: { 
+        evaluations,
+        total: evaluations.length
+      }
     });
 
   } catch (error) {
     console.error('❌ Get my evaluations error:', error);
+    console.error('❌ Error details:', error.message);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// 🔥 UPDATED: GET ALL EVALUATIONS - Updated for single category
+
+// GET ALL EVALUATIONS
 const getAllEvaluations = async (req, res) => {
   try {
-    console.log('🔄 Getting all evaluations...');
+    console.log('🔄 Getting all evaluations for Admin/Pimpinan...');
+    console.log('👤 User role:', req.user.role);
+    console.log('📝 Query params:', req.query);
+
     const { 
       periodId, 
       targetUserId, 
@@ -497,68 +501,75 @@ const getAllEvaluations = async (req, res) => {
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
+    const offset = (pageNum - 1) * limitNum;
 
+    // Build where clause
     const where = {};
     if (periodId) where.periodId = periodId;
     if (targetUserId) where.targetUserId = targetUserId;
     if (evaluatorId) where.evaluatorId = evaluatorId;
 
-    const [evaluations, totalCount] = await Promise.all([
-      prisma.evaluation.findMany({
-        where,
-        include: {
-          evaluator: {
-            select: {
-              id: true,
-              nama: true,
-              jabatan: true
-            }
-          },
-          target: {
-            select: {
-              id: true,
-              nama: true,
-              jabatan: true
-            }
-          },
-          period: {
-            select: {
-              id: true,
-              namaPeriode: true,
-              tahun: true,
-              bulan: true
-            }
-          },
-          scores: {
-            include: {
-              parameter: {
-                select: {
-                  id: true,
-                  namaParameter: true,
-                  urutan: true
-                }
-              }
-            },
-            orderBy: {
-              parameter: {
-                urutan: 'asc'
-              }
-            }
-          }
+    console.log('🔍 Where clause:', where);
+
+    // 🔥 FIXED: Proper includes with correct aliases from model associations
+    const { rows: evaluations, count: totalCount } = await Evaluation.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'evaluator', // ✅ Sesuai dengan alias di model associations
+          attributes: ['id', 'nama', 'jabatan', 'nip'],
+          required: true // Ensure evaluator exists
         },
-        orderBy: [
-          { createdAt: 'desc' }
-        ],
-        skip,
-        take: limitNum
-      }),
-      prisma.evaluation.count({ where })
-    ]);
+        {
+          model: User,
+          as: 'target', // ✅ Sesuai dengan alias di model associations
+          attributes: ['id', 'nama', 'jabatan', 'nip'],
+          required: true // Ensure target exists
+        },
+        {
+          model: Period,
+          as: 'period', // ✅ Sesuai dengan alias di model associations
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan', 'isActive'],
+          required: true // Ensure period exists
+        },
+        {
+          model: EvaluationScore,
+          as: 'scores', // ✅ Sesuai dengan alias di model associations
+          include: [
+            {
+              model: EvaluationParameter,
+              as: 'parameter', // ✅ Sesuai dengan alias di model associations
+              attributes: ['id', 'namaParameter', 'urutan'],
+              required: true
+            }
+          ],
+          required: false // Scores might be empty
+        }
+      ],
+      order: [
+        ['createdAt', 'DESC'],
+        // 🔥 FIXED: Proper nested ordering syntax
+        [{ model: EvaluationScore, as: 'scores' }, { model: EvaluationParameter, as: 'parameter' }, 'urutan', 'ASC']
+      ],
+      offset,
+      limit: limitNum,
+      distinct: true // Important for accurate count with includes
+    });
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
     console.log(`✅ Found ${evaluations.length} evaluations (total: ${totalCount})`);
+
+    // 🔥 DEBUGGING: Log sample structure
+    if (evaluations.length > 0) {
+      console.log('📋 Sample evaluation structure:');
+      console.log('- ID:', evaluations[0].id);
+      console.log('- Evaluator:', evaluations[0].evaluator?.nama || 'Missing');
+      console.log('- Target:', evaluations[0].target?.nama || 'Missing');
+      console.log('- Period:', evaluations[0].period?.namaPeriode || 'Missing');
+      console.log('- Scores count:', evaluations[0].scores?.length || 0);
+    }
 
     res.json({
       success: true,
@@ -577,47 +588,69 @@ const getAllEvaluations = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get all evaluations error:', error);
+    console.error('❌ Error stack:', error.stack);
+    
+    // More specific error handling
+    if (error.name === 'SequelizeEagerLoadingError') {
+      console.error('❌ Eager loading error - check model associations');
+      return res.status(500).json({
+        success: false,
+        message: 'Error dalam memuat relasi data. Periksa konfigurasi model.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
+    if (error.name === 'SequelizeDatabaseError') {
+      console.error('❌ Database error - check table structure');
+      return res.status(500).json({
+        success: false,
+        message: 'Error database. Periksa struktur tabel.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Terjadi kesalahan server saat mengambil data evaluasi',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// 🔥 UPDATED: GET EVALUATION SUMMARY - Updated for single category
+// GET EVALUATION SUMMARY
 const getEvaluationSummary = async (req, res) => {
   try {
     console.log('🔄 Getting evaluation summary...');
     const { periodId } = req.params;
 
+    const { sequelize } = require('../../models');
+
     // Get evaluation counts by target user
-    const evaluationCounts = await prisma.evaluation.groupBy({
-      by: ['targetUserId'],
+    const evaluationCounts = await Evaluation.findAll({
+      attributes: [
+        'targetUserId',
+        [sequelize.fn('COUNT', sequelize.col('targetUserId')), 'count']
+      ],
       where: { periodId },
-      _count: { targetUserId: true }
+      group: ['targetUserId'],
+      raw: true
     });
 
     // Get target user details
     const targetUserIds = evaluationCounts.map(e => e.targetUserId);
-    const targetUsers = await prisma.user.findMany({
-      where: { id: { in: targetUserIds } },
-      select: {
-        id: true,
-        nama: true,
-        jabatan: true,
-        role: true
-      }
+    const targetUsers = await User.findAll({
+      where: { id: { [Op.in]: targetUserIds } },
+      attributes: ['id', 'nama', 'jabatan', 'role']
     });
 
-    // 🔥 UPDATED: Calculate summary statistics for single category
     const summary = targetUsers.map(user => {
       const userEvaluations = evaluationCounts.find(e => e.targetUserId === user.id);
-      const totalCount = userEvaluations?._count?.targetUserId || 0;
+      const totalCount = userEvaluations?.count || 0;
 
       return {
         user,
         counts: {
-          total: totalCount
+          total: parseInt(totalCount)
         }
       };
     });
@@ -641,24 +674,29 @@ const getEvaluationSummary = async (req, res) => {
   }
 };
 
-// DELETE EVALUATION - Updated for single category
+// DELETE EVALUATION
 const deleteEvaluation = async (req, res) => {
   try {
     console.log('🗑️ Deleting evaluation...');
     const { id } = req.params;
 
-    // Check if evaluation exists
-    const existingEvaluation = await prisma.evaluation.findUnique({
-      where: { id },
-      include: {
-        evaluator: {
-          select: { nama: true }
+    const existingEvaluation = await Evaluation.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'evaluator',
+          attributes: ['nama']
         },
-        target: {
-          select: { nama: true }
+        {
+          model: User,
+          as: 'target',
+          attributes: ['nama']
         },
-        scores: true
-      }
+        {
+          model: EvaluationScore,
+          as: 'scores'
+        }
+      ]
     });
 
     if (!existingEvaluation) {
@@ -668,15 +706,8 @@ const deleteEvaluation = async (req, res) => {
       });
     }
 
-    // Delete scores first (foreign key constraint)
-    await prisma.evaluationScore.deleteMany({
-      where: { evaluationId: id }
-    });
-
-    // Delete evaluation
-    await prisma.evaluation.delete({
-      where: { id }
-    });
+    // Delete evaluation (cascade will handle scores)
+    await existingEvaluation.destroy();
 
     console.log('✅ Evaluation deleted successfully');
 
@@ -696,14 +727,6 @@ const deleteEvaluation = async (req, res) => {
   } catch (error) {
     console.error('❌ Delete evaluation error:', error);
     
-    // Handle specific database errors
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        success: false,
-        message: 'Penilaian tidak ditemukan'
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat menghapus penilaian'

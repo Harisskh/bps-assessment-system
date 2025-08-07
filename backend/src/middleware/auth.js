@@ -1,8 +1,6 @@
-// backend/src/middleware/auth.js - ENHANCED AUTH MIDDLEWARE FOR IMPORT SYSTEM
+// backend/src/middleware/auth.js - SEQUELIZE VERSION ENHANCED AUTH MIDDLEWARE FOR IMPORT SYSTEM
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const { User } = require('../../models'); // Sequelize models
 
 // 🔥 ENHANCED AUTHENTICATION MIDDLEWARE
 const authenticateToken = async (req, res, next) => {
@@ -32,19 +30,18 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Get user from database dengan additional checks
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        username: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      }
+    const user = await User.findByPk(decoded.userId, {
+      attributes: [
+        'id',
+        'nip',
+        'nama',
+        'email',
+        'username',
+        'role',
+        'isActive',
+        'createdAt',
+        'updatedAt'
+      ]
     });
 
     if (!user) {
@@ -117,6 +114,8 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+
+
 // 🔥 PIMPINAN OR ADMIN ROLE REQUIREMENT
 const requirePimpinan = (req, res, next) => {
   if (!req.user) {
@@ -186,17 +185,16 @@ const optionalAuth = async (req, res, next) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: {
-          id: true,
-          nip: true,
-          nama: true,
-          email: true,
-          username: true,
-          role: true,
-          isActive: true
-        }
+      const user = await User.findByPk(decoded.userId, {
+        attributes: [
+          'id',
+          'nip',
+          'nama',
+          'email',
+          'username',
+          'role',
+          'isActive'
+        ]
       });
 
       if (user && user.isActive) {
@@ -332,7 +330,8 @@ const handleAuthError = (error, req, res, next) => {
     });
   }
 
-  if (error.code === 'P2025') {
+  // Sequelize specific error handling
+  if (error.name === 'SequelizeDatabaseError') {
     return res.status(404).json({
       success: false,
       message: 'User tidak ditemukan',

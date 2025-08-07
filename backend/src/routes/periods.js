@@ -1,4 +1,4 @@
-// routes/periods.js - FINAL FIXED VERSION
+// routes/periods.js - SEQUELIZE VERSION FINAL FIXED
 const express = require('express');
 const router = express.Router();
 
@@ -21,6 +21,10 @@ const {
   requireAdmin, 
   requirePimpinan
 } = require('../middleware/auth');
+
+// Import Sequelize models
+const { User, Period, Evaluation, Attendance, CkpScore, FinalEvaluation, Certificate } = require('../../models');
+const { Op } = require('sequelize');
 
 // =====================
 // 🔥 PUBLIC ENDPOINTS (NO AUTH REQUIRED) - MUST BE FIRST
@@ -80,23 +84,18 @@ router.get('/staff/available', async (req, res) => {
     console.log('👥 Staff available periods endpoint');
     console.log('🔍 User:', req.user?.nama, '| Role:', req.user?.role);
     
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
-    const periods = await prisma.period.findMany({
+    const periods = await Period.findAll({
       where: { isActive: true },
-      select: {
-        id: true,
-        namaPeriode: true,
-        tahun: true,
-        bulan: true,
-        isActive: true,
-        startDate: true,
-        endDate: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      attributes: [
+        'id',
+        'namaPeriode', 
+        'tahun',
+        'bulan',
+        'isActive',
+        'startDate',
+        'endDate'
+      ],
+      order: [['createdAt', 'DESC']]
     });
 
     console.log(`✅ Found ${periods.length} available periods for staff`);

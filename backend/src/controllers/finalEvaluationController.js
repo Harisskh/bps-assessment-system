@@ -1,7 +1,15 @@
-// controllers/finalEvaluationController.js - UPDATED WITH NEW BERAKHLAK FORMULA
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+// controllers/finalEvaluationController.js - FIXED VERSION WITH PROPER IMPORTS
+const { 
+  User, 
+  Period, 
+  Evaluation, 
+  EvaluationScore, 
+  EvaluationParameter, // 🔥 FIXED: Missing import
+  Attendance, 
+  CkpScore, 
+  FinalEvaluation 
+} = require('../../models');
+const { Op, fn, col } = require('sequelize');
 
 // EXCLUDED JOB POSITIONS FROM BEST EMPLOYEE CANDIDACY
 const EXCLUDED_POSITIONS = [
@@ -50,10 +58,12 @@ const isExcludedPosition = (jabatan) => {
   });
 };
 
-// 🔥 UPDATED: CALCULATE FINAL EVALUATIONS WITH NEW BERAKHLAK FORMULA
+// 🔥 FIXED: CALCULATE FINAL EVALUATIONS WITH PROPER INCLUDES
 const calculateFinalEvaluations = async (req, res) => {
   try {
     const { periodId } = req.body;
+
+    console.log('🔄 Starting calculation for period:', periodId);
 
     if (!periodId) {
       return res.status(400).json({
@@ -63,9 +73,7 @@ const calculateFinalEvaluations = async (req, res) => {
     }
 
     // Check if period exists
-    const period = await prisma.period.findUnique({
-      where: { id: periodId }
-    });
+    const period = await Period.findByPk(periodId);
 
     if (!period) {
       return res.status(404).json({
@@ -74,41 +82,61 @@ const calculateFinalEvaluations = async (req, res) => {
       });
     }
 
-    console.log('🔄 Starting calculation for period:', period.namaPeriode);
+    console.log('✅ Period found:', period.namaPeriode);
 
-    // Get all evaluations for this period
-    const evaluations = await prisma.evaluation.findMany({
+    // 🔥 FIXED: Get all evaluations with proper includes and aliases
+    const evaluations = await Evaluation.findAll({
       where: { periodId },
-      include: {
-        scores: {
-          include: {
-            parameter: true
-          }
+      include: [
+        {
+          model: EvaluationScore,
+          as: 'scores', // 🔥 FIXED: Use correct alias
+          include: [
+            {
+              model: EvaluationParameter,
+              as: 'parameter', // 🔥 FIXED: Use correct alias
+              attributes: ['id', 'namaParameter', 'urutan']
+            }
+          ],
+          required: false
+        },
+        {
+          model: User,
+          as: 'target', // 🔥 FIXED: Add target user info
+          attributes: ['id', 'nama', 'jabatan']
         }
-      }
+      ]
     });
 
     console.log('📊 Found evaluations:', evaluations.length);
 
-    // Get attendance data for this period
-    const attendances = await prisma.attendance.findMany({
+    // Get attendance data for this period with proper includes
+    const attendances = await Attendance.findAll({
       where: { periodId },
-      include: {
-        user: {
-          select: { id: true, nama: true, jabatan: true }
+      include: [
+        {
+          model: User,
+          as: 'user', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'nama', 'jabatan']
         }
-      }
+      ]
     });
 
-    // Get CKP scores for this period
-    const ckpScores = await prisma.ckpScore.findMany({
+    console.log('📊 Found attendance records:', attendances.length);
+
+    // Get CKP scores for this period with proper includes
+    const ckpScores = await CkpScore.findAll({
       where: { periodId },
-      include: {
-        user: {
-          select: { id: true, nama: true, jabatan: true }
+      include: [
+        {
+          model: User,
+          as: 'user', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'nama', 'jabatan']
         }
-      }
+      ]
     });
+
+    console.log('📊 Found CKP records:', ckpScores.length);
 
     // 🔥 NEW FORMULA: Calculate BERAKHLAK scores with SUMMATION instead of AVERAGING
     const berakhlakScores = {};
@@ -118,36 +146,34 @@ const calculateFinalEvaluations = async (req, res) => {
       const targetUserId = evaluation.targetUserId;
 
       if (!berakhlakScores[targetUserId]) {
-      berakhlakScores[targetUserId] = {
-        totalScore: 0, // Sum of normalized scores
-        evaluatorCount: 0,
-        evaluations: []
-      };
+        berakhlakScores[targetUserId] = {
+          totalScore: 0, // Sum of normalized scores
+          evaluatorCount: 0,
+          evaluations: []
+        };
       }
 
       // Hitung rata-rata dari 8 parameter untuk evaluator ini
-      const avgScore = evaluation.scores.length > 0
-      ? evaluation.scores.reduce((sum, score) => sum + score.score, 0) / 8
-      : 0;
+      const avgScore = evaluation.scores && evaluation.scores.length > 0
+        ? evaluation.scores.reduce((sum, score) => sum + (score.score || 0), 0) / Math.max(evaluation.scores.length, 8)
+        : 0;
 
       // Tambahkan ke totalScore (sum of averages dari semua evaluator)
       berakhlakScores[targetUserId].totalScore += avgScore;
       berakhlakScores[targetUserId].evaluatorCount++;
       berakhlakScores[targetUserId].evaluations.push({
-      evaluatorId: evaluation.evaluatorId,
-      avgScore: avgScore,
-      submitDate: evaluation.submitDate
+        evaluatorId: evaluation.evaluatorId,
+        avgScore: avgScore,
+        submitDate: evaluation.submitDate
       });
     }
 
+    console.log('📊 BerAKHLAK scores calculated for users:', Object.keys(berakhlakScores).length);
+
     // Get all users with their job positions
-    const allUsers = await prisma.user.findMany({
-      select: {
-        id: true,
-        nama: true,
-        jabatan: true,
-        nip: true
-      }
+    const allUsers = await User.findAll({
+      attributes: ['id', 'nama', 'jabatan', 'nip'],
+      where: { isActive: true }
     });
 
     // Create a map for quick user lookup
@@ -194,6 +220,8 @@ const calculateFinalEvaluations = async (req, res) => {
       ...ckpScores.map(c => c.userId)
     ]);
 
+    console.log('📊 Processing final evaluations for users:', allUserIds.size);
+
     for (const userId of allUserIds) {
       const berakhlakData = berakhlakScores[userId] || {
         totalScore: 0,
@@ -235,28 +263,23 @@ const calculateFinalEvaluations = async (req, res) => {
         ranking: null
       };
 
-      const finalEvaluation = await prisma.finalEvaluation.upsert({
-        where: {
-          userId_periodId: {
-            userId,
-            periodId
-          }
-        },
-        update: finalEvaluationData,
-        create: finalEvaluationData,
-        include: {
-          user: {
-            select: {
-              id: true,
-              nama: true,
-              jabatan: true,
-              nip: true
-            }
-          }
-        }
+      // Use upsert for Sequelize
+      const [finalEvaluation, created] = await FinalEvaluation.upsert(finalEvaluationData, {
+        returning: true
       });
 
-      finalEvaluations.push(finalEvaluation);
+      // Get full record with user info
+      const fullFinalEvaluation = await FinalEvaluation.findByPk(finalEvaluation.id, {
+        include: [
+          {
+            model: User,
+            as: 'user', // 🔥 FIXED: Use correct alias
+            attributes: ['id', 'nama', 'jabatan', 'nip']
+          }
+        ]
+      });
+
+      finalEvaluations.push(fullFinalEvaluation);
     }
 
     // Rank candidates by final score (only eligible candidates)
@@ -265,7 +288,7 @@ const calculateFinalEvaluations = async (req, res) => {
       .sort((a, b) => b.finalScore - a.finalScore);
 
     console.log('🏆 Ranked candidates:', rankedCandidates.map(c => ({
-      nama: c.user.nama,
+      nama: c.user?.nama,
       finalScore: c.finalScore,
       berakhlakScore: c.berakhlakScore,
       evaluators: c.totalEvaluators
@@ -277,13 +300,15 @@ const calculateFinalEvaluations = async (req, res) => {
       const ranking = i + 1;
       const isBestEmployee = ranking === 1;
 
-      await prisma.finalEvaluation.update({
-        where: { id: candidate.id },
-        data: {
+      await FinalEvaluation.update(
+        {
           ranking,
           isBestEmployee
+        },
+        {
+          where: { id: candidate.id }
         }
-      });
+      );
 
       candidate.ranking = ranking;
       candidate.isBestEmployee = isBestEmployee;
@@ -320,73 +345,66 @@ const calculateFinalEvaluations = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Calculate final evaluations error:', error);
+    console.error('❌ Error stack:', error.stack);
+    
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server',
-      error: error.message
+      message: 'Terjadi kesalahan server dalam perhitungan final',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
 
-// GET FINAL EVALUATIONS (with ranking) - UPDATED
+// 🔥 FIXED: GET FINAL EVALUATIONS WITH PROPER INCLUDES
 const getFinalEvaluations = async (req, res) => {
   try {
     const { 
       periodId,
       onlyCandidates = false,
       page = 1,
-      limit = 100  // Increase default limit
+      limit = 100
     } = req.query;
 
     console.log('📊 Getting final evaluations:', { periodId, onlyCandidates, page, limit });
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
+    const offset = (pageNum - 1) * limitNum;
 
     const where = {};
     if (periodId) where.periodId = periodId;
     if (onlyCandidates === 'true') where.isCandidate = true;
 
-    const [finalEvaluations, totalCount] = await Promise.all([
-      prisma.finalEvaluation.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              nama: true,
-              jabatan: true,
-              nip: true,
-              role: true,
-              profilePicture: true
-            }
-          },
-          period: {
-            select: {
-              id: true,
-              namaPeriode: true,
-              tahun: true,
-              bulan: true
-            }
-          }
+    const { rows: finalEvaluations, count: totalCount } = await FinalEvaluation.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'user', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'nama', 'jabatan', 'nip', 'role', 'profilePicture']
         },
-        orderBy: [
-          { isCandidate: 'desc' },
-          { finalScore: 'desc' },
-          { totalEvaluators: 'desc' }
-        ],
-        skip,
-        take: limitNum
-      }),
-      prisma.finalEvaluation.count({ where })
-    ]);
+        {
+          model: Period,
+          as: 'period', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
+        }
+      ],
+      order: [
+        ['isCandidate', 'DESC'],
+        ['finalScore', 'DESC'],
+        ['totalEvaluators', 'DESC']
+      ],
+      offset,
+      limit: limitNum,
+      distinct: true // 🔥 FIXED: Add distinct for proper count with includes
+    });
 
     // Add eligibility information
     const evaluationsWithEligibility = finalEvaluations.map(evaluation => ({
-      ...evaluation,
-      isEligibleForCandidacy: !isExcludedPosition(evaluation.user.jabatan),
-      excludedReason: isExcludedPosition(evaluation.user.jabatan) 
+      ...evaluation.toJSON(),
+      isEligibleForCandidacy: !isExcludedPosition(evaluation.user?.jabatan),
+      excludedReason: isExcludedPosition(evaluation.user?.jabatan) 
         ? 'Jabatan tidak memenuhi syarat untuk menjadi kandidat best employee'
         : null
     }));
@@ -413,49 +431,44 @@ const getFinalEvaluations = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get final evaluations error:', error);
+    console.error('❌ Error details:', error.stack);
+    
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server',
-      error: error.message
+      message: 'Terjadi kesalahan server dalam mengambil data final evaluations',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// GET BEST EMPLOYEE WITH PROFILE PICTURE - UPDATED
+// 🔥 FIXED: GET BEST EMPLOYEE WITH PROPER INCLUDES
 const getBestEmployee = async (req, res) => {
   try {
     const { periodId } = req.params;
 
     console.log('👑 Getting best employee for period:', periodId);
 
-    const bestEmployee = await prisma.finalEvaluation.findFirst({
+    const bestEmployee = await FinalEvaluation.findOne({
       where: {
         periodId,
         isBestEmployee: true
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true,
-            nip: true,
-            role: true,
-            profilePicture: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'nama', 'jabatan', 'nip', 'role', 'profilePicture']
         },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
+        {
+          model: Period,
+          as: 'period', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
         }
-      }
+      ]
     });
 
     if (!bestEmployee) {
+      console.log('⚠️ Best employee not found for period:', periodId);
       return res.status(404).json({
         success: false,
         message: 'Best employee belum ditentukan untuk periode ini'
@@ -463,39 +476,35 @@ const getBestEmployee = async (req, res) => {
     }
 
     // Get all candidates for comparison
-    const allCandidates = await prisma.finalEvaluation.findMany({
+    const allCandidates = await FinalEvaluation.findAll({
       where: {
         periodId,
         isCandidate: true
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true,
-            nip: true,
-            profilePicture: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'nama', 'jabatan', 'nip', 'profilePicture']
         }
-      },
-      orderBy: { ranking: 'asc' }
+      ],
+      order: [['ranking', 'ASC']]
     });
 
     // Add eligibility information
     const candidatesWithEligibility = allCandidates.map(candidate => ({
-      ...candidate,
-      isEligibleForCandidacy: !isExcludedPosition(candidate.user.jabatan)
+      ...candidate.toJSON(),
+      isEligibleForCandidacy: !isExcludedPosition(candidate.user?.jabatan)
     }));
 
-    console.log('✅ Best employee retrieved:', bestEmployee.user.nama);
+    console.log('✅ Best employee retrieved:', bestEmployee.user?.nama);
 
     res.json({
       success: true,
       data: {
         bestEmployee: {
-          ...bestEmployee,
-          isEligibleForCandidacy: !isExcludedPosition(bestEmployee.user.jabatan)
+          ...bestEmployee.toJSON(),
+          isEligibleForCandidacy: !isExcludedPosition(bestEmployee.user?.jabatan)
         },
         allCandidates: candidatesWithEligibility,
         period: bestEmployee.period,
@@ -505,15 +514,17 @@ const getBestEmployee = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get best employee error:', error);
+    console.error('❌ Error details:', error.stack);
+    
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server',
-      error: error.message
+      message: 'Terjadi kesalahan server dalam mengambil data best employee',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// GET LEADERBOARD WITH PROFILE PICTURES - UPDATED
+// 🔥 FIXED: GET LEADERBOARD WITH PROPER INCLUDES
 const getLeaderboard = async (req, res) => {
   try {
     const { periodId, limit = 10 } = req.query;
@@ -523,43 +534,35 @@ const getLeaderboard = async (req, res) => {
     const where = {};
     if (periodId) where.periodId = periodId;
 
-    const leaderboard = await prisma.finalEvaluation.findMany({
+    const leaderboard = await FinalEvaluation.findAll({
       where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true,
-            nip: true,
-            role: true,
-            profilePicture: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'nama', 'jabatan', 'nip', 'role', 'profilePicture']
         },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
+        {
+          model: Period,
+          as: 'period', // 🔥 FIXED: Use correct alias
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
         }
-      },
-      orderBy: [
-        { finalScore: 'desc' },
-        { totalEvaluators: 'desc' },
-        { berakhlakScore: 'desc' }
       ],
-      take: parseInt(limit)
+      order: [
+        ['finalScore', 'DESC'],
+        ['totalEvaluators', 'DESC'],
+        ['berakhlakScore', 'DESC']
+      ],
+      limit: parseInt(limit)
     });
 
     // Format response data untuk leaderboard
     const formattedLeaderboard = leaderboard.map((evaluation, index) => ({
-      id: evaluation.user.id,
-      nama: evaluation.user.nama,
-      nip: evaluation.user.nip,
-      jabatan: evaluation.user.jabatan,
-      profilePicture: evaluation.user.profilePicture,
+      id: evaluation.user?.id,
+      nama: evaluation.user?.nama,
+      nip: evaluation.user?.nip,
+      jabatan: evaluation.user?.jabatan,
+      profilePicture: evaluation.user?.profilePicture,
       nilaiAkhir: evaluation.finalScore,
       nilaiBerakhlak: evaluation.berakhlakScore,
       nilaiPresensi: evaluation.presensiScore,
@@ -569,8 +572,8 @@ const getLeaderboard = async (req, res) => {
       isCandidate: evaluation.isCandidate,
       totalEvaluators: evaluation.totalEvaluators,
       ranking: evaluation.ranking,
-      isEligibleForCandidacy: !isExcludedPosition(evaluation.user.jabatan),
-      excludedReason: isExcludedPosition(evaluation.user.jabatan) 
+      isEligibleForCandidacy: !isExcludedPosition(evaluation.user?.jabatan),
+      excludedReason: isExcludedPosition(evaluation.user?.jabatan) 
         ? 'Jabatan tidak memenuhi syarat untuk menjadi kandidat best employee'
         : null,
       status: evaluation.isBestEmployee ? 'Best Employee' : evaluation.isCandidate ? 'Candidate' : 'Regular'
@@ -589,10 +592,12 @@ const getLeaderboard = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Get leaderboard error:', error);
+    console.error('❌ Error details:', error.stack);
+    
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server',
-      error: error.message
+      message: 'Terjadi kesalahan server dalam mengambil data leaderboard',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

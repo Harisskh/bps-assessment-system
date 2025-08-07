@@ -1,8 +1,7 @@
-// controllers/userController.js - ENHANCED WITH DATA CHECK AND IMPROVED DELETE LOGIC
+// controllers/userController.js - SEQUELIZE VERSION
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const { User, Evaluation, Attendance, CkpScore, FinalEvaluation, Certificate } = require('../../models');
+const { Op } = require('sequelize');
 
 // GET ALL USERS (with pagination and search)
 const getAllUsers = async (req, res) => {
@@ -10,16 +9,15 @@ const getAllUsers = async (req, res) => {
     const { page = 1, limit = 10, search, role, status } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
+    const offset = (pageNum - 1) * limitNum;
 
     let where = {};
 
     if (search) {
-      // Search di nama, nip, atau username
-      where.OR = [
-        { nama: { contains: search, mode: 'insensitive' } },
-        { nip: { contains: search, mode: 'insensitive' } },
-        { username: { contains: search, mode: 'insensitive' } }
+      where[Op.or] = [
+        { nama: { [Op.iLike]: `%${search}%` } },
+        { nip: { [Op.iLike]: `%${search}%` } },
+        { username: { [Op.iLike]: `%${search}%` } }
       ];
     }
 
@@ -31,36 +29,13 @@ const getAllUsers = async (req, res) => {
       where.status = status;
     }
 
-    const users = await prisma.user.findMany({
+    const { rows: users, count: totalUsers } = await User.findAndCountAll({
       where,
-      skip,
-      take: limitNum,
-      orderBy: {
-        nama: 'asc',
-      },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        jabatan: true,
-        golongan: true,
-        status: true,
-        username: true,
-        role: true,
-        isActive: true,
-        profilePicture: true,
-        createdAt: true,
-        updatedAt: true,
-      }
+      offset,
+      limit: limitNum,
+      order: [['nama', 'ASC']],
+      attributes: { exclude: ['password'] }
     });
-
-    const totalUsers = await prisma.user.count({ where });
 
     res.status(200).json({
       success: true,
@@ -84,7 +59,7 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-// 🔥 CREATE USER - FIXED AND COMPLETE
+// CREATE USER - FIXED AND COMPLETE
 const createUser = async (req, res) => {
   try {
     const {
@@ -108,7 +83,7 @@ const createUser = async (req, res) => {
 
     console.log('📝 Create user attempt:', { nip, nama, email, username, role });
 
-    // 🔥 FIXED: Validasi input wajib - Email TIDAK wajib
+    // Validasi input wajib - Email TIDAK wajib
     if (!nip || !nama || !username || !password) {
       return res.status(400).json({
         success: false,
@@ -116,7 +91,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    // 🔥 FIXED: Validasi email format HANYA jika email diisi
+    // Validasi email format HANYA jika email diisi
     if (email && email.trim() !== '') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
@@ -135,15 +110,12 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Cek duplikasi - FIXED: Handling email yang bisa null
-     const duplicateChecks = await Promise.all([
-      // Check NIP
-      prisma.user.findFirst({ where: { nip: nip.toString() } }),
-      // Check Username  
-      prisma.user.findFirst({ where: { username: username.trim() } }),
-      // Check Email HANYA jika email diisi dan tidak kosong
+    // Cek duplikasi
+    const duplicateChecks = await Promise.all([
+      User.findOne({ where: { nip: nip.toString() } }),
+      User.findOne({ where: { username: username.trim() } }),
       (email && email.trim() !== '') 
-        ? prisma.user.findFirst({ where: { email: email.toLowerCase().trim() } })
+        ? User.findOne({ where: { email: email.toLowerCase().trim() } })
         : Promise.resolve(null)
     ]);
 
@@ -191,7 +163,6 @@ const createUser = async (req, res) => {
     const userData = {
       nip: nip.toString().trim(),
       nama: nama.trim(),
-      // 🔥 SOLUTION: Email handling - null jika kosong, lowercase jika ada
       email: (email && email.trim() !== '') ? email.toLowerCase().trim() : null,
       jenisKelamin: jenisKelamin || 'LK',
       tanggalLahir: parsedDate,
@@ -210,51 +181,29 @@ const createUser = async (req, res) => {
       isActive: true
     };
 
-    // Create user - FIXED: Handle email yang bisa null
-    const newUser = await prisma.user.create({
-      data: userData,
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        status: true,
-        instansi: true,
-        kantor: true,
-        jabatan: true,
-        golongan: true,
-        username: true,
-        profilePicture: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+    const newUser = await User.create(userData);
+
+    // Remove password from response
+    const { password: _, ...userResponse } = newUser.toJSON();
 
     console.log('✅ User created successfully:', {
-      id: newUser.id,
-      nama: newUser.nama,
-      username: newUser.username,
-      email: newUser.email || 'No email'
+      id: userResponse.id,
+      nama: userResponse.nama,
+      username: userResponse.username,
+      email: userResponse.email || 'No email'
     });
 
     res.status(201).json({
       success: true,
       message: 'User berhasil dibuat',
-      data: { user: newUser }
+      data: { user: userResponse }
     });
 
   } catch (error) {
     console.error('❌ Error in createUser:', error);
     
-    if (error.code === 'P2002') {
-      const field = error.meta?.target?.[0] || 'data';
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      const field = error.errors?.[0]?.path || 'data';
       return res.status(400).json({
         success: false,
         message: `${field} sudah terdaftar dalam sistem`
@@ -269,35 +218,13 @@ const createUser = async (req, res) => {
   }
 };
 
-
 // GET USER BY ID
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        jabatan: true,
-        golongan: true,
-        status: true,
-        instansi: true,
-        kantor: true,
-        username: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      }
+    const user = await User.findByPk(id, {
+      attributes: { exclude: ['password'] }
     });
 
     if (!user) {
@@ -321,20 +248,13 @@ const getUserById = async (req, res) => {
   }
 };
 
-// 🔥 NEW: CHECK USER DATA - For delete confirmation
+// CHECK USER DATA - For delete confirmation
 const checkUserData = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        nama: true,
-        username: true,
-        role: true
-      }
+    const user = await User.findByPk(id, {
+      attributes: ['id', 'nama', 'username', 'role']
     });
 
     if (!user) {
@@ -346,26 +266,12 @@ const checkUserData = async (req, res) => {
 
     // Check for related data
     const dataCounts = await Promise.all([
-      // Count evaluations given by this user
-      prisma.evaluation.count({
-        where: { evaluatorId: id }
-      }),
-      // Count evaluations received by this user
-      prisma.evaluation.count({
-        where: { targetUserId: id }
-      }),
-      // Count attendance records
-      prisma.attendance.count({
-        where: { userId: id }
-      }),
-      // Count CKP scores
-      prisma.ckpScore.count({
-        where: { userId: id }
-      }),
-      // Count final evaluations
-      prisma.finalEvaluation.count({
-        where: { userId: id }
-      })
+      Evaluation.count({ where: { evaluatorId: id } }),
+      Evaluation.count({ where: { targetUserId: id } }),
+      Attendance.count({ where: { userId: id } }),
+      CkpScore.count({ where: { userId: id } }),
+      FinalEvaluation.count({ where: { userId: id } }),
+      Certificate.count({ where: { user_id: id } })
     ]);
 
     const [
@@ -373,22 +279,17 @@ const checkUserData = async (req, res) => {
       evaluationsReceived,
       attendanceRecords,
       ckpScores,
-      certificate,
-      finalEvaluations
+      finalEvaluations,
+      certificates
     ] = dataCounts;
 
     const hasData = evaluationsGiven > 0 || evaluationsReceived > 0 || 
-                   attendanceRecords > 0 || certificate > 0 || ckpScores > 0 || finalEvaluations > 0;
+                   attendanceRecords > 0 || ckpScores > 0 || finalEvaluations > 0 || certificates > 0;
 
     res.json({
       success: true,
       data: {
-        user: {
-          id: user.id,
-          nama: user.nama,
-          username: user.username,
-          role: user.role
-        },
+        user,
         hasData,
         dataCounts: {
           evaluationsGiven,
@@ -396,8 +297,8 @@ const checkUserData = async (req, res) => {
           attendanceRecords,
           ckpScores,
           finalEvaluations,
-          certificate,
-          total: evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations + certificate
+          certificates,
+          total: evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations + certificates
         }
       }
     });
@@ -432,11 +333,7 @@ const updateUser = async (req, res) => {
       isActive
     } = req.body;
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true, nip: true, username: true, email: true }
-    });
+    const existingUser = await User.findByPk(id);
 
     if (!existingUser) {
       return res.status(404).json({
@@ -445,7 +342,7 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Only admin can update other users, or users can update themselves (limited fields)
+    // Check permissions
     const isAdmin = req.user.role === 'ADMIN';
     const isSelfUpdate = req.user.id === id;
 
@@ -456,7 +353,7 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // 🔥 PREVENT ROLE CHANGE FOR ADMIN USERS
+    // Prevent role change for admin users
     if (existingUser.role === 'ADMIN' && role && role !== 'ADMIN') {
       return res.status(400).json({
         success: false,
@@ -464,15 +361,12 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Build update data based on permissions
     const updateData = {};
     
     if (isAdmin) {
-      // Admin can update all fields (except admin role protection above)
       if (nip && nip !== existingUser.nip) {
-        // Check NIP uniqueness
-        const nipExists = await prisma.user.findFirst({
-          where: { nip, id: { not: id } }
+        const nipExists = await User.findOne({
+          where: { nip, id: { [Op.ne]: id } }
         });
         if (nipExists) {
           return res.status(400).json({
@@ -484,9 +378,8 @@ const updateUser = async (req, res) => {
       }
       
       if (username && username !== existingUser.username) {
-        // Check username uniqueness
-        const usernameExists = await prisma.user.findFirst({
-          where: { username, id: { not: id } }
+        const usernameExists = await User.findOne({
+          where: { username, id: { [Op.ne]: id } }
         });
         if (usernameExists) {
           return res.status(400).json({
@@ -508,7 +401,6 @@ const updateUser = async (req, res) => {
       if (golongan !== undefined) updateData.golongan = golongan;
       if (status) updateData.status = status;
       
-      // Only allow role change if not changing admin role
       if (role && existingUser.role !== 'ADMIN') {
         updateData.role = role;
       }
@@ -524,10 +416,10 @@ const updateUser = async (req, res) => {
 
     // Check email uniqueness if email is being updated
     if (updateData.email && updateData.email !== existingUser.email) {
-      const emailExists = await prisma.user.findFirst({
+      const emailExists = await User.findOne({
         where: {
           email: updateData.email,
-          id: { not: id }
+          id: { [Op.ne]: id }
         }
       });
 
@@ -539,34 +431,14 @@ const updateUser = async (req, res) => {
       }
     }
 
-    // Update user
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: updateData,
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        email: true,
-        role: true,
-        jenisKelamin: true,
-        tanggalLahir: true,
-        alamat: true,
-        mobilePhone: true,
-        pendidikanTerakhir: true,
-        jabatan: true,
-        golongan: true,
-        status: true,
-        username: true,
-        isActive: true,
-        updatedAt: true
-      }
-    });
+    await existingUser.update(updateData);
+
+    const { password: _, ...userResponse } = existingUser.toJSON();
 
     res.json({
       success: true,
       message: 'User berhasil diperbarui',
-      data: { user: updatedUser }
+      data: { user: userResponse }
     });
 
   } catch (error) {
@@ -583,11 +455,7 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true, nama: true }
-    });
+    const existingUser = await User.findByPk(id);
 
     if (!existingUser) {
       return res.status(404).json({
@@ -596,7 +464,6 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // Don't allow deleting admin users
     if (existingUser.role === 'ADMIN') {
       return res.status(400).json({
         success: false,
@@ -604,7 +471,6 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // Don't allow users to delete themselves
     if (req.user.id === id) {
       return res.status(400).json({
         success: false,
@@ -612,11 +478,7 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // Soft delete (deactivate)
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: false }
-    });
+    await existingUser.update({ isActive: false });
 
     res.json({
       success: true,
@@ -632,21 +494,13 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// 🔥 ENHANCED PERMANENT DELETE USER WITH BETTER DATA HANDLING
+// PERMANENT DELETE USER
 const permanentDeleteUser = async (req, res) => {
   try {
+    const { sequelize } = require('../../models');
     const { id } = req.params;
 
-    // Check if user exists and get related data counts
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-      select: { 
-        id: true, 
-        role: true, 
-        nama: true,
-        username: true
-      }
-    });
+    const existingUser = await User.findByPk(id);
 
     if (!existingUser) {
       return res.status(404).json({
@@ -655,7 +509,6 @@ const permanentDeleteUser = async (req, res) => {
       });
     }
 
-    // Don't allow deleting admin users
     if (existingUser.role === 'ADMIN') {
       return res.status(400).json({
         success: false,
@@ -663,7 +516,6 @@ const permanentDeleteUser = async (req, res) => {
       });
     }
 
-    // Don't allow users to delete themselves
     if (req.user.id === id) {
       return res.status(400).json({
         success: false,
@@ -673,100 +525,99 @@ const permanentDeleteUser = async (req, res) => {
 
     // Check for related data
     const dataCounts = await Promise.all([
-      prisma.evaluation.count({ where: { evaluatorId: id } }),
-      prisma.evaluation.count({ where: { targetUserId: id } }),
-      prisma.attendance.count({ where: { userId: id } }),
-      prisma.ckpScore.count({ where: { userId: id } }),
-      prisma.finalEvaluation.count({ where: { userId: id } })
+      Evaluation.count({ where: { evaluatorId: id } }),
+      Evaluation.count({ where: { targetUserId: id } }),
+      Attendance.count({ where: { userId: id } }),
+      CkpScore.count({ where: { userId: id } }),
+      FinalEvaluation.count({ where: { userId: id } }),
+      Certificate.count({ where: { user_id: id } })
     ]);
 
-    const [evaluationsGiven, certificate, evaluationsReceived, attendanceRecords, ckpScores, finalEvaluations] = dataCounts;
-    const totalRelatedData = evaluationsGiven + certificate + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations;
+    const [evaluationsGiven, evaluationsReceived, attendanceRecords, ckpScores, finalEvaluations, certificates] = dataCounts;
+    const totalRelatedData = evaluationsGiven + evaluationsReceived + attendanceRecords + ckpScores + finalEvaluations + certificates;
 
     console.log(`🗑️ Attempting to delete user ${existingUser.nama} with ${totalRelatedData} related records`);
 
-    // Permanent delete using transaction - Handle related data properly
-    await prisma.$transaction(async (tx) => {
-      // Delete in correct order to handle foreign key constraints
-      
-      // 1. Delete final evaluations first (depends on other tables)
+    // Permanent delete using transaction
+    const transaction = await sequelize.transaction();
+
+    try {
+      // Delete in correct order
       if (finalEvaluations > 0) {
-        await tx.finalEvaluation.deleteMany({
-          where: { userId: id }
+        await FinalEvaluation.destroy({
+          where: { userId: id },
+          transaction
         });
-        console.log(`Deleted ${finalEvaluations} final evaluation records`);
       }
       
-      // 2. Delete evaluations (both given and received)
       if (evaluationsGiven > 0) {
-        await tx.evaluation.deleteMany({
-          where: { evaluatorId: id }
+        await Evaluation.destroy({
+          where: { evaluatorId: id },
+          transaction
         });
-        console.log(`Deleted ${evaluationsGiven} evaluations given by user`);
       }
       
       if (evaluationsReceived > 0) {
-        await tx.evaluation.deleteMany({
-          where: { targetUserId: id }
+        await Evaluation.destroy({
+          where: { targetUserId: id },
+          transaction
         });
-        console.log(`Deleted ${evaluationsReceived} evaluations received by user`);
       }
       
-      // 3. Delete attendance records
       if (attendanceRecords > 0) {
-        await tx.attendance.deleteMany({
-          where: { userId: id }
+        await Attendance.destroy({
+          where: { userId: id },
+          transaction
         });
-        console.log(`Deleted ${attendanceRecords} attendance records`);
       }
       
-      // 4. Delete CKP scores
       if (ckpScores > 0) {
-        await tx.ckpScore.deleteMany({
-          where: { userId: id }
+        await CkpScore.destroy({
+          where: { userId: id },
+          transaction
         });
-        console.log(`Deleted ${ckpScores} CKP score records`);
       }
 
-      if(certificate > 0) {
-        await tx.certificate.deleteMany({
-          where: { user_id: id }
+      if (certificates > 0) {
+        await Certificate.destroy({
+          where: { user_id: id },
+          transaction
         });
-        console.log('Deleted ${certificate} certification')
       }
       
-      // 5. Finally delete the user
-      await tx.user.delete({
-        where: { id }
-      });
-      console.log(`Deleted user ${existingUser.nama}`);
-    });
+      await existingUser.destroy({ transaction });
+      
+      await transaction.commit();
 
-    res.json({
-      success: true,
-      message: `User ${existingUser.nama} berhasil dihapus permanen beserta ${totalRelatedData} data terkait`,
-      data: {
-        deletedUser: {
-          nama: existingUser.nama,
-          username: existingUser.username
-        },
-        deletedDataCounts: {
-          evaluationsGiven,
-          evaluationsReceived,
-          attendanceRecords,
-          ckpScores,
-          finalEvaluations,
-          certificate,
-          total: totalRelatedData
+      res.json({
+        success: true,
+        message: `User ${existingUser.nama} berhasil dihapus permanen beserta ${totalRelatedData} data terkait`,
+        data: {
+          deletedUser: {
+            nama: existingUser.nama,
+            username: existingUser.username
+          },
+          deletedDataCounts: {
+            evaluationsGiven,
+            evaluationsReceived,
+            attendanceRecords,
+            ckpScores,
+            finalEvaluations,
+            certificates,
+            total: totalRelatedData
+          }
         }
-      }
-    });
+      });
+
+    } catch (transactionError) {
+      await transaction.rollback();
+      throw transactionError;
+    }
 
   } catch (error) {
     console.error('Permanent delete user error:', error);
     
-    // Handle specific Prisma errors
-    if (error.code === 'P2003') {
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
       return res.status(400).json({
         success: false,
         message: 'Tidak dapat menghapus user karena masih memiliki data terkait yang tidak dapat dihapus'
@@ -786,30 +637,24 @@ const activateUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: { isActive: true },
-      select: {
-        id: true,
-        nama: true,
-        isActive: true
-      }
-    });
+    const user = await User.findByPk(id);
 
-    res.json({
-      success: true,
-      message: `User ${user.nama} berhasil diaktifkan`,
-      data: { user }
-    });
-
-  } catch (error) {
-    if (error.code === 'P2025') {
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User tidak ditemukan'
       });
     }
 
+    await user.update({ isActive: true });
+
+    res.json({
+      success: true,
+      message: `User ${user.nama} berhasil diaktifkan`,
+      data: { user: { id: user.id, nama: user.nama, isActive: user.isActive } }
+    });
+
+  } catch (error) {
     console.error('Activate user error:', error);
     res.status(500).json({
       success: false,
@@ -824,11 +669,7 @@ const resetUserPassword = async (req, res) => {
     const { id } = req.params;
     const { newPassword = 'bps1810' } = req.body;
 
-    // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, nama: true, username: true }
-    });
+    const user = await User.findByPk(id);
 
     if (!user) {
       return res.status(404).json({
@@ -840,11 +681,7 @@ const resetUserPassword = async (req, res) => {
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update password
-    await prisma.user.update({
-      where: { id },
-      data: { password: hashedPassword }
-    });
+    await user.update({ password: hashedPassword });
 
     res.json({
       success: true,
@@ -867,35 +704,47 @@ const resetUserPassword = async (req, res) => {
 // GET USER STATISTICS
 const getUserStats = async (req, res) => {
   try {
-    const stats = await Promise.all([
+    const { sequelize } = require('../../models');
+    
+    const [roleStats, statusStats, activeStats, recentCount] = await Promise.all([
       // Total users by role
-      prisma.user.groupBy({
-        by: ['role'],
-        _count: { role: true },
-        where: { isActive: true }
+      User.findAll({
+        attributes: [
+          'role',
+          [sequelize.fn('COUNT', sequelize.col('role')), 'count']
+        ],
+        where: { isActive: true },
+        group: ['role'],
+        raw: true
       }),
       // Total users by status
-      prisma.user.groupBy({
-        by: ['status'],
-        _count: { status: true },
-        where: { isActive: true }
+      User.findAll({
+        attributes: [
+          'status',
+          [sequelize.fn('COUNT', sequelize.col('status')), 'count']
+        ],
+        where: { isActive: true },
+        group: ['status'],
+        raw: true
       }),
       // Total active/inactive users
-      prisma.user.groupBy({
-        by: ['isActive'],
-        _count: { isActive: true }
+      User.findAll({
+        attributes: [
+          'isActive',
+          [sequelize.fn('COUNT', sequelize.col('isActive')), 'count']
+        ],
+        group: ['isActive'],
+        raw: true
       }),
       // Recent registrations (last 30 days)
-      prisma.user.count({
+      User.count({
         where: {
           createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+            [Op.gte]: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
           }
         }
       })
     ]);
-
-    const [roleStats, statusStats, activeStats, recentCount] = stats;
 
     res.json({
       success: true,
@@ -905,8 +754,8 @@ const getUserStats = async (req, res) => {
         byActive: activeStats,
         recentRegistrations: recentCount,
         summary: {
-          totalActive: activeStats.find(s => s.isActive)?._count?.isActive || 0,
-          totalInactive: activeStats.find(s => !s.isActive)?._count?.isActive || 0,
+          totalActive: activeStats.find(s => s.isActive)?.count || 0,
+          totalInactive: activeStats.find(s => !s.isActive)?.count || 0,
           recentRegistrations: recentCount
         }
       }
@@ -921,11 +770,10 @@ const getUserStats = async (req, res) => {
   }
 };
 
-// EXPORT MODULE
 module.exports = {
   getAllUsers,
   getUserById,
-  checkUserData,      // 🔥 NEW: Export the check user data function
+  checkUserData,
   createUser,
   updateUser,
   deleteUser,

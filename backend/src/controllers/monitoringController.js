@@ -1,7 +1,6 @@
-// controllers/monitoringController.js - FIXED FOR NEW SYSTEM (1 EVALUATION)
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+// controllers/monitoringController.js - SEQUELIZE VERSION FIXED FOR NEW SYSTEM (1 EVALUATION)
+const { User, Period, Evaluation, EvaluationScore, EvaluationParameter } = require('../../models');
+const { Op, fn, col } = require('sequelize');
 
 // GET EVALUATION STATUS (updated for new system - 1 evaluation only)
 const getEvaluationStatus = async (req, res) => {
@@ -13,9 +12,9 @@ const getEvaluationStatus = async (req, res) => {
     // Get active period if not specified
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -28,42 +27,29 @@ const getEvaluationStatus = async (req, res) => {
     console.log('📅 Target period:', targetPeriod.namaPeriode);
 
     // Get all eligible users (STAFF and PIMPINAN only)
-    const allUsers = await prisma.user.findMany({
+    const allUsers = await User.findAll({
       where: { 
         isActive: true, 
-        role: { in: ['STAFF', 'PIMPINAN'] } 
+        role: { [Op.in]: ['STAFF', 'PIMPINAN'] } 
       },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        jabatan: true,
-        role: true,
-        mobilePhone: true,
-        email: true
-      },
-      orderBy: { nama: 'asc' }
+      attributes: ['id', 'nip', 'nama', 'jabatan', 'role', 'mobilePhone', 'email'],
+      order: [['nama', 'ASC']]
     });
 
     console.log('👥 Found users:', allUsers.length);
 
     // 🔥 FIXED: Get evaluations for this period (NEW SYSTEM - no ranking needed)
-    const evaluations = await prisma.evaluation.findMany({
+    const evaluations = await Evaluation.findAll({
       where: { periodId: targetPeriod.id },
-      select: {
-        id: true,
-        evaluatorId: true,
-        targetUserId: true,
-        submitDate: true,
-        target: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true
-          }
+      attributes: ['id', 'evaluatorId', 'targetUserId', 'submitDate'],
+      include: [
+        {
+          model: User,
+          as: 'target',
+          attributes: ['id', 'nama', 'jabatan']
         }
-      },
-      orderBy: { submitDate: 'desc' }
+      ],
+      order: [['submitDate', 'DESC']]
     });
 
     console.log('📝 Found evaluations:', evaluations.length);
@@ -169,9 +155,9 @@ const getIncompleteUsers = async (req, res) => {
     // Get active period if not specified
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -182,55 +168,53 @@ const getIncompleteUsers = async (req, res) => {
     }
 
     // Get all eligible users
-    const allUsers = await prisma.user.findMany({
+    const allUsers = await User.findAll({
       where: { 
         isActive: true, 
-        role: { in: ['STAFF', 'PIMPINAN'] } 
+        role: { [Op.in]: ['STAFF', 'PIMPINAN'] } 
       },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        jabatan: true,
-        role: true,
-        mobilePhone: true,
-        email: true
-      }
+      attributes: ['id', 'nip', 'nama', 'jabatan', 'role', 'mobilePhone', 'email']
     });
 
     // 🔥 FIXED: Get evaluation counts per user (new system)
-    const evaluationCounts = await prisma.evaluation.groupBy({
-      by: ['evaluatorId'],
+    const evaluationCounts = await Evaluation.findAll({
       where: { periodId: targetPeriod.id },
-      _count: { evaluatorId: true }
+      attributes: [
+        'evaluatorId',
+        [fn('COUNT', col('evaluatorId')), 'count']
+      ],
+      group: ['evaluatorId'],
+      raw: true
+    });
+
+    // Convert to map for easier lookup
+    const evaluationCountMap = {};
+    evaluationCounts.forEach(item => {
+      evaluationCountMap[item.evaluatorId] = parseInt(item.count);
     });
 
     // 🔥 FIXED: Filter incomplete users (new system - need at least 1 evaluation)
     const incompleteUsers = allUsers.filter(user => {
-      const userEvaluations = evaluationCounts.find(e => e.evaluatorId === user.id);
-      const count = userEvaluations ? userEvaluations._count.evaluatorId : 0;
+      const count = evaluationCountMap[user.id] || 0;
       return count < 1; // NEW SYSTEM: incomplete if less than 1 evaluation
     });
 
     // Get detailed status for incomplete users
     const detailedStatuses = await Promise.all(
       incompleteUsers.map(async (user) => {
-        const userEvaluations = await prisma.evaluation.findMany({
+        const userEvaluations = await Evaluation.findAll({
           where: {
             evaluatorId: user.id,
             periodId: targetPeriod.id
           },
-          select: {
-            id: true,
-            targetUserId: true,
-            submitDate: true,
-            target: {
-              select: {
-                nama: true,
-                jabatan: true
-              }
+          attributes: ['id', 'targetUserId', 'submitDate'],
+          include: [
+            {
+              model: User,
+              as: 'target',
+              attributes: ['nama', 'jabatan']
             }
-          }
+          ]
         });
 
         const completedCount = userEvaluations.length;
@@ -238,14 +222,14 @@ const getIncompleteUsers = async (req, res) => {
         const missingCount = Math.max(0, requiredCount - completedCount);
 
         return {
-          user,
+          user: user.toJSON(),
           completedCount,
           requiredCount,
           missingCount,
           lastActivity: userEvaluations.length > 0 
             ? Math.max(...userEvaluations.map(e => new Date(e.submitDate).getTime()))
             : null,
-          evaluations: userEvaluations
+          evaluations: userEvaluations.map(e => e.toJSON())
         };
       })
     );
@@ -297,9 +281,9 @@ const getUserEvaluationDetail = async (req, res) => {
     // Get active period if not specified
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -310,17 +294,8 @@ const getUserEvaluationDetail = async (req, res) => {
     }
 
     // Get user info
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        nip: true,
-        nama: true,
-        jabatan: true,
-        role: true,
-        mobilePhone: true,
-        email: true
-      }
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'nip', 'nama', 'jabatan', 'role', 'mobilePhone', 'email']
     });
 
     if (!user) {
@@ -331,36 +306,33 @@ const getUserEvaluationDetail = async (req, res) => {
     }
 
     // 🔥 FIXED: Get user's evaluations for this period (new system)
-    const evaluations = await prisma.evaluation.findMany({
+    const evaluations = await Evaluation.findAll({
       where: {
         evaluatorId: userId,
         periodId: targetPeriod.id
       },
-      include: {
-        target: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'target',
+          attributes: ['id', 'nama', 'jabatan']
         },
-        scores: {
-          include: {
-            parameter: {
-              select: {
-                namaParameter: true,
-                urutan: true
-              }
+        {
+          model: EvaluationScore,
+          as: 'scores',
+          include: [
+            {
+              model: EvaluationParameter,
+              as: 'parameter',
+              attributes: ['namaParameter', 'urutan']
             }
-          },
-          orderBy: {
-            parameter: {
-              urutan: 'asc'
-            }
-          }
+          ],
+          order: [
+            [{ model: EvaluationParameter, as: 'parameter' }, 'urutan', 'ASC']
+          ]
         }
-      },
-      orderBy: { submitDate: 'desc' }
+      ],
+      order: [['submitDate', 'DESC']]
     });
 
     const completedCount = evaluations.length;
@@ -369,7 +341,7 @@ const getUserEvaluationDetail = async (req, res) => {
     const isComplete = completedCount >= requiredCount;
 
     const detailData = {
-      user,
+      user: user.toJSON(),
       period: {
         id: targetPeriod.id,
         name: targetPeriod.namaPeriode

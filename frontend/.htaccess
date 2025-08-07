@@ -1,0 +1,160 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/siapikwe/siapik1810.web.bps.go.id"
+PassengerBaseURI "/"
+PassengerNodejs "/home/siapikwe/nodevenv/siapik1810.web.bps.go.id/22/bin/node"
+PassengerAppType node
+PassengerStartupFile app.js
+PassengerAppLogFile "/home/siapikwe/logs/passenger.log"
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# .htaccess untuk BPS Assessment System - cPanel Production
+# MINIMAL SAFE VERSION WITH STATIC FILE FIX
+# Letakkan di /home/siapikwe/public_html/.htaccess
+
+# Enable mod_rewrite
+RewriteEngine On
+
+# 🖼️ STATIC FILE PROXY - Simple version
+RewriteRule ^uploads/(.*)$ http://localhost:5000/uploads/$1 [P,L]
+
+# 🔥 CRITICAL: React Router SPA Handling
+# Redirect semua non-file, non-directory, non-API, non-uploads requests ke index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteCond %{REQUEST_URI} !^/static/
+RewriteCond %{REQUEST_URI} !^/uploads/
+RewriteRule ^(.*)$ /index.html [L,QSA]
+
+# API Proxy ke Node.js backend
+RewriteRule ^api/(.*)$ http://localhost:5000/api/$1 [P,L]
+
+# ============================================
+# 🚨 SIMPLE CACHE FIX - KEEP ORIGINAL WORKING VERSION
+# ============================================
+
+<IfModule mod_headers.c>
+    # 🔥 DISABLE CACHING FOR API ENDPOINTS (Simple version)
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+    
+    # 🔒 CORS Headers untuk API calls
+    Header always set Access-Control-Allow-Origin "https://siapik1810.web.bps.go.id"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma"
+    Header always set Access-Control-Allow-Credentials "true"
+    
+    # 🔒 Security Headers
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options SAMEORIGIN
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ============================================
+# 📦 SIMPLE CACHE CONTROL - KEEP ORIGINAL WORKING VERSION
+# ============================================
+
+<IfModule mod_expires.c>
+    ExpiresActive on
+    
+    # 🔥 CRITICAL FIX: NO CACHE for API responses
+    ExpiresByType application/json "access plus 0 seconds"
+    ExpiresByType application/xml "access plus 0 seconds"
+    ExpiresByType text/xml "access plus 0 seconds"
+    
+    # React static assets (performance)
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    
+    # Images
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/ico "access plus 1 year"
+    
+    # Fonts
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    
+    # HTML - no cache
+    ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# 🔧 MIME Types
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/css .css
+    AddType application/json .json
+    AddType image/svg+xml .svg
+    AddType image/webp .webp
+    AddType font/woff .woff
+    AddType font/woff2 .woff2
+</IfModule>
+
+# 🔥 Compression untuk Performance
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
+# 🛡 File Protection
+<Files ".env*">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "*.log">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "package.json">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# 🚫 Directory Browsing (Security)
+Options -Indexes
+
+# ⚠ Error Handling
+ErrorDocument 404 /index.html
+ErrorDocument 500 "Internal Server Error - Please contact administrator"
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the "ea-php82" package as the default "PHP" programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php82 .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit
+
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION BEGIN
+<IfModule Litespeed>
+SetEnv BACKEND_URL https://siapik1810.web.bps.go.id
+SetEnv CORS_ORIGIN https://siapik1810.web.bps.go.id
+SetEnv DATABASE_URL postgresql://siapikwe_userbps:Bps.pring1000@localhost:5432/siapikwe_bps
+SetEnv FRONTEND_URL https://siapik1810.web.bps.go.id
+SetEnv JWT_EXPIRES_IN 7d
+SetEnv JWT_SECRET 310c4d91dbf0686ee6706e8f692a03baf8aa4478z6a025120854925a09780
+SetEnv MAX_FILE_SIZE 10485760
+SetEnv NODE_ENV production
+SetEnv PORT 5000
+SetEnv DB_POOL_SIZE 25
+SetEnv DB_POOL_TIMEOUT 8000
+SetEnv DB_IDLE_TIMEOUT 10000
+SetEnv DB_MAX_LIFETIME 30000
+</IfModule>
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION END

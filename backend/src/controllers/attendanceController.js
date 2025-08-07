@@ -1,7 +1,6 @@
-// controllers/attendanceController.js - UPDATED WITH NEW ATTENDANCE CALCULATION
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+// controllers/attendanceController.js - SEQUELIZE VERSION WITH NEW ATTENDANCE CALCULATION
+const { User, Period, Attendance, CkpScore } = require('../../models');
+const { Op } = require('sequelize');
 
 // =====================
 // 🔥 NEW ATTENDANCE CALCULATION RULES
@@ -71,7 +70,7 @@ const calculateAttendanceScore = (jumlahTK, jumlahPSW, jumlahTLT, jumlahAPEL, ju
 // ATTENDANCE MANAGEMENT
 // =====================
 
-// GET ALL ATTENDANCE RECORDS - UNCHANGED
+// GET ALL ATTENDANCE RECORDS
 const getAllAttendance = async (req, res) => {
   try {
     const { 
@@ -85,43 +84,34 @@ const getAllAttendance = async (req, res) => {
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
+    const offset = (pageNum - 1) * limitNum;
 
     const where = {};
     if (periodId) where.periodId = periodId;
     if (userId) where.userId = userId;
 
-    const [attendances, totalCount] = await Promise.all([
-      prisma.attendance.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              nama: true,
-              nip: true,
-              jabatan: true
-            }
-          },
-          period: {
-            select: {
-              id: true,
-              namaPeriode: true,
-              tahun: true,
-              bulan: true
-            }
-          }
+    const { rows: attendances, count: totalCount } = await Attendance.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'nip', 'jabatan']
         },
-        orderBy: [
-          { period: { tahun: 'desc' } },
-          { period: { bulan: 'desc' } },
-          { user: { nama: 'asc' } }
-        ],
-        skip,
-        take: limitNum
-      }),
-      prisma.attendance.count({ where })
-    ]);
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
+        }
+      ],
+      order: [
+        [{ model: Period, as: 'period' }, 'tahun', 'DESC'],
+        [{ model: Period, as: 'period' }, 'bulan', 'DESC'],
+        [{ model: User, as: 'user' }, 'nama', 'ASC']
+      ],
+      offset,
+      limit: limitNum
+    });
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
@@ -187,8 +177,8 @@ const upsertAttendance = async (req, res) => {
 
     // Check if user and period exist
     const [user, period] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } }),
-      prisma.period.findUnique({ where: { id: periodId } })
+      User.findByPk(userId),
+      Period.findByPk(periodId)
     ]);
 
     if (!user) {
@@ -270,33 +260,24 @@ const upsertAttendance = async (req, res) => {
     console.log('💾 Saving attendance data:', attendanceData);
 
     // Upsert attendance record
-    const attendance = await prisma.attendance.upsert({
-      where: {
-        userId_periodId: {
-          userId,
-          periodId
-        }
-      },
-      update: attendanceData,
-      create: attendanceData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            nip: true,
-            jabatan: true
-          }
+    const [attendance, created] = await Attendance.upsert(attendanceData, {
+      returning: true
+    });
+
+    // Get full record with associations
+    const fullAttendance = await Attendance.findByPk(attendance.id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'nip', 'jabatan']
         },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
         }
-      }
+      ]
     });
 
     console.log('✅ Attendance saved successfully:', attendance.id);
@@ -305,7 +286,7 @@ const upsertAttendance = async (req, res) => {
       success: true,
       message: 'Data presensi berhasil disimpan',
       data: { 
-        attendance,
+        attendance: fullAttendance,
         calculationDetails: {
           inputValues: {
             jumlahTidakKerja: finalJumlahTK,
@@ -338,33 +319,26 @@ const upsertAttendance = async (req, res) => {
   }
 };
 
-// GET ATTENDANCE BY ID - UNCHANGED
+// GET ATTENDANCE BY ID
 const getAttendanceById = async (req, res) => {
   try {
     const { id } = req.params;
 
     console.log('🔍 Getting attendance by ID:', id);
 
-    const attendance = await prisma.attendance.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            nip: true,
-            jabatan: true
-          }
+    const attendance = await Attendance.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'nip', 'jabatan']
         },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
         }
-      }
+      ]
     });
 
     if (!attendance) {
@@ -391,18 +365,21 @@ const getAttendanceById = async (req, res) => {
   }
 };
 
-// DELETE ATTENDANCE - UNCHANGED
+// DELETE ATTENDANCE
 const deleteAttendance = async (req, res) => {
   try {
     const { id } = req.params;
 
     console.log('🗑️ Deleting attendance:', id);
 
-    const attendance = await prisma.attendance.findUnique({
-      where: { id },
-      include: {
-        user: { select: { nama: true } }
-      }
+    const attendance = await Attendance.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama']
+        }
+      ]
     });
 
     if (!attendance) {
@@ -412,9 +389,7 @@ const deleteAttendance = async (req, res) => {
       });
     }
 
-    await prisma.attendance.delete({
-      where: { id }
-    });
+    await attendance.destroy();
 
     console.log('✅ Attendance deleted:', attendance.user.nama);
 
@@ -434,7 +409,7 @@ const deleteAttendance = async (req, res) => {
 };
 
 // =====================
-// CKP MANAGEMENT - UNCHANGED
+// CKP MANAGEMENT
 // =====================
 
 // GET ALL CKP SCORES
@@ -451,43 +426,34 @@ const getAllCkpScores = async (req, res) => {
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
+    const offset = (pageNum - 1) * limitNum;
 
     const where = {};
     if (periodId) where.periodId = periodId;
     if (userId) where.userId = userId;
 
-    const [ckpScores, totalCount] = await Promise.all([
-      prisma.ckpScore.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              nama: true,
-              nip: true,
-              jabatan: true
-            }
-          },
-          period: {
-            select: {
-              id: true,
-              namaPeriode: true,
-              tahun: true,
-              bulan: true
-            }
-          }
+    const { rows: ckpScores, count: totalCount } = await CkpScore.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'nip', 'jabatan']
         },
-        orderBy: [
-          { period: { tahun: 'desc' } },
-          { period: { bulan: 'desc' } },
-          { score: 'desc' }
-        ],
-        skip,
-        take: limitNum
-      }),
-      prisma.ckpScore.count({ where })
-    ]);
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
+        }
+      ],
+      order: [
+        [{ model: Period, as: 'period' }, 'tahun', 'DESC'],
+        [{ model: Period, as: 'period' }, 'bulan', 'DESC'],
+        ['score', 'DESC']
+      ],
+      offset,
+      limit: limitNum
+    });
 
     const totalPages = Math.ceil(totalCount / limitNum);
 
@@ -518,7 +484,7 @@ const getAllCkpScores = async (req, res) => {
   }
 };
 
-// CREATE OR UPDATE CKP SCORE - UNCHANGED
+// CREATE OR UPDATE CKP SCORE
 const upsertCkpScore = async (req, res) => {
   try {
     const {
@@ -547,8 +513,8 @@ const upsertCkpScore = async (req, res) => {
 
     // Check if user and period exist
     const [user, period] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } }),
-      prisma.period.findUnique({ where: { id: periodId } })
+      User.findByPk(userId),
+      Period.findByPk(periodId)
     ]);
 
     if (!user) {
@@ -574,41 +540,32 @@ const upsertCkpScore = async (req, res) => {
     };
 
     // Upsert CKP score
-    const ckpScore = await prisma.ckpScore.upsert({
-      where: {
-        userId_periodId: {
-          userId,
-          periodId
-        }
-      },
-      update: ckpData,
-      create: ckpData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            nip: true,
-            jabatan: true
-          }
-        },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
-        }
-      }
+    const [ckpScore, created] = await CkpScore.upsert(ckpData, {
+      returning: true
     });
 
-    console.log('✅ CKP score saved:', ckpScore.user.nama);
+    // Get full record with associations
+    const fullCkpScore = await CkpScore.findByPk(ckpScore.id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'nip', 'jabatan']
+        },
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
+        }
+      ]
+    });
+
+    console.log('✅ CKP score saved:', ckpScore.user?.nama || 'Unknown');
 
     res.json({
       success: true,
       message: 'Data CKP berhasil disimpan',
-      data: { ckpScore }
+      data: { ckpScore: fullCkpScore }
     });
 
   } catch (error) {
@@ -621,33 +578,26 @@ const upsertCkpScore = async (req, res) => {
   }
 };
 
-// GET CKP SCORE BY ID - UNCHANGED
+// GET CKP SCORE BY ID
 const getCkpScoreById = async (req, res) => {
   try {
     const { id } = req.params;
 
     console.log('🔍 Getting CKP score by ID:', id);
 
-    const ckpScore = await prisma.ckpScore.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            nip: true,
-            jabatan: true
-          }
+    const ckpScore = await CkpScore.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'nip', 'jabatan']
         },
-        period: {
-          select: {
-            id: true,
-            namaPeriode: true,
-            tahun: true,
-            bulan: true
-          }
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['id', 'namaPeriode', 'tahun', 'bulan']
         }
-      }
+      ]
     });
 
     if (!ckpScore) {
@@ -674,18 +624,21 @@ const getCkpScoreById = async (req, res) => {
   }
 };
 
-// DELETE CKP SCORE - UNCHANGED
+// DELETE CKP SCORE
 const deleteCkpScore = async (req, res) => {
   try {
     const { id } = req.params;
 
     console.log('🗑️ Deleting CKP score:', id);
 
-    const ckpScore = await prisma.ckpScore.findUnique({
-      where: { id },
-      include: {
-        user: { select: { nama: true } }
-      }
+    const ckpScore = await CkpScore.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama']
+        }
+      ]
     });
 
     if (!ckpScore) {
@@ -695,9 +648,7 @@ const deleteCkpScore = async (req, res) => {
       });
     }
 
-    await prisma.ckpScore.delete({
-      where: { id }
-    });
+    await ckpScore.destroy();
 
     console.log('✅ CKP score deleted:', ckpScore.user.nama);
 
@@ -717,7 +668,7 @@ const deleteCkpScore = async (req, res) => {
 };
 
 // =====================
-// COMBINED STATISTICS - UNCHANGED
+// COMBINED STATISTICS
 // =====================
 
 // GET ATTENDANCE & CKP STATISTICS
@@ -731,61 +682,69 @@ const getAttendanceCkpStats = async (req, res) => {
 
     const [attendanceStats, ckpStats, combinedData] = await Promise.all([
       // Attendance statistics
-      prisma.attendance.aggregate({
+      Attendance.findAll({
         where,
-        _avg: { nilaiPresensi: true },
-        _min: { nilaiPresensi: true },
-        _max: { nilaiPresensi: true },
-        _count: { id: true }
+        attributes: [
+          [sequelize.fn('AVG', sequelize.col('nilaiPresensi')), 'avgNilaiPresensi'],
+          [sequelize.fn('MIN', sequelize.col('nilaiPresensi')), 'minNilaiPresensi'],
+          [sequelize.fn('MAX', sequelize.col('nilaiPresensi')), 'maxNilaiPresensi'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+        raw: true
       }),
       // CKP statistics  
-      prisma.ckpScore.aggregate({
+      CkpScore.findAll({
         where,
-        _avg: { score: true },
-        _min: { score: true },
-        _max: { score: true },
-        _count: { id: true }
+        attributes: [
+          [sequelize.fn('AVG', sequelize.col('score')), 'avgScore'],
+          [sequelize.fn('MIN', sequelize.col('score')), 'minScore'],
+          [sequelize.fn('MAX', sequelize.col('score')), 'maxScore'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+        ],
+        raw: true
       }),
       // Combined data by user
-      prisma.user.findMany({
+      User.findAll({
         where: { isActive: true },
-        select: {
-          id: true,
-          nama: true,
-          jabatan: true,
-          attendances: {
+        attributes: ['id', 'nama', 'jabatan'],
+        include: [
+          {
+            model: Attendance,
+            as: 'attendances',
             where,
-            select: {
-              nilaiPresensi: true,
-              totalMinus: true
-            }
+            required: false,
+            attributes: ['nilaiPresensi', 'totalMinus']
           },
-          ckpScores: {
+          {
+            model: CkpScore,
+            as: 'ckpScores',
             where,
-            select: {
-              score: true
-            }
+            required: false,
+            attributes: ['score']
           }
-        }
+        ]
       })
     ]);
 
     console.log('✅ Stats retrieved successfully');
 
+    const attendanceStatsData = attendanceStats[0] || {};
+    const ckpStatsData = ckpStats[0] || {};
+
     res.json({
       success: true,
       data: {
         attendanceStats: {
-          average: attendanceStats._avg.nilaiPresensi || 0,
-          minimum: attendanceStats._min.nilaiPresensi || 0,
-          maximum: attendanceStats._max.nilaiPresensi || 0,
-          count: attendanceStats._count.id || 0
+          average: parseFloat(attendanceStatsData.avgNilaiPresensi) || 0,
+          minimum: parseFloat(attendanceStatsData.minNilaiPresensi) || 0,
+          maximum: parseFloat(attendanceStatsData.maxNilaiPresensi) || 0,
+          count: parseInt(attendanceStatsData.count) || 0
         },
         ckpStats: {
-          average: ckpStats._avg.score || 0,
-          minimum: ckpStats._min.score || 0,
-          maximum: ckpStats._max.score || 0,
-          count: ckpStats._count.id || 0
+          average: parseFloat(ckpStatsData.avgScore) || 0,
+          minimum: parseFloat(ckpStatsData.minScore) || 0,
+          maximum: parseFloat(ckpStatsData.maxScore) || 0,
+          count: parseInt(ckpStatsData.count) || 0
         },
         usersSummary: combinedData.map(user => ({
           user: {
@@ -809,7 +768,7 @@ const getAttendanceCkpStats = async (req, res) => {
   }
 };
 
-// 🔥 NEW: Export function untuk menghitung skor presensi dari luar
+// 🔥 Export function untuk menghitung skor presensi dari luar
 const calculateAttendanceScoreHelper = calculateAttendanceScore;
 
 module.exports = {

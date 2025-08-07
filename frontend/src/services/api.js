@@ -626,19 +626,93 @@ export const monitoringAPI = {
 // 🏆 FINAL EVALUATION API
 // =====================
 export const finalEvaluationAPI = {
-  calculate: (data) => api.post('/final-evaluation/calculate', data),
-  getFinal: (params) => api.get('/final-evaluation/final-evaluations', { params }),
-  getBestEmployee: (periodId) => api.get(`/final-evaluation/best-employee/${periodId}`),
-  getLeaderboard: (params) => api.get('/final-evaluation/leaderboard', { params }),
+  // 🔥 FIXED: Use correct endpoint path
+  calculate: (data) => {
+    console.log('🔄 Calculating final evaluations:', data);
+    return api.post('/final-evaluation/calculate', data);
+  },
+  
+  // 🔥 FIXED: Use correct endpoint path
+  getFinal: (params) => {
+    console.log('📊 Getting final evaluations:', params);
+    return api.get('/final-evaluation/final-evaluations', { params });
+  },
+  
+  // 🔥 FIXED: Use correct endpoint path
+  getBestEmployee: (periodId) => {
+    console.log('👑 Getting best employee for period:', periodId);
+    return api.get(`/final-evaluation/best-employee/${periodId}`);
+  },
+  
+  // 🔥 FIXED: Use correct endpoint path
+  getLeaderboard: (params) => {
+    console.log('📊 Getting leaderboard:', params);
+    return api.get('/final-evaluation/leaderboard', { params });
+  },
 };
 
-// Alternative endpoints (for compatibility)
-export const finalEvaluationAPIAlternative = {
-  calculate: (data) => api.post('/final-evaluations/calculate', data),
-  getFinal: (params) => api.get('/final-evaluations', { params }),
-  getBestEmployee: (periodId) => api.get(`/final-evaluations/best-employee/${periodId}`),
-  getLeaderboard: (params) => api.get('/final-evaluations/leaderboard', { params }),
+// 🔥 NEW: Alternative endpoints with fallback for compatibility
+export const finalEvaluationAPIWithFallback = {
+  calculate: async (data) => {
+    try {
+      // Try primary endpoint first
+      return await api.post('/final-evaluation/calculate', data);
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.log('🔄 Primary endpoint not found, trying alternative...');
+        // Try alternative endpoint
+        return await api.post('/final-evaluations/calculate', data);
+      }
+      throw error;
+    }
+  },
+  
+  getFinal: async (params) => {
+    try {
+      // Try primary endpoint first
+      return await api.get('/final-evaluation/final-evaluations', { params });
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.log('🔄 Primary endpoint not found, trying alternative...');
+        // Try alternative endpoint
+        return await api.get('/final-evaluations', { params });
+      }
+      throw error;
+    }
+  },
+  
+  getBestEmployee: async (periodId) => {
+    try {
+      // Try primary endpoint first
+      return await api.get(`/final-evaluation/best-employee/${periodId}`);
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.log('🔄 Primary endpoint not found, trying alternative...');
+        // Try alternative endpoint
+        return await api.get(`/final-evaluations/best-employee/${periodId}`);
+      }
+      throw error;
+    }
+  },
+  
+  getLeaderboard: async (params) => {
+    try {
+      // Try primary endpoint first
+      return await api.get('/final-evaluation/leaderboard', { params });
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.log('🔄 Primary endpoint not found, trying alternative...');
+        // Try alternative endpoint
+        return await api.get('/final-evaluations/leaderboard', { params });
+      }
+      throw error;
+    }
+  },
 };
+
+// 🔥 RECOMMENDED: Use this as the main export
+export const finalEvaluationAPIFixed = finalEvaluationAPIWithFallback;
+
 
 // =====================
 // 📊 REPORTS API

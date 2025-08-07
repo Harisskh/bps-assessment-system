@@ -1,7 +1,6 @@
-// controllers/dashboardController.js - FIXED FOR NEW SYSTEM (1 EVALUATION)
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+// controllers/dashboardController.js - SEQUELIZE VERSION FIXED FOR NEW SYSTEM (1 EVALUATION)
+const { User, Period, Evaluation, Attendance, CkpScore, FinalEvaluation } = require('../../models');
+const { Op, fn, col } = require('sequelize');
 
 // 🔥 FIXED: GET DASHBOARD OVERVIEW STATISTICS WITH NEW SYSTEM LOGIC
 const getDashboardStats = async (req, res) => {
@@ -13,10 +12,10 @@ const getDashboardStats = async (req, res) => {
     // Get active period if not specified
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
       console.log('📅 Found specific period:', targetPeriod?.namaPeriode);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
       console.log('📅 Found active period:', targetPeriod?.namaPeriode);
     }
 
@@ -33,10 +32,10 @@ const getDashboardStats = async (req, res) => {
 
     try {
       // 🔥 STEP 1: Get REAL-TIME total users count (EXCLUDE ADMIN)
-      const totalUsers = await prisma.user.count({ 
+      const totalUsers = await User.count({ 
         where: { 
           isActive: true,
-          role: { not: 'ADMIN' } // 🔥 EXCLUDE ADMIN from count
+          role: { [Op.ne]: 'ADMIN' } // 🔥 EXCLUDE ADMIN from count
         } 
       }).catch(e => {
         console.error('Error counting users:', e);
@@ -46,24 +45,21 @@ const getDashboardStats = async (req, res) => {
       console.log('👥 Total active users (excluding admin):', totalUsers);
 
       // 🔥 STEP 2: Get all evaluations for this period with detailed info
-      const allEvaluations = await prisma.evaluation.findMany({
+      const allEvaluations = await Evaluation.findAll({
         where,
-        select: {
-          id: true,
-          evaluatorId: true,
-          targetUserId: true,
-          evaluator: {
-            select: {
-              nama: true,
-              role: true
-            }
+        attributes: ['id', 'evaluatorId', 'targetUserId'],
+        include: [
+          {
+            model: User,
+            as: 'evaluator',
+            attributes: ['nama', 'role']
           },
-          target: {
-            select: {
-              nama: true
-            }
+          {
+            model: User,
+            as: 'target',
+            attributes: ['nama']
           }
-        }
+        ]
       }).catch(e => {
         console.error('Error getting all evaluations:', e);
         return [];
@@ -74,16 +70,19 @@ const getDashboardStats = async (req, res) => {
         evaluators: [...new Set(allEvaluations.map(e => e.evaluatorId))].length,
         sampleEvaluations: allEvaluations.slice(0, 3).map(e => ({
           evaluator: e.evaluator?.nama,
-          target: e.target?.nama,
-          ranking: e.ranking
+          target: e.target?.nama
         }))
       });
 
       // 🔥 STEP 3: Get detailed evaluation counts per user (EXCLUDE ADMIN)
-      const evaluationCounts = await prisma.evaluation.groupBy({
-        by: ['evaluatorId'],
+      const evaluationCounts = await Evaluation.findAll({
         where,
-        _count: { evaluatorId: true }
+        attributes: [
+          'evaluatorId',
+          [fn('COUNT', col('evaluatorId')), 'count']
+        ],
+        group: ['evaluatorId'],
+        raw: true
       }).catch(e => {
         console.error('Error grouping evaluations by user:', e);
         return [];
@@ -92,22 +91,21 @@ const getDashboardStats = async (req, res) => {
       // 🔥 STEP 4: Filter out ADMIN from evaluation counts
       const nonAdminEvaluationCounts = [];
       for (const userCount of evaluationCounts) {
-        const user = await prisma.user.findUnique({
-          where: { id: userCount.evaluatorId },
-          select: { nama: true, role: true }
+        const user = await User.findByPk(userCount.evaluatorId, {
+          attributes: ['nama', 'role']
         });
         
         if (user && user.role !== 'ADMIN') {
           nonAdminEvaluationCounts.push(userCount);
-          console.log(`  - ${user.nama} (${user.role}): ${userCount._count.evaluatorId} evaluations`);
+          console.log(`  - ${user.nama} (${user.role}): ${userCount.count} evaluations`);
         } else if (user && user.role === 'ADMIN') {
-          console.log(`  - ${user.nama} (ADMIN): ${userCount._count.evaluatorId} evaluations [EXCLUDED]`);
+          console.log(`  - ${user.nama} (ADMIN): ${userCount.count} evaluations [EXCLUDED]`);
         }
       }
 
       // 🔥 FIXED: NEW SYSTEM - Filter users who have completed 1+ evaluations (not 3+)
       const completedUsers = nonAdminEvaluationCounts.filter(
-        userEval => userEval._count.evaluatorId >= 1 // 🔥 CHANGED: 1 evaluation = complete
+        userEval => userEval.count >= 1 // 🔥 CHANGED: 1 evaluation = complete
       );
 
       console.log('✅ NON-ADMIN Users who completed 1+ evaluations:', completedUsers.length);
@@ -124,33 +122,42 @@ const getDashboardStats = async (req, res) => {
       // 🔥 STEP 6: Get score statistics
       const [attendanceData, ckpData, finalEvaluationData] = await Promise.all([
         // Attendance statistics
-        prisma.attendance.aggregate({
+        Attendance.findAll({
           where,
-          _avg: { nilaiPresensi: true },
-          _count: { id: true }
+          attributes: [
+            [fn('AVG', col('nilaiPresensi')), 'avgNilaiPresensi'],
+            [fn('COUNT', col('id')), 'count']
+          ],
+          raw: true
         }).catch(e => {
           console.error('Error aggregating attendance:', e);
-          return { _avg: { nilaiPresensi: null }, _count: { id: 0 } };
+          return [{ avgNilaiPresensi: null, count: 0 }];
         }),
         
         // CKP statistics
-        prisma.ckpScore.aggregate({
+        CkpScore.findAll({
           where,
-          _avg: { score: true },
-          _count: { id: true }
+          attributes: [
+            [fn('AVG', col('score')), 'avgScore'],
+            [fn('COUNT', col('id')), 'count']
+          ],
+          raw: true
         }).catch(e => {
           console.error('Error aggregating CKP:', e);
-          return { _avg: { score: null }, _count: { id: 0 } };
+          return [{ avgScore: null, count: 0 }];
         }),
         
         // Final evaluation statistics
-        prisma.finalEvaluation.aggregate({
+        FinalEvaluation.findAll({
           where,
-          _avg: { finalScore: true },
-          _count: { id: true }
+          attributes: [
+            [fn('AVG', col('finalScore')), 'avgFinalScore'],
+            [fn('COUNT', col('id')), 'count']
+          ],
+          raw: true
         }).catch(e => {
           console.error('Error aggregating final evaluations:', e);
-          return { _avg: { finalScore: null }, _count: { id: 0 } };
+          return [{ avgFinalScore: null, count: 0 }];
         })
       ]);
 
@@ -177,6 +184,10 @@ const getDashboardStats = async (req, res) => {
         systemType: 'NEW_SYSTEM_1_EVALUATION'
       });
 
+      const attendanceStats = attendanceData[0] || {};
+      const ckpStats = ckpData[0] || {};
+      const finalEvalStats = finalEvaluationData[0] || {};
+
       const stats = {
         period: {
           id: targetPeriod.id,
@@ -194,16 +205,16 @@ const getDashboardStats = async (req, res) => {
         },
         scores: {
           attendance: {
-            average: attendanceData._avg?.nilaiPresensi || 100.0,
-            count: attendanceData._count?.id || 0
+            average: parseFloat(attendanceStats.avgNilaiPresensi) || 100.0,
+            count: parseInt(attendanceStats.count) || 0
           },
           ckp: {
-            average: ckpData._avg?.score || 98.0,
-            count: ckpData._count?.id || 0
+            average: parseFloat(ckpStats.avgScore) || 98.0,
+            count: parseInt(ckpStats.count) || 0
           },
           final: {
-            average: finalEvaluationData._avg?.finalScore || 0,
-            count: finalEvaluationData._count?.id || 0
+            average: parseFloat(finalEvalStats.avgFinalScore) || 0,
+            count: parseInt(finalEvalStats.count) || 0
           }
         },
         bestEmployee, // ✅ From PREVIOUS period
@@ -255,7 +266,7 @@ const getBestEmployeeFromPreviousPeriod = async (currentPeriod) => {
     console.log('📅 Looking for PREVIOUS period:', previousYear, previousMonth);
 
     // Find previous period in database
-    const previousPeriod = await prisma.period.findFirst({
+    const previousPeriod = await Period.findOne({
       where: {
         tahun: previousYear,
         bulan: previousMonth
@@ -270,22 +281,18 @@ const getBestEmployeeFromPreviousPeriod = async (currentPeriod) => {
     console.log('📅 Found PREVIOUS period:', previousPeriod.namaPeriode);
 
     // Get best employee from previous period
-    const bestEmployee = await prisma.finalEvaluation.findFirst({
+    const bestEmployee = await FinalEvaluation.findOne({
       where: { 
         periodId: previousPeriod.id,
         isBestEmployee: true
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nama: true,
-            jabatan: true,
-            nip: true,
-            profilePicture: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'jabatan', 'nip', 'profilePicture']
         }
-      }
+      ]
     });
 
     if (!bestEmployee) {
@@ -320,9 +327,9 @@ const getEvaluationProgress = async (req, res) => {
     // Get active period if not specified
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -336,36 +343,28 @@ const getEvaluationProgress = async (req, res) => {
     console.log('📅 Target period:', targetPeriod.namaPeriode);
 
     // 🔥 FIXED: Get ALL users EXCEPT ADMIN
-    const allUsers = await prisma.user.findMany({
+    const allUsers = await User.findAll({
       where: { 
         isActive: true,
-        role: { not: 'ADMIN' } // ✅ EXCLUDE ADMIN
+        role: { [Op.ne]: 'ADMIN' } // ✅ EXCLUDE ADMIN
       },
-      select: {
-        id: true,
-        nama: true,
-        jabatan: true,
-        role: true
-      },
-      orderBy: { nama: 'asc' }
+      attributes: ['id', 'nama', 'jabatan', 'role'],
+      order: [['nama', 'ASC']]
     });
 
     console.log('👥 Found eligible users (excluding admin):', allUsers.length);
 
     // 🔥 ENHANCED: Get evaluations for this period with detailed logging
-    const evaluations = await prisma.evaluation.findMany({
+    const evaluations = await Evaluation.findAll({
       where: { periodId: targetPeriod.id },
-      select: {
-        evaluatorId: true,
-        targetUserId: true,
-        ranking: true,
-        evaluator: {
-          select: {
-            nama: true,
-            role: true
-          }
+      attributes: ['evaluatorId', 'targetUserId'],
+      include: [
+        {
+          model: User,
+          as: 'evaluator',
+          attributes: ['nama', 'role']
         }
-      }
+      ]
     });
 
     console.log('📝 Found evaluations:', evaluations.length);
@@ -455,9 +454,9 @@ const getChartsData = async (req, res) => {
 
     let targetPeriod;
     if (periodId) {
-      targetPeriod = await prisma.period.findUnique({ where: { id: periodId } });
+      targetPeriod = await Period.findByPk(periodId);
     } else {
-      targetPeriod = await prisma.period.findFirst({ where: { isActive: true } });
+      targetPeriod = await Period.findOne({ where: { isActive: true } });
     }
 
     if (!targetPeriod) {
@@ -469,24 +468,27 @@ const getChartsData = async (req, res) => {
 
     const where = { periodId: targetPeriod.id };
 
-    const finalEvaluations = await prisma.finalEvaluation.findMany({
+    const finalEvaluations = await FinalEvaluation.findAll({
       where,
-      include: {
-        user: {
-          select: {
-            nama: true,
-            jabatan: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama', 'jabatan']
         }
-      },
-      orderBy: { finalScore: 'desc' },
-      take: 10
+      ],
+      order: [['finalScore', 'DESC']],
+      limit: 10
     });
 
-    const evaluationsByRanking = await prisma.evaluation.groupBy({
-      by: ['ranking'],
+    const evaluationsByRanking = await Evaluation.findAll({
       where,
-      _count: { ranking: true }
+      attributes: [
+        'ranking',
+        [fn('COUNT', col('ranking')), 'count']
+      ],
+      group: ['ranking'],
+      raw: true
     });
 
     const scoreRanges = [
@@ -503,15 +505,15 @@ const getChartsData = async (req, res) => {
       if (range) range.count++;
     });
 
-    const departmentPerformance = await prisma.finalEvaluation.findMany({
+    const departmentPerformance = await FinalEvaluation.findAll({
       where,
-      include: {
-        user: {
-          select: {
-            jabatan: true
-          }
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['jabatan']
         }
-      }
+      ]
     });
 
     const jabatanStats = {};
@@ -549,7 +551,7 @@ const getChartsData = async (req, res) => {
       })),
       evaluationsByRanking: evaluationsByRanking.map(e => ({
         ranking: `Tokoh ${e.ranking}`,
-        count: e._count.ranking
+        count: parseInt(e.count)
       })),
       scoreDistribution: scoreRanges,
       departmentPerformance: Object.values(jabatanStats)
@@ -573,27 +575,26 @@ const getRecentActivities = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
 
-    const recentEvaluations = await prisma.evaluation.findMany({
-      include: {
-        evaluator: {
-          select: {
-            nama: true,
-            jabatan: true
-          }
+    const recentEvaluations = await Evaluation.findAll({
+      include: [
+        {
+          model: User,
+          as: 'evaluator',
+          attributes: ['nama', 'jabatan']
         },
-        target: {
-          select: {
-            nama: true
-          }
+        {
+          model: User,
+          as: 'target',
+          attributes: ['nama']
         },
-        period: {
-          select: {
-            namaPeriode: true
-          }
+        {
+          model: Period,
+          as: 'period',
+          attributes: ['namaPeriode']
         }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: parseInt(limit)
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit)
     });
 
     const activities = recentEvaluations.map(evaluation => ({
